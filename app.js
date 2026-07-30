@@ -570,14 +570,14 @@ function initClock() {
 }
 
 function runSplashScreen() {
-  // Avvia il fade-out dello splash screen a 1.0s
+  // Avvia il fade-out dello splash screen a 4.6s (4600ms)
   setTimeout(() => {
     if (el.screenSplash) {
       el.screenSplash.classList.add('fade-out');
     }
-  }, 1000);
+  }, 4600);
 
-  // Nascondi lo splash screen a 1.2s e mostra la schermata principale
+  // Nascondi lo splash screen a 5.0s (5000ms) e mostra la schermata iniziale
   setTimeout(() => {
     if (el.screenSplash) {
       el.screenSplash.style.display = 'none';
@@ -597,7 +597,7 @@ function runSplashScreen() {
     if (!anyActive) {
       showScreen(el.screenWelcome);
     }
-  }, 1200);
+  }, 5000);
 }
 
 function showScreen(targetScreen) {
