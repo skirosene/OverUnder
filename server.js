@@ -457,8 +457,8 @@ app.post('/api/auth/guest', (req, res) => {
     return res.status(403).json({ error: 'Sei stato espulso da questa stanza.' });
   }
 
-  // Controlla se è una riconnessione per sessionId o per nome utente
-  const isReconnecting = room.players.some(p => (p.sessionId && p.sessionId === sessionId) || (p.name.toLowerCase() === playerName.toLowerCase().trim()));
+  // Controlla se è una riconnessione per lo stesso nome utente
+  const isReconnecting = room.players.some(p => p.name.toLowerCase() === playerName.toLowerCase().trim());
   
   if (!isReconnecting) {
     if (room.state !== 'lobby') {
@@ -990,8 +990,8 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // B. Controlla se è una riconnessione (Grace Period / Bypass)
-    let player = room.players.find(p => (p.sessionId && p.sessionId === sessionId) || (p.name.toLowerCase() === playerName.toLowerCase() && !p.isBot));
+    // B. Controlla se è una riconnessione per lo stesso nome utente
+    let player = room.players.find(p => p.name.toLowerCase() === playerName.toLowerCase().trim() && !p.isBot);
     if (player) {
       player.id = socket.id;
       player.connected = true;
