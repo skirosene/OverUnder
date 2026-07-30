@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="style.css?v=101">
+  <link rel="stylesheet" href="style.css?v=102">
 </head>
 <body>
   <!-- Sfondo con sfere colorate sfumate (glowing blobs) animate -->
@@ -102,9 +102,9 @@
       <!-- SCHERMATA 1: ONBOARDING / SETUP (CREA O ENTRA STANZA) -->
       <section id="screen-onboarding" class="screen">
         <!-- Barra di Navigazione Superiore per tornare a Benvenuto -->
-        <div class="onboarding-nav-header" style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 5px; flex: 0 0 auto;">
+        <div class="onboarding-nav-header">
           <button id="btn-back-onboarding" class="nav-btn-back" title="Indietro">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 14L4 9l5-5"/>
               <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
             </svg>
@@ -246,9 +246,9 @@
       <!-- SCHERMATA 2: LOBBY D'ATTESA (NUOVA) -->
       <section id="screen-lobby" class="screen">
         <!-- Barra di Navigazione Superiore con tasto Indietro -->
-        <div class="lobby-nav-header" style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 10px; flex: 0 0 auto;">
+        <div class="lobby-nav-header">
           <button id="btn-back-lobby" class="nav-btn-back" title="Indietro">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 14L4 9l5-5"/>
               <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
             </svg>
@@ -952,6 +952,6 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=101"></script>
+  <script src="app.js?v=102"></script>
 </body>
 </html>

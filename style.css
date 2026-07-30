@@ -3667,26 +3667,47 @@ body {
   transform: scale(0.98);
 }
 
-/* Tasto Indietro Navigazione Superiore */
+/* Header di Navigazione con supporto iPhone Safe Area / Notch */
+.onboarding-nav-header, .lobby-nav-header {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  padding-top: max(10px, env(safe-area-inset-top));
+  margin-top: 6px;
+  margin-bottom: 12px;
+  flex: 0 0 auto;
+}
+
+/* Tasto Indietro Navigazione Superiore (Conforme Apple Touch Target 44x44) */
 .nav-btn-back {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   color: #ffffff;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: 10;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+  z-index: 1000;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-btn-back svg {
+  width: 20px;
+  height: 20px;
 }
 
 .nav-btn-back:hover, .nav-btn-back:active {
-  background: rgba(255, 255, 255, 0.22);
-  transform: scale(1.08);
-  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.28);
+  transform: scale(1.12);
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
