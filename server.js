@@ -842,6 +842,7 @@ io.on('connection', (socket) => {
     const hostName = socket.userData.username;
     const isPremiumUser = socket.userData.isPremium;
     const sessionId = socket.userData.userId;
+    const deviceUuid = socket.userData.deviceUuid;
 
     let code = (roomCode || '').trim().toUpperCase();
 

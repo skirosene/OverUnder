@@ -4,7 +4,15 @@
  */
 
 // Inizializza Socket.io client con autoConnect disabilitato per evitare timeout prima dell'autenticazione
-const socket = io({ autoConnect: false });
+const socket = io({
+  autoConnect: false,
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 20000,
+  transports: ['websocket', 'polling']
+});
 
 // Definizione Ambiente Simulata per il frontend
 const isDev = location.hostname === 'localhost' || 
@@ -2067,6 +2075,12 @@ function setupSocketListeners() {
 
   // 1. Stanza creata con successo (Host)
   socket.on('room_created', ({ roomCode, players, isPremium, assignedName }) => {
+    if (state.connectionTimeout) {
+      clearTimeout(state.connectionTimeout);
+      state.connectionTimeout = null;
+    }
+    state.connectionLoadingActive = false;
+
     state.isHost = true;
     state.roomCode = roomCode;
     state.players = players;
@@ -2120,6 +2134,7 @@ function setupSocketListeners() {
       }
       state.connectionLoadingActive = false;
     }
+    showScreen(el.screenWelcome);
     state.roomIsPremium = false;
     if (el.createPremiumToggle) {
       el.createPremiumToggle.checked = false;
