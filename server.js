@@ -511,22 +511,8 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
     const userId = decoded.userId;
 
     if (!stripe) {
-      // Fallback demo se STRIPE_SECRET_KEY non è ancora inserita
-      console.warn("[STRIPE] STRIPE_SECRET_KEY non configurata. Attivazione automatica in modalità test.");
-      const user = users[userId];
-      if (user) {
-        user.isPremium = true;
-        user.premiumStatus = 'PREMIUM_A_VITA';
-        writeUsersDb(users);
-      }
-      const newToken = jwt.sign({
-        userId: decoded.userId,
-        username: decoded.username,
-        role: 'host',
-        isPremium: true,
-        premiumStatus: 'PREMIUM_A_VITA'
-      }, JWT_SECRET, { expiresIn: '7d' });
-      return res.json({ directSuccess: true, token: newToken });
+      console.warn("[STRIPE] STRIPE_SECRET_KEY non configurata su Render.");
+      return res.status(400).json({ error: 'Pagamenti Stripe non ancora configurati su Render. Aggiungi la variabile STRIPE_SECRET_KEY nelle impostazioni Environment su Render.' });
     }
 
     const domain = req.headers.origin || `${req.protocol}://${req.get('host')}`;
