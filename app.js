@@ -385,6 +385,12 @@ const el = {
   // Lobby
   lobbyRoomCode: document.getElementById('lobby-room-code'),
   btnLobbyInvite: document.getElementById('btn-lobby-invite'),
+  btnLockRoom: document.getElementById('btn-lock-room'),
+  lockRoomModal: document.getElementById('lock-room-modal'),
+  lockModalTitle: document.getElementById('lock-modal-title'),
+  lockModalDesc: document.getElementById('lock-modal-desc'),
+  btnLockConfirm: document.getElementById('btn-lock-confirm'),
+  btnLockCancel: document.getElementById('btn-lock-cancel'),
   lobbyPlayersCount: document.getElementById('lobby-players-count'),
   lobbyPlayersList: document.getElementById('lobby-players-list'),
   lobbyHostControls: document.getElementById('lobby-host-controls'),
@@ -1351,6 +1357,59 @@ function setupEventListeners() {
     });
   }
 
+  // === LUCCHETTO BLOCCA STANZA (POPUP & EVENTI) ===
+  if (el.btnLockRoom) {
+    el.btnLockRoom.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!state.isHost) {
+        showToast("Solo l'Host può bloccare o sbloccare la stanza.");
+        return;
+      }
+
+      if (!state.roomIsLocked) {
+        if (el.lockModalTitle) el.lockModalTitle.textContent = "🔒 BLOCCA LA STANZA";
+        if (el.lockModalDesc) el.lockModalDesc.textContent = "Vuoi chiudere la stanza a nuovi partecipanti? Nessun altro giocatore potrà accedere, anche se inserisce il codice.";
+        if (el.btnLockConfirm) {
+          el.btnLockConfirm.textContent = "CONFERMA BLOCCO";
+          el.btnLockConfirm.style.background = "linear-gradient(135deg, #ff5722, #e64a19)";
+        }
+      } else {
+        if (el.lockModalTitle) el.lockModalTitle.textContent = "🔓 SBLOCCA LA STANZA";
+        if (el.lockModalDesc) el.lockModalDesc.textContent = "Vuoi riaprire la stanza? Nuovi partecipanti potranno tornare ad accedere inserendo il codice.";
+        if (el.btnLockConfirm) {
+          el.btnLockConfirm.textContent = "SBLOCCA STANZA";
+          el.btnLockConfirm.style.background = "linear-gradient(135deg, #2ecc71, #27ae60)";
+        }
+      }
+
+      if (el.lockRoomModal) {
+        el.lockRoomModal.style.display = 'flex';
+        el.lockRoomModal.classList.add('active');
+      }
+    });
+  }
+
+  if (el.btnLockConfirm) {
+    el.btnLockConfirm.addEventListener('click', () => {
+      if (el.lockRoomModal) {
+        el.lockRoomModal.style.display = 'none';
+        el.lockRoomModal.classList.remove('active');
+      }
+      socket.emit('toggle_lock_room');
+    });
+  }
+
+  if (el.btnLockCancel) {
+    el.btnLockCancel.addEventListener('click', () => {
+      if (el.lockRoomModal) {
+        el.lockRoomModal.style.display = 'none';
+        el.lockRoomModal.classList.remove('active');
+      }
+    });
+  }
+
   // === SOLO PLAY ===
   el.btnSoloPlay.addEventListener('click', () => {
     const name = el.soloNameInput.value.trim();
@@ -1804,15 +1863,6 @@ function setupEventListeners() {
     showScreen(el.screenWelcome);
   });
 
-  // Controllo Lucchetto (Lobby Lock)
-  if (el.btnLockRoom) {
-    el.btnLockRoom.addEventListener('click', () => {
-      if (!state.isHost) return;
-      AudioSynth.playConfirm(true);
-      socket.emit('toggle_room_lock');
-    });
-  }
-
   // Home buttons per schermate kicked/room full/loading
   if (el.btnKickedHome) {
     el.btnKickedHome.addEventListener('click', () => {
@@ -2000,6 +2050,12 @@ function setupSocketListeners() {
     } else if (currentScreen === 'summary') {
       renderGameOver(gameData.summary);
     }
+  });
+
+  socket.on('room_lock_status', ({ isLocked }) => {
+    state.roomIsLocked = !!isLocked;
+    updateLockIcon();
+    showToast(isLocked ? "Stanza bloccata dall'Host 🔒" : "Stanza sbloccata 🔓");
   });
 
   socket.on('session_failed', (message) => {
@@ -2445,10 +2501,14 @@ function renderLobbyPlayers() {
       `;
     }
 
-    const hasAvatar = player.avatar ? true : false;
+    const hasAvatar = (player.avatar && typeof player.avatar === 'string' && player.avatar.trim().length > 15 && !player.avatar.includes('broken'));
+    const avatarBg = getAvatarBgColor(player.name);
+    const initials = player.name ? player.name.substring(0, 2).toUpperCase() : '??';
+
     const avatarHtml = hasAvatar
-      ? `<img class="lobby-avatar" src="${player.avatar}" style="cursor: pointer;">`
-      : `<div class="lobby-avatar-fallback" style="background-color: ${getAvatarBgColor(player.name)}; cursor: pointer;">${player.name.substring(0, 2).toUpperCase()}</div>`;
+      ? `<img class="lobby-avatar" src="${player.avatar}" style="cursor: pointer;" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+         <div class="lobby-avatar-fallback" style="display:none; background-color: ${avatarBg}; cursor: pointer;">${initials}</div>`
+      : `<div class="lobby-avatar-fallback" style="background-color: ${avatarBg}; cursor: pointer;">${initials}</div>`;
 
     const hostBadge = player.isHost ? `<span class="lobby-player-host-badge" style="position: absolute; top: -6px; left: -6px; font-size: 0.7rem;">👑</span>` : '';
 

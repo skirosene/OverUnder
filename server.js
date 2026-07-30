@@ -1064,6 +1064,16 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Evento Blocco / Sblocco Stanza (Solo Host)
+  socket.on('toggle_lock_room', () => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id) return;
+
+    room.isLocked = !room.isLocked;
+    io.to(currentRoomCode).emit('room_lock_status', { isLocked: room.isLocked });
+    console.log(`[ROOM] Stanza ${currentRoomCode} ${room.isLocked ? 'BLOCCATA' : 'SBLOCCATA'} dall'Host (${socket.id})`);
+  });
+
   // Evento 3: Avvio della Partita (Solo Host)
   socket.on('start_game', ({ gameLength }) => {
     const room = rooms[currentRoomCode];
