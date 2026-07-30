@@ -1765,7 +1765,7 @@ function setupEventListeners() {
   const handleJoinRoomLinkSubmit = async () => {
     const name = el.joinNameInput ? el.joinNameInput.value.trim() : '';
     const displayCode = el.joinRoomCodeDisplay ? el.joinRoomCodeDisplay.textContent.trim() : '';
-    const code = (state.pendingRoomToJoin || (displayCode !== '-' ? displayCode : '') || sessionStorage.getItem('overunder_roomCode') || '').toUpperCase().trim();
+    const code = (state.pendingRoomToJoin || sessionStorage.getItem('overunder_pendingRoom') || (displayCode !== '-' ? displayCode : '') || sessionStorage.getItem('overunder_roomCode') || '').toUpperCase().trim();
     
     if (!name) {
       showError("Inserisci il tuo nome!");
@@ -2453,20 +2453,20 @@ function setupSocketListeners() {
 // ==========================================================================
 function setupLobbyUI() {
   if (el.nameErrorMsg) el.nameErrorMsg.style.display = 'none';
-  el.lobbyRoomCode.textContent = state.roomCode;
+  if (el.lobbyRoomCode) el.lobbyRoomCode.textContent = state.roomCode;
   
   // Mostra elementi lobby per multiplayer e resetta layout round
-  el.lobbyHeader.style.display = 'block';
-  el.lobbyPlayersPanel.style.display = 'block';
+  if (el.lobbyHeader) el.lobbyHeader.style.display = 'block';
+  if (el.lobbyPlayersPanel) el.lobbyPlayersPanel.style.display = 'block';
   if (el.btnAddBots) el.btnAddBots.style.display = 'block';
-  el.roundsSelectorGrid.classList.remove('rounds-vertical');
+  if (el.roundsSelectorGrid) el.roundsSelectorGrid.classList.remove('rounds-vertical');
   
   if (state.isHost) {
-    el.lobbyHostControls.style.display = 'block';
-    el.lobbyPlayerWaiting.style.display = 'none';
+    if (el.lobbyHostControls) el.lobbyHostControls.style.display = 'block';
+    if (el.lobbyPlayerWaiting) el.lobbyPlayerWaiting.style.display = 'none';
   } else {
-    el.lobbyHostControls.style.display = 'none';
-    el.lobbyPlayerWaiting.style.display = 'block';
+    if (el.lobbyHostControls) el.lobbyHostControls.style.display = 'none';
+    if (el.lobbyPlayerWaiting) el.lobbyPlayerWaiting.style.display = 'block';
   }
 
   // Gestione Premium UI
@@ -2476,15 +2476,15 @@ function setupLobbyUI() {
     if (roundLabel) roundLabel.style.display = 'none';
 
     if (state.hasSubmittedPremiumCards) {
-      el.lobbyPremiumCreator.style.display = 'none';
-      el.lobbyPremiumWaiting.style.display = 'flex';
-      if (!state.isHost) {
+      if (el.lobbyPremiumCreator) el.lobbyPremiumCreator.style.display = 'none';
+      if (el.lobbyPremiumWaiting) el.lobbyPremiumWaiting.style.display = 'flex';
+      if (!state.isHost && el.lobbyPlayerWaiting) {
         el.lobbyPlayerWaiting.style.display = 'none';
       }
     } else {
-      el.lobbyPremiumCreator.style.display = 'flex';
-      el.lobbyPremiumWaiting.style.display = 'none';
-      if (!state.isHost) {
+      if (el.lobbyPremiumCreator) el.lobbyPremiumCreator.style.display = 'flex';
+      if (el.lobbyPremiumWaiting) el.lobbyPremiumWaiting.style.display = 'none';
+      if (!state.isHost && el.lobbyPlayerWaiting) {
         el.lobbyPlayerWaiting.style.display = 'none';
       }
     }
@@ -2493,8 +2493,8 @@ function setupLobbyUI() {
     const roundLabel = el.lobbyHostControls ? el.lobbyHostControls.querySelector('.input-label') : null;
     if (roundLabel) roundLabel.style.display = 'block';
     
-    el.lobbyPremiumCreator.style.display = 'none';
-    el.lobbyPremiumWaiting.style.display = 'none';
+    if (el.lobbyPremiumCreator) el.lobbyPremiumCreator.style.display = 'none';
+    if (el.lobbyPremiumWaiting) el.lobbyPremiumWaiting.style.display = 'none';
   }
 
   renderLobbyPlayers();
@@ -3653,6 +3653,8 @@ async function checkUrlParams() {
 
   const room = params.get('room');
   if (room) {
+    // Pulisci le sessioni residue di vecchie stanze per evitare che restore_session le sovrascriva
+    clearSession();
     const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
     window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
     const decodedRoom = decodeURIComponent(room.replace(/\+/g, ' ')).trim().toUpperCase();
@@ -3663,6 +3665,7 @@ async function checkUrlParams() {
 function showJoinFromLink(roomCode) {
   const cleanCode = (roomCode || '').trim().toUpperCase();
   state.pendingRoomToJoin = cleanCode;
+  sessionStorage.setItem('overunder_pendingRoom', cleanCode);
   
   // Nascondi le schede standard
   if (el.modeTabs) el.modeTabs.style.display = 'none';
