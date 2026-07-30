@@ -1211,7 +1211,12 @@ function setupEventListeners() {
         showError("Autenticazione in corso...");
         const token = await authenticateHost(name);
         sessionStorage.setItem('overunder_token', token);
-        socket.connect();
+        localStorage.setItem('overunder_token', token);
+        if (socket.connected) {
+          socket.emit('AUTH', { token });
+        } else {
+          socket.connect();
+        }
       } catch (err) {
         showError(err.message || "Errore durante l'autenticazione dell'Host.");
         state.pendingSocketAction = null;
@@ -1588,7 +1593,12 @@ function setupEventListeners() {
       try {
         const token = await authenticateGuest(code, name);
         sessionStorage.setItem('overunder_token', token);
-        socket.connect();
+        localStorage.setItem('overunder_token', token);
+        if (socket.connected) {
+          socket.emit('AUTH', { token });
+        } else {
+          socket.connect();
+        }
       } catch (err) {
         handleConnectionError('not_found');
         showError(err.message || "Impossibile accedere alla stanza.");
