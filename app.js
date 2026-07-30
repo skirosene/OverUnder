@@ -366,6 +366,12 @@ const el = {
   btnJoinRoomLink: document.getElementById('btn-join-room-link'),
   btnCancelJoinLink: document.getElementById('btn-cancel-join-link'),
   joinRoomCodeDisplay: document.getElementById('join-room-code-display'),
+  btnInfoGogna: document.getElementById('btn-info-gogna'),
+  judgementDayCard: document.getElementById('judgement-day-card'),
+  createPremiumToggle: document.getElementById('create-premium-toggle'),
+  paywallStandardModal: document.getElementById('paywall-standard-modal'),
+  btnPaywallStandardBuy: document.getElementById('btn-paywall-standard-buy'),
+  btnPaywallStandardClose: document.getElementById('btn-paywall-standard-close'),
   modeTabs: document.querySelector('.mode-tabs'),
   nameErrorMsg: document.getElementById('name-error-msg'),
   
@@ -1167,22 +1173,61 @@ function setupEventListeners() {
     }
   }
 
+  // === JUDGEMENT DAY CARD & INFO TAP HANDLER ===
+  const openPaywallModal = () => {
+    const isUnlocked = checkPremiumStatusFromToken() || localStorage.getItem('overunder_premium_unlocked') === 'true';
+    if (!isUnlocked) {
+      if (el.createPremiumToggle) el.createPremiumToggle.checked = false;
+      const targetModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
+      if (targetModal) {
+        targetModal.style.display = 'flex';
+        targetModal.classList.add('active');
+      }
+    }
+  };
+
+  if (el.btnInfoGogna) {
+    el.btnInfoGogna.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openPaywallModal();
+    });
+  }
+
+  if (el.judgementDayCard) {
+    el.judgementDayCard.addEventListener('click', (e) => {
+      if (e.target && (e.target.id === 'btn-info-gogna' || e.target.classList.contains('switch-slider') || e.target.id === 'create-premium-toggle')) return;
+      openPaywallModal();
+    });
+  }
+
+  if (el.createPremiumToggle) {
+    el.createPremiumToggle.addEventListener('change', (e) => {
+      const isUnlocked = checkPremiumStatusFromToken() || localStorage.getItem('overunder_premium_unlocked') === 'true';
+      if (!isUnlocked) {
+        e.preventDefault();
+        el.createPremiumToggle.checked = false;
+        openPaywallModal();
+      }
+    });
+  }
+
   // === PAYWALL BLOCKER ACQUISTA (Stripe / IAP) ===
   if (el.btnPaywallBuy) {
     el.btnPaywallBuy.addEventListener('click', () => handleStripePurchase(el.btnPaywallBuy));
   }
 
   // === PAYWALL STANDARD BUY (Stripe / IAP) ===
-  const btnPaywallStandardBuy = document.getElementById('btn-paywall-standard-buy');
+  const btnPaywallStandardBuy = el.btnPaywallStandardBuy || document.getElementById('btn-paywall-standard-buy');
   if (btnPaywallStandardBuy) {
     btnPaywallStandardBuy.addEventListener('click', () => handleStripePurchase(btnPaywallStandardBuy));
   }
 
   // === PAYWALL STANDARD CLOSE ===
-  const btnPaywallStandardClose = document.getElementById('btn-paywall-standard-close');
+  const btnPaywallStandardClose = el.btnPaywallStandardClose || document.getElementById('btn-paywall-standard-close');
   if (btnPaywallStandardClose) {
     btnPaywallStandardClose.addEventListener('click', () => {
-      const standardModal = document.getElementById('paywall-standard-modal');
+      const standardModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
       if (standardModal) {
         standardModal.style.display = 'none';
         standardModal.classList.remove('active');

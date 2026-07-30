@@ -3711,3 +3711,41 @@ body {
   border-color: rgba(255, 255, 255, 0.45);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
+
+/* Pulsante Info Gogna / Judgement Day */
+.btn-info-gogna {
+  background: rgba(223, 51, 255, 0.18);
+  border: 1px solid rgba(223, 51, 255, 0.4);
+  color: #df33ff;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 50%;
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-info-gogna:hover, .btn-info-gogna:active {
+  background: rgba(223, 51, 255, 0.4);
+  transform: scale(1.12);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(223, 51, 255, 0.5);
+}
+
+#judgement-day-card {
+  transition: transform 0.15s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+#judgement-day-card:active {
+  transform: scale(0.98);
+  background: rgba(189, 51, 255, 0.15);
+}

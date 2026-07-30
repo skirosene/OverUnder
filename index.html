@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="style.css?v=102">
+  <link rel="stylesheet" href="style.css?v=103">
 </head>
 <body>
   <!-- Sfondo con sfere colorate sfumate (glowing blobs) animate -->
@@ -189,7 +189,7 @@
               </div>
               
               <!-- Toggle Premium (Modalità "Judgement Day") -->
-              <div class="input-group" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px; background: rgba(189, 51, 255, 0.08); padding: 12px; border-radius: 12px; border: 1px solid rgba(189, 51, 255, 0.25);">
+              <div id="judgement-day-card" class="input-group" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px; background: rgba(189, 51, 255, 0.08); padding: 12px; border-radius: 12px; border: 1px solid rgba(189, 51, 255, 0.25); cursor: pointer; -webkit-tap-highlight-color: transparent;">
                 <!-- Riga Superiore: Titolo + Info -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <span style="font-family: var(--font-title); font-weight: 800; font-size: 0.8rem; color: #df33ff; letter-spacing: 0.5px;"><span id="premium-crown-icon">👑 </span>MODALITÀ "JUDGEMENT DAY"</span>
@@ -952,6 +952,6 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=102"></script>
+  <script src="app.js?v=103"></script>
 </body>
 </html>
