@@ -1420,7 +1420,7 @@ function setupEventListeners() {
     sessionStorage.setItem('overunder_roomCode', code);
     sessionStorage.setItem('overunder_isHost', 'true');
 
-    startConnectionLoading();
+    startConnectionLoading('create');
 
     state.pendingSocketAction = {
       type: 'create_room',
@@ -1804,7 +1804,7 @@ function setupEventListeners() {
     sessionStorage.setItem('overunder_roomCode', code);
     sessionStorage.setItem('overunder_isHost', 'false');
     
-    startConnectionLoading();
+    startConnectionLoading('join');
 
     state.pendingSocketAction = {
       type: 'join_room',
@@ -1939,7 +1939,7 @@ function setupSocketListeners() {
 
     if (savedRoom && savedName) {
       console.log("Tentativo di ripristino sessione:", savedRoom, savedName);
-      startConnectionLoading();
+      startConnectionLoading('restore');
       socket.emit('restore_session', { roomCode: savedRoom, playerName: savedName, isHost: savedHost, sessionId: sessionId });
     }
   });
@@ -3430,7 +3430,7 @@ function showToast(message, duration = 3000) {
   }, duration);
 }
 
-function startConnectionLoading() {
+function startConnectionLoading(mode = 'join') {
   state.connectionLoadingActive = true;
   state.connectionStartTime = Date.now();
   
@@ -3438,8 +3438,22 @@ function startConnectionLoading() {
   
   if (el.loadingSpinnerContainer) el.loadingSpinnerContainer.style.display = 'flex';
   if (el.btnLoadingHome) el.btnLoadingHome.style.display = 'none';
+  
+  // Messaggi contestuali in base al tipo di azione
+  let initialText, progressText;
+  if (mode === 'create') {
+    initialText = "Creazione stanza in corso...";
+    progressText = "Preparazione della lobby...";
+  } else if (mode === 'restore') {
+    initialText = "Riconnessione in corso...";
+    progressText = "Recupero partecipanti connessi...";
+  } else {
+    initialText = "Connessione alla stanza in corso...";
+    progressText = "Recupero partecipanti connessi...";
+  }
+  
   if (el.loadingStatusText) {
-    el.loadingStatusText.textContent = "Connessione alla stanza in corso...";
+    el.loadingStatusText.textContent = initialText;
     el.loadingStatusText.style.opacity = 1;
   }
   
@@ -3449,7 +3463,7 @@ function startConnectionLoading() {
   
   setTimeout(() => {
     if (state.connectionLoadingActive) {
-      updateLoadingText("Recupero partecipanti connessi...");
+      updateLoadingText(progressText);
     }
   }, 1000);
   
