@@ -1400,33 +1400,51 @@ function setupEventListeners() {
       showError("Il codice stanza può contenere al massimo 10 caratteri!");
       return;
     }
-    const isPremium = el.createPremiumToggle ? el.createPremiumToggle.checked : false;
     AudioSynth.init();
 
-    // Definisci l'azione di creazione stanza da eseguire una volta autenticato il socket
+    const isPremiumToggleOn = el.createPremiumToggle ? el.createPremiumToggle.checked : false;
+    const isUnlocked = checkPremiumStatusFromToken() || localStorage.getItem('overunder_premium_unlocked') === 'true';
+
+    // Se l'utente tenta di creare una stanza Judgement Day senza essere sbloccato: apri il Paywall d'acquisto
+    if (isPremiumToggleOn && !isUnlocked) {
+      if (el.createPremiumToggle) el.createPremiumToggle.checked = false;
+      const targetModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
+      if (targetModal) {
+        targetModal.style.display = 'flex';
+        targetModal.classList.add('active');
+      }
+      return;
+    }
+
+    sessionStorage.setItem('overunder_playerName', name);
+    sessionStorage.setItem('overunder_roomCode', code);
+    sessionStorage.setItem('overunder_isHost', 'true');
+
+    startConnectionLoading();
+
     state.pendingSocketAction = {
       type: 'create_room',
-      data: { roomCode: code, avatar: state.playerAvatarUrl, isPremium: isPremium }
+      data: { roomCode: code, avatar: state.playerAvatarUrl, isPremium: isPremiumToggleOn }
     };
 
-    if (state.socketAuthenticated) {
-      socket.emit('create_room', state.pendingSocketAction.data);
-      state.pendingSocketAction = null;
-    } else {
-      try {
-        showError("Autenticazione in corso...");
-        const token = await authenticateHost(name);
-        sessionStorage.setItem('overunder_token', token);
-        localStorage.setItem('overunder_token', token);
-        if (socket.connected) {
-          socket.emit('AUTH', { token });
-        } else {
-          socket.connect();
-        }
-      } catch (err) {
-        showError(err.message || "Errore durante l'autenticazione dell'Host.");
-        state.pendingSocketAction = null;
+    try {
+      const token = await authenticateHost(name);
+      sessionStorage.setItem('overunder_token', token);
+      localStorage.setItem('overunder_token', token);
+      if (socket.connected) {
+        socket.emit('AUTH', { token });
+      } else {
+        socket.connect();
       }
+    } catch (err) {
+      if (state.connectionTimeout) {
+        clearTimeout(state.connectionTimeout);
+        state.connectionTimeout = null;
+      }
+      state.connectionLoadingActive = false;
+      handleConnectionError('not_found');
+      showError(err.message || "Impossibile creare la stanza.");
+      state.pendingSocketAction = null;
     }
   });
 

@@ -361,27 +361,26 @@ app.post('/api/auth/host', (req, res) => {
   const cleanUsername = username.trim();
   const idKey = deviceUuid || sessionId || 'host_' + cleanUsername.toLowerCase();
 
+  // Controlla se questo dispositivo o sessione ha un acquisto a vita registrato nel DB
+  const hasLifetimePurchase = Object.values(users).some(u => u.isPremium && (
+    (deviceUuid && u.deviceUuid === deviceUuid) ||
+    (sessionId && u.deviceUuid === sessionId)
+  ));
+
   let user = users[idKey];
   if (!user) {
-    // Cerca se esiste già un utente o dispositivo registrato con acquisto Premium A Vita
-    const existingPremiumDevice = Object.values(users).find(u => (u.deviceUuid === deviceUuid || u.id === idKey) && u.isPremium);
     user = {
       id: idKey,
       deviceUuid: deviceUuid || idKey,
       username: cleanUsername.toLowerCase(),
       displayName: cleanUsername,
-      isPremium: existingPremiumDevice ? true : false,
-      premiumStatus: existingPremiumDevice ? 'PREMIUM_A_VITA' : 'STANDARD'
+      isPremium: hasLifetimePurchase ? true : false,
+      premiumStatus: hasLifetimePurchase ? 'PREMIUM_A_VITA' : 'STANDARD'
     };
     users[idKey] = user;
   } else {
     user.displayName = cleanUsername;
     if (deviceUuid) user.deviceUuid = deviceUuid;
-  }
-
-  // Controlla se questo dispositivo ha un acquisto a vita registrato nel DB
-  if (!user.isPremium && deviceUuid) {
-    const hasLifetimePurchase = Object.values(users).some(u => u.deviceUuid === deviceUuid && u.isPremium);
     if (hasLifetimePurchase) {
       user.isPremium = true;
       user.premiumStatus = 'PREMIUM_A_VITA';
