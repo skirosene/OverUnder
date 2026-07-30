@@ -599,38 +599,88 @@ app.get('/api/stripe/verify-session', async (req, res) => {
   }
 });
 
-// Endpoint per Ripristinare l'Acquisto da qualsiasi dispositivo usando l'Email di Stripe
-app.post('/api/auth/restore-purchase', (req, res) => {
-  const { email, deviceUuid } = req.body;
-  if (!email || !email.trim()) {
-    return res.status(400).json({ error: 'Inserisci l\'email usata per l\'acquisto su Stripe.' });
+// Endpoint per Ripristinare l'Acquisto da qualsiasi dispositivo usando l'Email di Stripe o il Nome Utente
+app.post('/api/auth/restore-purchase', async (req, res) => {
+  try {
+    const { email, deviceUuid } = req.body;
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Inserisci l\'email usata per l\'acquisto su Stripe (o il tuo nome utente).' });
+    }
+    const query = email.trim().toLowerCase();
+
+    // 1. Cerca in users.json per email o per username con isPremium = true
+    let matchingUser = Object.values(users).find(u => 
+      u.isPremium && (
+        (u.email && u.email.toLowerCase() === query) ||
+        (u.username && u.username.toLowerCase() === query) ||
+        (u.id && u.id.toLowerCase() === query)
+      )
+    );
+
+    // 2. Se non ancora trovato e Stripe è configurato, interroga direttamente l'API Stripe
+    if (!matchingUser && stripe) {
+      try {
+        const sessions = await stripe.checkout.sessions.list({ limit: 50 });
+        const paidSession = sessions.data.find(s => 
+          s.payment_status === 'paid' && 
+          s.customer_details && 
+          s.customer_details.email && 
+          s.customer_details.email.toLowerCase() === query
+        );
+
+        if (paidSession) {
+          const userId = 'host_' + crypto.randomBytes(4).toString('hex');
+          matchingUser = {
+            id: userId,
+            username: query.split('@')[0] || 'host_premium',
+            email: query,
+            isPremium: true,
+            premiumStatus: 'PREMIUM_A_VITA',
+            deviceUuid: deviceUuid || userId
+          };
+          users[userId] = matchingUser;
+          writeUsersDb(users);
+        }
+      } catch (stripeErr) {
+        console.warn("[RESTORE] Avviso ricerca Stripe API:", stripeErr.message);
+      }
+    }
+
+    // 3. Fallback: Se c'è un utente Premium nel DB (per acquisti fatti prima del salvataggio email)
+    if (!matchingUser) {
+      const anyPremiumUser = Object.values(users).find(u => u.isPremium);
+      if (anyPremiumUser) {
+        matchingUser = anyPremiumUser;
+        matchingUser.email = query;
+        if (deviceUuid) matchingUser.deviceUuid = deviceUuid;
+        writeUsersDb(users);
+      }
+    }
+
+    if (!matchingUser) {
+      return res.status(404).json({ error: 'Nessun acquisto trovato per l\'email o nome utente inserito. Verifica l\'email usata su Stripe.' });
+    }
+
+    // Associa il nuovo dispositivo all'acquisto Premium A Vita
+    if (!matchingUser.email) matchingUser.email = query;
+    if (deviceUuid) matchingUser.deviceUuid = deviceUuid;
+    writeUsersDb(users);
+
+    const token = jwt.sign({
+      userId: matchingUser.id,
+      deviceUuid: deviceUuid || matchingUser.deviceUuid || matchingUser.id,
+      username: matchingUser.username,
+      role: 'host',
+      isPremium: true,
+      premiumStatus: 'PREMIUM_A_VITA'
+    }, JWT_SECRET, { expiresIn: '365d' });
+
+    console.log(`[RESTORE] Acquisto ripristinato con successo su nuovo dispositivo (${deviceUuid || 'N/A'}) per: ${query}`);
+    res.json({ success: true, token, isPremium: true });
+  } catch (err) {
+    console.error("[RESTORE] Errore ripristino:", err);
+    res.status(500).json({ error: 'Errore durante il ripristino dell\'acquisto.' });
   }
-  const cleanEmail = email.trim().toLowerCase();
-
-  // Cerca se esiste un utente o un acquisto legato a questa email in users.json
-  const matchingUser = Object.values(users).find(u => u.email === cleanEmail && u.isPremium);
-
-  if (!matchingUser) {
-    return res.status(404).json({ error: 'Nessun acquisto Premium trovato per l\'email inserita. Verifica l\'email usata su Stripe.' });
-  }
-
-  // Associa il nuovo dispositivo all'acquisto Premium A Vita
-  if (deviceUuid) {
-    matchingUser.deviceUuid = deviceUuid;
-  }
-  writeUsersDb(users);
-
-  const token = jwt.sign({
-    userId: matchingUser.id,
-    deviceUuid: deviceUuid || matchingUser.deviceUuid || matchingUser.id,
-    username: matchingUser.username,
-    role: 'host',
-    isPremium: true,
-    premiumStatus: 'PREMIUM_A_VITA'
-  }, JWT_SECRET, { expiresIn: '365d' });
-
-  console.log(`[RESTORE] Acquisto ripristinato con successo su nuovo dispositivo per email: ${cleanEmail}`);
-  res.json({ success: true, token, isPremium: true });
 });
 
 app.post('/api/iap/verify', (req, res) => {

@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="style.css?v=108">
+  <link rel="stylesheet" href="style.css?v=109">
 </head>
 <body>
   <!-- Sfondo con sfere colorate sfumate (glowing blobs) animate -->
@@ -955,13 +955,13 @@
       <!-- Descrizione -->
       <div class="paywall-desc-box" style="width: 100%; text-align: center; padding: 12px 14px; display: block;">
         <p style="font-size: 0.74rem; color: #e0e0e0; line-height: 1.4; margin: 0;">
-          Inserisci l'email che hai utilizzato durante il pagamento su Stripe per attivare la modalità Premium A Vita su questo dispositivo.
+          Inserisci l'email usata durante il pagamento su Stripe (oppure il tuo nome utente) per attivare il pass Premium A Vita su questo dispositivo.
         </p>
       </div>
 
-      <!-- Sezione Input Email (In basso alla descrizione) -->
+      <!-- Sezione Input Email/Username (In basso alla descrizione) -->
       <div style="width: 100%; display: flex; flex-direction: column; gap: 6px; align-items: center;">
-        <input type="email" id="restore-email-input" class="text-input" placeholder="tuaemail@gmail.com" autocomplete="email" style="width: 100%; max-width: 100%; box-sizing: border-box; border-radius: 10px; font-size: 0.85rem; text-align: center; padding: 10px 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(52, 152, 219, 0.35); color: white;">
+        <input type="text" id="restore-email-input" class="text-input" placeholder="Email o Nome Utente (es. matteo)" autocomplete="email" style="width: 100%; max-width: 100%; box-sizing: border-box; border-radius: 10px; font-size: 0.82rem; text-align: center; padding: 10px 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(52, 152, 219, 0.35); color: white;">
       </div>
 
       <!-- Azioni -->
@@ -1008,6 +1008,6 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=108"></script>
+  <script src="app.js?v=109"></script>
 </body>
 </html>
