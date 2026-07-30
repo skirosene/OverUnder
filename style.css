@@ -139,18 +139,15 @@ body {
 }
 
 .phone-frame {
-  width: 410px;
-  height: 840px;
-  max-height: 92vh;
+  width: 440px;
+  height: 860px;
+  max-height: 94vh;
   background-color: #111111;
-  border: 3px solid transparent;
-  border-radius: 40px;
-  background-image: linear-gradient(#111111, #111111), linear-gradient(to right, #00A8E8, #9b59b6, #e0115f);
-  background-origin: border-box;
-  background-clip: content-box, border-box;
+  border: 1px solid var(--color-border);
+  border-radius: 28px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9),
-              0 0 20px rgba(0, 168, 232, 0.15),
-              0 0 40px rgba(224, 17, 95, 0.15);
+              0 0 20px rgba(0, 168, 232, 0.1),
+              0 0 40px rgba(224, 17, 95, 0.1);
   position: relative;
   overflow: hidden;
   display: flex;
@@ -158,44 +155,10 @@ body {
   backdrop-filter: blur(10px);
 }
 
-/* Notch e Status Bar */
-.phone-notch {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 150px;
-  height: 25px;
-  background-color: #222222;
-  border-bottom-left-radius: 20px;
-  border-bottom-right-radius: 20px;
-  z-index: 99;
-}
-
+/* Hide legacy status bar / notch elements if present */
+.phone-notch,
 .phone-status-bar {
-  height: 44px;
-  padding: 0 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  font-family: var(--font-title);
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  z-index: 90;
-  background-color: rgba(11, 11, 11, 0.5);
-  user-select: none;
-}
-
-.status-icons {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.status-icon {
-  width: 14px;
-  height: 14px;
+  display: none !important;
 }
 
 /* Responsive per smartphone */
@@ -210,16 +173,7 @@ body {
     border: none;
     border-radius: 0;
     box-shadow: none;
-    background-image: none;
     background-color: #111111;
-  }
-  .phone-notch {
-    display: none;
-  }
-  .phone-status-bar {
-    padding: 0 16px;
-    height: 48px;
-    align-items: center;
   }
 }
 
