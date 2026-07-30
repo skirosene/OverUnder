@@ -348,6 +348,8 @@ const el = {
   screenResults: document.getElementById('screen-results'),
   screenSummary: document.getElementById('screen-summary'),
   btnWelcomeStart: document.getElementById('btn-welcome-start'),
+  btnBackOnboarding: document.getElementById('btn-back-onboarding'),
+  btnBackLobby: document.getElementById('btn-back-lobby'),
   
   // Onboarding
   tabSolo: document.getElementById('tab-solo'),
@@ -918,6 +920,27 @@ function setupEventListeners() {
       });
     }
   });
+
+  // === TASTI INDIETRO (NAVIGAZIONE FRECCETTA) ===
+  if (el.btnBackOnboarding) {
+    el.btnBackOnboarding.addEventListener('click', () => {
+      AudioSynth.playConfirm(false);
+      showScreen(el.screenWelcome);
+    });
+  }
+
+  if (el.btnBackLobby) {
+    el.btnBackLobby.addEventListener('click', () => {
+      AudioSynth.playConfirm(false);
+      if (socket && socket.connected) {
+        socket.disconnect();
+        socket.connect();
+      }
+      clearSession();
+      resetToMenu();
+      showScreen(el.screenWelcome);
+    });
+  }
 
   // === WELCOME START ===
   if (el.btnWelcomeStart) {
