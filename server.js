@@ -531,7 +531,6 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
 
     const domain = req.headers.origin || `${req.protocol}://${req.get('host')}`;
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
       line_items: [
         {
           price_data: {
