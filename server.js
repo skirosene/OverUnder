@@ -48,6 +48,13 @@ function writeUsersDb(db) {
 
 const users = readUsersDb();
 
+function cleanRoomCode(rawCode) {
+  if (!rawCode) return '';
+  let str = String(rawCode);
+  try { str = decodeURIComponent(str); } catch (e) {}
+  return str.replace(/[^A-Z0-9 _-]/gi, '').trim().toUpperCase();
+}
+
 
 // Controllo d'ambiente globale per la fase di testing
 const IS_PRODUCTION = true; // Impostare a false per tornare in fase di sviluppo
@@ -445,10 +452,7 @@ app.post('/api/auth/guest', (req, res) => {
     return res.status(400).json({ error: 'Codice stanza, nickname e sessionId obbligatori' });
   }
 
-  let code = roomCode;
-  try { code = decodeURIComponent(roomCode); } catch (e) {}
-  code = code.toUpperCase().trim();
-
+  const code = cleanRoomCode(roomCode);
   const room = rooms[code];
   if (!room) {
     return res.status(404).json({ error: 'Codice stanza non esistente o terminata!' });
@@ -848,7 +852,7 @@ io.on('connection', (socket) => {
     const sessionId = socket.userData.userId;
     const deviceUuid = socket.userData.deviceUuid;
 
-    let code = (roomCode || '').trim().toUpperCase();
+    let code = cleanRoomCode(roomCode);
 
     if (!code) {
       socket.emit('room_error', "Inserisci un codice per la stanza!");
@@ -970,7 +974,7 @@ io.on('connection', (socket) => {
     }
     const { roomCode, playerName, sessionId } = socket.userData;
     
-    const code = roomCode.toUpperCase();
+    const code = cleanRoomCode(roomCode);
     const room = rooms[code];
 
     if (!room) {
@@ -1441,7 +1445,8 @@ io.on('connection', (socket) => {
 
   // Evento 8: Ripristino Sessione (Gestione re-connect e riavvio)
   socket.on('restore_session', ({ roomCode, playerName, isHost, sessionId }) => {
-    const room = rooms[roomCode];
+    const code = cleanRoomCode(roomCode);
+    const room = rooms[code];
     if (!room) {
       socket.emit('session_failed', "Stanza non trovata.");
       return;

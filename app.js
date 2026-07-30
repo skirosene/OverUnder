@@ -634,10 +634,14 @@ function runSplashScreen() {
 }
 
 function showScreen(targetScreen) {
+  if (el.screenSplash) {
+    el.screenSplash.style.display = 'none';
+    el.screenSplash.classList.remove('active', 'fade-out');
+  }
   [el.screenWelcome, el.screenOnboarding, el.screenLobby, el.screenGameplay, el.screenResults, el.screenSummary, el.screenKicked, el.screenRoomFull, el.screenLoading].forEach(screen => {
     if (screen) screen.classList.remove('active');
   });
-  targetScreen.classList.add('active');
+  if (targetScreen) targetScreen.classList.add('active');
 
   // Configura il timer counter cliccabile solo in gameplay per l'host
   if (targetScreen === el.screenGameplay) {
