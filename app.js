@@ -374,6 +374,11 @@ const el = {
   paywallStandardModal: document.getElementById('paywall-standard-modal'),
   btnPaywallStandardBuy: document.getElementById('btn-paywall-standard-buy'),
   btnPaywallStandardClose: document.getElementById('btn-paywall-standard-close'),
+  btnOpenRestoreModal: document.getElementById('btn-open-restore-modal'),
+  restorePurchaseModal: document.getElementById('restore-purchase-modal'),
+  restoreEmailInput: document.getElementById('restore-email-input'),
+  btnSubmitRestore: document.getElementById('btn-submit-restore'),
+  btnRestoreClose: document.getElementById('btn-restore-close'),
   modeTabs: document.querySelector('.mode-tabs'),
   nameErrorMsg: document.getElementById('name-error-msg'),
   
@@ -1263,6 +1268,85 @@ function setupEventListeners() {
       if (standardModal) {
         standardModal.style.display = 'none';
         standardModal.classList.remove('active');
+      }
+    });
+  }
+
+  // === RIPRISTINO ACQUISTO (CROSS-DEVICE EMAIL RESTORE) ===
+  const btnOpenRestoreModal = el.btnOpenRestoreModal || document.getElementById('btn-open-restore-modal');
+  if (btnOpenRestoreModal) {
+    btnOpenRestoreModal.addEventListener('click', () => {
+      const restoreModal = el.restorePurchaseModal || document.getElementById('restore-purchase-modal');
+      if (restoreModal) {
+        restoreModal.style.display = 'flex';
+        restoreModal.classList.add('active');
+      }
+    });
+  }
+
+  const btnRestoreClose = el.btnRestoreClose || document.getElementById('btn-restore-close');
+  if (btnRestoreClose) {
+    btnRestoreClose.addEventListener('click', () => {
+      const restoreModal = el.restorePurchaseModal || document.getElementById('restore-purchase-modal');
+      if (restoreModal) {
+        restoreModal.style.display = 'none';
+        restoreModal.classList.remove('active');
+      }
+    });
+  }
+
+  const btnSubmitRestore = el.btnSubmitRestore || document.getElementById('btn-submit-restore');
+  if (btnSubmitRestore) {
+    btnSubmitRestore.addEventListener('click', async () => {
+      const emailInput = el.restoreEmailInput || document.getElementById('restore-email-input');
+      const email = emailInput ? emailInput.value.trim() : '';
+      if (!email) {
+        showError("Inserisci l'email usata per l'acquisto su Stripe!");
+        return;
+      }
+
+      try {
+        btnSubmitRestore.disabled = true;
+        btnSubmitRestore.innerText = "VERIFICA IN CORSO...";
+
+        const res = await fetch('/api/auth/restore-purchase', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email, deviceUuid: sessionId })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Impossibile trovare acquisti per questa email.");
+        }
+
+        const data = await res.json();
+        if (data.token) {
+          sessionStorage.setItem('overunder_token', data.token);
+          localStorage.setItem('overunder_token', data.token);
+          localStorage.setItem('overunder_premium_unlocked', 'true');
+        }
+        state.roomIsPremium = true;
+        showError("Acquisto ripristinato con successo! Modalità \"Judgement Day\" sbloccata su questo dispositivo! 👑");
+        updatePremiumUI();
+
+        const restoreModal = el.restorePurchaseModal || document.getElementById('restore-purchase-modal');
+        if (restoreModal) {
+          restoreModal.style.display = 'none';
+          restoreModal.classList.remove('active');
+        }
+        const standardModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
+        if (standardModal) {
+          standardModal.style.display = 'none';
+          standardModal.classList.remove('active');
+        }
+      } catch (err) {
+        showError(err.message || "Errore durante il ripristino dell'acquisto.");
+      } finally {
+        if (btnSubmitRestore) {
+          btnSubmitRestore.disabled = false;
+          btnSubmitRestore.innerText = "RIPRISTINA SU QUESTO DISPOSITIVO";
+        }
       }
     });
   }
