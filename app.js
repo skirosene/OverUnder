@@ -1782,8 +1782,9 @@ function setupEventListeners() {
     }
     AudioSynth.init();
     
-    // Salva temporaneamente il nome in sessionStorage (verrà formalizzato su 'room_joined')
     sessionStorage.setItem('overunder_playerName', name);
+    sessionStorage.setItem('overunder_roomCode', code);
+    sessionStorage.setItem('overunder_isHost', 'false');
     
     startConnectionLoading();
 
@@ -1792,24 +1793,24 @@ function setupEventListeners() {
       data: { avatar: state.playerAvatarUrl }
     };
 
-    if (state.socketAuthenticated) {
-      socket.emit('join_room', state.pendingSocketAction.data);
-      state.pendingSocketAction = null;
-    } else {
-      try {
-        const token = await authenticateGuest(code, name);
-        sessionStorage.setItem('overunder_token', token);
-        localStorage.setItem('overunder_token', token);
-        if (socket.connected) {
-          socket.emit('AUTH', { token });
-        } else {
-          socket.connect();
-        }
-      } catch (err) {
-        handleConnectionError('not_found');
-        showError(err.message || "Impossibile accedere alla stanza.");
-        state.pendingSocketAction = null;
+    try {
+      const token = await authenticateGuest(code, name);
+      sessionStorage.setItem('overunder_token', token);
+      localStorage.setItem('overunder_token', token);
+      if (socket.connected) {
+        socket.emit('AUTH', { token });
+      } else {
+        socket.connect();
       }
+    } catch (err) {
+      if (state.connectionTimeout) {
+        clearTimeout(state.connectionTimeout);
+        state.connectionTimeout = null;
+      }
+      state.connectionLoadingActive = false;
+      handleConnectionError('not_found');
+      showError(err.message || "Impossibile accedere alla stanza.");
+      state.pendingSocketAction = null;
     }
   });
 

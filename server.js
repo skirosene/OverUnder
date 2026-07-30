@@ -452,18 +452,21 @@ app.post('/api/auth/guest', (req, res) => {
     return res.status(404).json({ error: 'Codice stanza non esistente!' });
   }
 
-  if (room.state !== 'lobby') {
-    return res.status(400).json({ error: 'La partita è già iniziata in questa stanza!' });
-  }
-
   // Controlla blacklist
   if (room.blacklist && room.blacklist.includes(sessionId)) {
     return res.status(403).json({ error: 'Sei stato espulso da questa stanza.' });
   }
 
-  // Controlla duplicati (escludendo riconnessione)
-  const isReconnecting = room.players.some(p => p.sessionId === sessionId);
+  // Controlla se è una riconnessione per sessionId o per nome utente
+  const isReconnecting = room.players.some(p => (p.sessionId && p.sessionId === sessionId) || (p.name.toLowerCase() === playerName.toLowerCase().trim()));
+  
   if (!isReconnecting) {
+    if (room.state !== 'lobby') {
+      return res.status(400).json({ error: 'La partita è già iniziata in questa stanza!' });
+    }
+    if (room.isLocked) {
+      return res.status(400).json({ error: 'La stanza è stata bloccata dall\'Host.' });
+    }
     const nameExists = room.players.some(p => p.name.toLowerCase() === playerName.toLowerCase().trim());
     if (nameExists) {
       return res.status(400).json({ error: 'Questo nome è già presente in questa stanza!' });
