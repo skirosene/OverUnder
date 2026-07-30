@@ -1,0 +1,88 @@
+{
+  "host_1ddf9699": {
+    "id": "host_1ddf9699",
+    "username": "matteo",
+    "passwordHash": "c1a8bebd8709e7645c3d5a060c50698ac0638fb7249eaadd1122ccf5809125bb",
+    "isPremium": true,
+    "premiumStatus": "PREMIUM_A_VITA"
+  },
+  "host_9f0ec16e": {
+    "id": "host_9f0ec16e",
+    "username": "matteo sciri",
+    "passwordHash": "cf9881c6badfd5a083c4b705bebbb72c3b8f81200d5b8469bb5174f1ae21e6c3",
+    "isPremium": true
+  },
+  "host_5495b5e3": {
+    "id": "host_5495b5e3",
+    "username": "testuser",
+    "passwordHash": "cf9881c6badfd5a083c4b705bebbb72c3b8f81200d5b8469bb5174f1ae21e6c3",
+    "isPremium": true
+  },
+  "host_432d2e5a": {
+    "id": "host_432d2e5a",
+    "username": "skiro",
+    "passwordHash": "c1a8bebd8709e7645c3d5a060c50698ac0638fb7249eaadd1122ccf5809125bb",
+    "isPremium": true,
+    "premiumStatus": "PREMIUM_A_VITA"
+  },
+  "host_e9f27775": {
+    "id": "host_e9f27775",
+    "username": "sss",
+    "passwordHash": "c1a8bebd8709e7645c3d5a060c50698ac0638fb7249eaadd1122ccf5809125bb",
+    "isPremium": false
+  },
+  "host_b30c2493": {
+    "id": "host_b30c2493",
+    "username": "hosttest",
+    "passwordHash": "8fe9c33a8ae25a99537e3430df131eb8485e30f2e4eff3704799bdc05ad240cb",
+    "isPremium": false
+  },
+  "host_d1c639a4": {
+    "id": "host_d1c639a4",
+    "username": "ss",
+    "passwordHash": "c1a8bebd8709e7645c3d5a060c50698ac0638fb7249eaadd1122ccf5809125bb",
+    "isPremium": false
+  },
+  "host_1190d62f": {
+    "id": "host_1190d62f",
+    "username": "host_1234987",
+    "passwordHash": "cf9881c6badfd5a083c4b705bebbb72c3b8f81200d5b8469bb5174f1ae21e6c3",
+    "isPremium": true,
+    "premiumStatus": "PREMIUM_A_VITA"
+  },
+  "host_e74e758e": {
+    "id": "host_e74e758e",
+    "username": "hostpremium",
+    "passwordHash": "cf9881c6badfd5a083c4b705bebbb72c3b8f81200d5b8469bb5174f1ae21e6c3",
+    "isPremium": true,
+    "premiumStatus": "PREMIUM_A_VITA"
+  },
+  "host_09615b3d": {
+    "id": "host_09615b3d",
+    "username": "host1",
+    "passwordHash": "cf9881c6badfd5a083c4b705bebbb72c3b8f81200d5b8469bb5174f1ae21e6c3",
+    "isPremium": true,
+    "premiumStatus": "PREMIUM_A_VITA"
+  },
+  "host_946cbff7": {
+    "id": "host_946cbff7",
+    "username": "ssssssssss",
+    "passwordHash": "c1a8bebd8709e7645c3d5a060c50698ac0638fb7249eaadd1122ccf5809125bb",
+    "isPremium": true,
+    "premiumStatus": "PREMIUM_A_VITA"
+  },
+  "host_4bbf1a6d": {
+    "id": "host_4bbf1a6d",
+    "username": "s",
+    "passwordHash": "c1a8bebd8709e7645c3d5a060c50698ac0638fb7249eaadd1122ccf5809125bb",
+    "isPremium": true,
+    "premiumStatus": "PREMIUM_A_VITA"
+  },
+  "host_175983a8": {
+    "id": "host_175983a8",
+    "username": "rollina",
+    "passwordHash": "c1a8bebd8709e7645c3d5a060c50698ac0638fb7249eaadd1122ccf5809125bb",
+    "isPremium": true,
+    "premiumStatus": "PREMIUM_A_VITA"
+  }
+}

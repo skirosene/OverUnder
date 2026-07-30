@@ -1,0 +1,18 @@
+[
+  {
+    "deviceUuid": "sess_ra1kulolormmqekimxz",
+    "fingerprint": "fp_1954617144",
+    "trial_activated": true,
+    "trial_start_date": 1781534256929,
+    "trial_end_date": 1782139056929,
+    "userId": "host_4a5ea25c"
+  },
+  {
+    "deviceUuid": "sess_4p2net2ismqf6rnj6",
+    "fingerprint": "fp_1352097249",
+    "trial_activated": true,
+    "trial_start_date": 1782119463620,
+    "trial_end_date": 1782724263620,
+    "userId": "host_5495b5e3"
+  }
+]

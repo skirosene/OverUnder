@@ -1,0 +1,25 @@
+# Node
+node_modules/
+
+# Uploads (user-generated, not tracked)
+uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local

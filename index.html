@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="OverUnder - Il party game dove decidi se qualcosa è sopravvalutato o sottovalutato. Gioca online con i tuoi amici!">
+  <meta name="theme-color" content="#111111">
+  <meta property="og:title" content="OverUnder - Party Game">
+  <meta property="og:description" content="Sopravvalutato o Sottovalutato? Gioca online con i tuoi amici!">
+  <meta property="og:type" content="website">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>OverUnder - Party Game</title>
+  <!-- Google Fonts per una tipografia moderna e premium -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Cropper.js per il ritaglio immagini premium -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+  <!-- Fogli di stile -->
+  <link rel="stylesheet" href="style.css?v=7">
+</head>
+<body>
+  <!-- Sfondo con sfere colorate sfumate (glowing blobs) animate -->
+  <div class="glowing-bg">
+    <div class="blob blob-green"></div>
+    <div class="blob blob-red"></div>
+    <div class="blob blob-purple"></div>
+  </div>
+
+  <!-- Contenitore principale del gioco (Layout responsive) -->
+  <div class="app-container">
+    <div class="phone-frame">
+      <!-- Barra di stato simulata per l'effetto mobile su desktop -->
+      <div class="phone-notch"></div>
+      <div class="phone-status-bar">
+        <span class="status-time" id="status-clock">17:40</span>
+        <div class="status-icons">
+          <svg class="status-icon" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.07 19.58 10.48 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" fill="currentColor"/></svg>
+          <svg class="status-icon" viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z" fill="currentColor"/></svg>
+        </div>
+      </div>
+
+      <!-- SCHERMATA DI AVVIO / SPLASH SCREEN (Fase 1 e 2) -->
+      <div id="screen-splash" class="screen-splash active">
+        <!-- Logo Centrato -->
+        <div class="logo-area splash-logo-area" style="animation: float-logo 4s ease-in-out infinite;">
+          <div class="logo-title">
+            <span class="logo-over" style="display: inline-block;">OVER</span>
+            <div class="logo-divider"></div>
+            <span class="logo-under" style="display: inline-block;">under</span>
+          </div>
+          <p class="logo-tagline">Sopravvalutato o Sottovalutato?</p>
+        </div>
+
+        <!-- Micro-animazione di attesa elegante -->
+        <div class="splash-loader-container">
+          <div class="splash-spinner"></div>
+          <span class="splash-loading-text">Caricamento</span>
+        </div>
+      </div>
+
+      <!-- SCHERMATA 0: BENVENUTO / INTRO -->
+      <section id="screen-welcome" class="screen" style="justify-content: flex-start; align-items: center; text-align: center; gap: 8px; height: 100%; padding-top: 52px; padding-bottom: 16px;">
+        <div class="logo-area" style="animation: float-logo 4s ease-in-out infinite; margin-top: 10px; margin-bottom: 15px;">
+          <div class="logo-title">
+            <span class="logo-over">OVER</span>
+            <div class="logo-divider"></div>
+            <span class="logo-under">under</span>
+          </div>
+          <p class="logo-tagline">Sopravvalutato o Sottovalutato?</p>
+        </div>
+
+        <!-- Card delle Regole/Intro -->
+        <div class="welcome-card glass-panel" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; width: 100%;">
+          <h2 class="welcome-section-title">Come Si Gioca?</h2>
+          
+          <div class="rule-item" style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+            <span style="font-size: 1.3rem; line-height: 1;">💡</span>
+            <div>
+              <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 2px;">La Carta</h4>
+              <p style="font-size: 0.72rem; color: var(--color-text-secondary); line-height: 1.3;">Ti verrà mostrata una carta casuale: ogni carta nasconde un'entità diversa, dalla più iconica alla più inaspettata...</p>
+            </div>
+          </div>
+
+          <div class="rule-item" style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+            <span style="font-size: 1.3rem; line-height: 1;">🤔</span>
+            <div>
+              <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 2px;">La Scelta</h4>
+              <p style="font-size: 0.72rem; color: var(--color-text-secondary); line-height: 1.3;">Sputa il rospo. È sopravvalutato (OVER) o sottovalutato (UNDER) ? Vota di pancia senza farti spiare.</p>
+            </div>
+          </div>
+
+          <div class="rule-item" style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+            <span style="font-size: 1.3rem; line-height: 1;">📊</span>
+            <div>
+              <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 2px;">Il Verdetto</h4>
+              <p style="font-size: 0.72rem; color: var(--color-text-secondary); line-height: 1.3;">Scatena il dibattito. Scopri chi la pensa come te e individua immediatamente il caso umano del gruppo.</p>
+            </div>
+          </div>
+        </div>
+
+        <button id="btn-welcome-start" class="btn btn-pulse-premium" style="width: 100%;">
+          <span>INIZIA A GIOCARE</span>
+          <svg class="btn-icon" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+        </button>
+        <button id="btn-debug-trial" class="debug-trial-btn" style="display: none;">[DEBUG: APRI REGALO]</button>
+      </section>
+
+      <!-- SCHERMATA 1: ONBOARDING / SETUP (CREA O ENTRA STANZA) -->
+      <section id="screen-onboarding" class="screen">
+        <!-- Barra di Navigazione Superiore per tornare a Benvenuto -->
+        <div class="onboarding-nav-header" style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 5px; flex: 0 0 auto;">
+          <button id="btn-back-onboarding" class="nav-btn-back" title="Indietro">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+              <path d="M9 14L4 9l5-5"/>
+              <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
+            </svg>
+          </button>
+        </div>
+        <div class="logo-area">
+          <div class="logo-title">
+            <span class="logo-over">OVER</span>
+            <div class="logo-divider"></div>
+            <span class="logo-under">under</span>
+          </div>
+          <p class="logo-tagline">Sopravvalutato o Sottovalutato?</p>
+        </div>
+
+        <div class="setup-card glass-panel">
+          <!-- Banner Regalo Gogna -->
+          <div id="onboarding-gift-banner" class="gift-banner-pulse" style="display: none; width: 100%; cursor: pointer;">
+            🎁 Riscatta 30 Giorni di Modalità "Judgement Day" GRATIS!
+          </div>
+          <!-- Bottoni di selezione modalità (Tab) -->
+          <div class="mode-tabs">
+            <button id="tab-solo" class="tab-btn active">GIOCA DA SOLO</button>
+            <button id="tab-create" class="tab-btn">CREA STANZA</button>
+          </div>
+
+          <!-- Setup Avatar / Foto Profilo -->
+          <div class="avatar-setup-container" style="display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 15px; margin-bottom: 15px; width: 100%;">
+            <div class="avatar-preview-wrapper" style="position: relative; width: 80px; height: 80px; margin-bottom: 4px;">
+              <div id="avatar-preview-box" class="avatar-preview-box" style="width: 100%; height: 100%; border-radius: 50%; border: 3px solid var(--color-underrated); background: rgba(255, 255, 255, 0.05); display: flex; justify-content: center; align-items: center; overflow: hidden; transition: all 0.3s ease;">
+                <!-- SVG di default se vuoto -->
+                <svg id="avatar-default-svg" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 40px; height: 40px;">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <img id="avatar-preview-img" style="display: none; width: 100%; height: 100%; object-fit: cover;">
+              </div>
+              <!-- Bottone cambio foto -->
+              <button id="btn-trigger-avatar-options" type="button" style="position: absolute; bottom: 0; right: 0; background: var(--color-underrated); border: none; border-radius: 50%; width: 26px; height: 26px; display: flex; justify-content: center; align-items: center; cursor: pointer; color: white; box-shadow: 0 2px 8px rgba(6, 182, 212, 0.5); z-index: 10;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px;">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+              </button>
+              <!-- Popover opzioni foto (Scatta / Carica) -->
+              <div id="avatar-options-popover" class="glass-panel" style="display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%) translateY(8px); flex-direction: column; gap: 4px; padding: 6px; border-radius: 12px; z-index: 100; min-width: 120px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.12); animation: popover-fade-in 0.2s ease-out;">
+                <button id="btn-select-camera" type="button" class="popover-btn" style="display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; color: white; font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; text-align: left; transition: background 0.15s ease;">
+                  <span style="font-size: 0.95rem;">📷</span> Scatta
+                </button>
+                <button id="btn-select-upload" type="button" class="popover-btn" style="display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; color: white; font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; text-align: left; transition: background 0.15s ease;">
+                  <span style="font-size: 0.95rem;">📁</span> Carica
+                </button>
+              </div>
+            </div>
+
+            <!-- Input nascosti -->
+            <input type="file" id="input-avatar-gallery" accept="image/*" style="display: none;">
+            <input type="file" id="input-avatar-camera" accept="image/*" capture="user" style="display: none;">
+          </div>
+
+          <div class="input-container-group">
+            <!-- Form per Gioco Individuale -->
+            <div id="form-solo-play" class="onboarding-form">
+              <div class="input-group">
+                <label for="solo-name-input" class="input-label">Il tuo Nome</label>
+                <input type="text" id="solo-name-input" class="text-input" placeholder="Es. Matteo" autocomplete="off" maxlength="15">
+              </div>
+              <button id="btn-solo-play" class="btn btn-primary btn-glow-solo" style="margin-top: 15px;">
+                <span>INIZIA PARTITA</span>
+                <svg class="btn-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" fill="currentColor"/></svg>
+              </button>
+            </div>
+
+            <!-- Form per Creare una Stanza -->
+            <div id="form-create-room" class="onboarding-form" style="display: none;">
+              <div class="input-group">
+                <label for="host-name-input" class="input-label">Il tuo Nome (Host)</label>
+                <input type="text" id="host-name-input" class="text-input" placeholder="Es. Matteo" autocomplete="off" maxlength="15">
+              </div>
+              <div class="input-group" style="margin-top: 10px;">
+                <label for="create-room-code-input" class="input-label">Codice Stanza (MAX 10 CARATTERI)</label>
+                <input type="text" id="create-room-code-input" class="text-input code-input" placeholder="Es. MIA STANZA" autocomplete="off" maxlength="10" style="text-transform: uppercase; text-align: center; font-weight: bold; letter-spacing: 2px;">
+              </div>
+              
+              <!-- Toggle Premium (Modalità "Judgement Day") -->
+              <div class="input-group" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px; background: rgba(189, 51, 255, 0.08); padding: 12px; border-radius: 12px; border: 1px solid rgba(189, 51, 255, 0.25);">
+                <!-- Riga Superiore: Titolo + Info -->
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                  <span style="font-family: var(--font-title); font-weight: 800; font-size: 0.8rem; color: #df33ff; letter-spacing: 0.5px;"><span id="premium-crown-icon">👑 </span>MODALITÀ "JUDGEMENT DAY"</span>
+                  <button id="btn-info-gogna" class="btn-info-gogna" type="button" title="Come funziona?">i</button>
+                </div>
+                <!-- Riga Inferiore: Descrizione + Switch -->
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 10px;">
+                  <div style="display: flex; flex-direction: column; gap: 4px; max-width: 80%;">
+                    <div id="premium-price-label" style="font-size: 0.65rem; color: var(--color-text-secondary); line-height: 1.3; text-align: left;">
+                      <strong style="color: white;">Acquistabile a</strong> <strong class="price-glow">16,99 € una tantum</strong>.
+                    </div>
+                    <div id="premium-desc-label" style="font-size: 0.65rem; color: var(--color-text-secondary); line-height: 1.3; text-align: left;">
+                      Tutti i partecipanti creano il mazzo inserendo contemporaneamente immagini e didascalie personalizzate.
+                    </div>
+                  </div>
+                  
+                  <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0;">
+                    <input type="checkbox" id="create-premium-toggle" style="opacity: 0; width: 0; height: 0;">
+                    <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .4s; border-radius: 24px; border: 1px solid rgba(255,255,255,0.15);"></span>
+                  </label>
+                </div>
+              </div>
+
+              <button id="btn-create-room" class="btn btn-primary btn-pulse-blue" style="margin-top: 15px;">
+                <span>CREA STANZA</span>
+                <svg class="btn-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" fill="currentColor"/></svg>
+              </button>
+            </div>
+
+            <!-- Form per Entrare in una Stanza via Link -->
+            <div id="form-join-room-link" class="onboarding-form" style="display: none;">
+              <div class="input-group">
+                <label class="input-label" style="text-align: center; font-size: 0.95rem; color: var(--color-accent-blue); margin-bottom: 15px; display: block; background: rgba(52, 152, 219, 0.08); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(52, 152, 219, 0.2);">
+                  Stanza: <span id="join-room-code-display" style="font-weight: 800; font-family: var(--font-title); letter-spacing: 1px; color: white;">-</span>
+                </label>
+                <label for="join-name-input" class="input-label">Il tuo Nome</label>
+                <input type="text" id="join-name-input" class="text-input" placeholder="Es. Giulia" autocomplete="off" maxlength="15">
+              </div>
+              <button id="btn-join-room-link" class="btn btn-primary btn-pulse-blue" style="margin-top: 15px;">
+                <span>ENTRA IN STANZA</span>
+                <svg class="btn-icon" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="currentColor"/></svg>
+              </button>
+              <button id="btn-cancel-join-link" class="btn btn-secondary" style="margin-top: 10px; font-size: 0.75rem; padding: 8px 16px; width: 100%; border: 1px solid rgba(255,255,255,0.1);">
+                <span>Annulla e Torna al Menu</span>
+              </button>
+            </div>
+          </div>
+
+
+          <span class="error-msg" id="name-error-msg">Compila tutti i campi!</span>
+        </div>
+      </section>
+
+      <!-- SCHERMATA 2: LOBBY D'ATTESA (NUOVA) -->
+      <section id="screen-lobby" class="screen">
+        <!-- Barra di Navigazione Superiore con tasto Indietro -->
+        <div class="lobby-nav-header" style="display: flex; justify-content: flex-start; width: 100%; margin-bottom: 10px; flex: 0 0 auto;">
+          <button id="btn-back-lobby" class="nav-btn-back" title="Indietro">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+              <path d="M9 14L4 9l5-5"/>
+              <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
+            </svg>
+          </button>
+        </div>
+
+        <div id="lobby-header" class="lobby-header glass-panel">
+          <span class="lobby-subtitle">CODICE STANZA:</span>
+          <div id="lobby-room-code" class="lobby-code-display">ABCD</div>
+          <button id="btn-lobby-invite" class="btn btn-secondary" style="margin-top: 12px; font-size: 0.75rem; padding: 8px 16px; border: 1px solid rgba(255,255,255,0.15); width: auto; display: inline-flex;">
+            <span>🔗 INVITA GIOCATORI</span>
+          </button>
+          <div style="font-size: 0.65rem; color: var(--color-text-secondary); margin-top: 8px; line-height: 1.3; text-align: center;">
+            Copia il link e invialo ai tuoi amici<br>
+            su WhatsApp, Instagram o Telegram.
+          </div>
+        </div>
+        
+        <!-- Lista dei Giocatori -->
+        <div id="lobby-players-panel" class="lobby-players-panel glass-panel">
+          <div class="lobby-players-title" style="display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box;">
+            <span>Partecipanti Connessi (<span id="lobby-players-count">0</span>):</span>
+            <button id="btn-lock-room" class="btn-lock-room unlocked" title="Stato stanza" style="display: none; background: none; border: none; padding: 4px; align-items: center; justify-content: center; cursor: pointer; transition: color 200ms ease, transform 150ms ease; outline: none;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h1.9c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/>
+              </svg>
+            </button>
+          </div>
+          <div id="lobby-players-list" class="lobby-players-list">
+            <!-- Nomi dei giocatori iniettati qui in tempo reale -->
+          </div>
+        </div>
+
+        <!-- Sezione Creazione Carte Premium (Visibile solo se stanza premium e utente non ha inviato le sue carte) -->
+        <div id="lobby-premium-creator" class="lobby-premium-creator glass-panel" style="display: none; margin-top: 15px; padding: 18px; flex-direction: column;">
+          <h3 style="font-family: var(--font-title); font-weight: 800; font-size: 0.95rem; color: #df33ff; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
+            <span>👑 Crea le tue carte</span>
+            <button id="btn-input-help" class="btn-info-cyan" type="button" title="Guida inserimento">i</button>
+          </h3>
+          
+          <!-- Box Input & Aggiunta -->
+          <div class="custom-card-input-wrapper" style="width: 100%; position: relative; display: flex; align-items: center;">
+            <!-- Anteprima immagine caricata -->
+            <div id="premium-image-preview-container" style="display: none; position: absolute; left: 10px; z-index: 10; align-items: center;">
+              <img id="premium-image-preview" style="width: 30px; height: 30px; border-radius: 6px; object-fit: cover; border: 1px solid var(--color-underrated); cursor: pointer;">
+              <button id="btn-clear-image" style="position: absolute; top: -6px; right: -6px; width: 14px; height: 14px; border-radius: 50%; background: #ff3333; color: white; border: none; font-size: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
+            </div>
+            
+            <input type="text" id="premium-card-input" class="text-input" placeholder="A cosa stai pensando?" maxlength="100" style="text-align: center; padding-right: 42px; padding-left: 42px; transition: padding 0.15s ease;">
+            
+            <!-- Icona Galleria / Upload File -->
+            <input type="file" id="premium-image-upload" accept="image/*" style="display: none;">
+            <label for="premium-image-upload" id="lbl-premium-image-upload" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: rgba(255, 255, 255, 0.4); cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; width: auto; transition: transform 0.1s ease, color 0.15s ease; user-select: none;">
+              <svg viewBox="0 0 24 24" style="width: 1.4rem; height: 1.4rem;" fill="currentColor">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-1.96-2.36L6.5 17h11l-3.54-4.71z"/>
+              </svg>
+            </label>
+            
+            <!-- Pulsante "+" Aggiunta -->
+            <button id="btn-premium-card-add" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--color-underrated); font-size: 1.8rem; cursor: pointer; line-height: 1; padding: 4px; display: inline-flex; align-items: center; justify-content: center; width: auto; transition: transform 0.1s ease; user-select: none;">+</button>
+          </div>
+
+          
+          <!-- Lista capsule -->
+          <div id="premium-cards-list" class="premium-cards-list" style="margin-top: 15px; max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
+            <!-- Capsule inserite via JS -->
+          </div>
+          
+          <!-- Pulsante Invia fisso in fondo del panel -->
+          <button id="btn-premium-cards-submit" class="btn" style="margin-top: 15px; background: linear-gradient(135deg, #bd33ff, #ff007f); color: white; box-shadow: 0 4px 15px rgba(255, 0, 127, 0.25);" disabled>
+            <span>INVIA</span>
+          </button>
+        </div>
+
+        <!-- Sezione Attesa Premium (Giocatore ha già inviato le carte ma altri stanno scrivendo) -->
+        <div id="lobby-premium-waiting" class="lobby-premium-waiting glass-panel" style="display: none; margin-top: 15px; padding: 20px; text-align: center; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+          <div class="loader-spinner"></div>
+          <p class="waiting-text" style="font-size: 0.8rem; color: var(--color-text-secondary); margin-bottom: 2px;">Carte inviate con successo!</p>
+          <p class="waiting-text" style="font-size: 0.72rem; color: var(--color-text-muted); margin-bottom: 0;">In attesa degli altri giocatori...</p>
+        </div>
+
+        <!-- Sezione Host (Avvio partita con scelta durata) -->
+        <div id="lobby-host-controls" class="lobby-host-controls glass-panel" style="display: none;">
+          <label class="input-label" style="text-align: center; display: block; width: 100%;">ROUND</label>
+          <div id="rounds-selector-grid" class="rounds-selector-grid">
+            <button class="btn-round-select active" data-length="30">30 Carte</button>
+            <button class="btn-round-select" data-length="50">50 Carte</button>
+            <button class="btn-round-select" data-length="100">100 Carte</button>
+            <button class="btn-round-select" data-length="300">300 Carte</button>
+            <button class="btn-round-select" data-length="500">500 Carte</button>
+            <button class="btn-round-select btn-round-infinity" data-length="9999">∞</button>
+          </div>
+          <button id="btn-add-bots" class="btn btn-primary" style="margin-top: 10px; background: linear-gradient(135deg, rgba(155, 89, 182, 0.5), rgba(52, 152, 219, 0.5)); font-size: 0.75rem; padding: 10px 16px; border: 1px solid rgba(255,255,255,0.15);">
+            <span>🤖 AGGIUNGI GIOCATORI SIMULATI</span>
+          </button>
+          <button id="btn-host-start-game" class="btn btn-primary btn-pulse-blue" style="margin-top: 10px;">
+            <span>AVVIA PARTITA</span>
+            <svg class="btn-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+          </button>
+        </div>
+
+        <!-- Sezione Player (Attesa avviamento host) -->
+        <div id="lobby-player-waiting" class="lobby-player-waiting glass-panel">
+          <div class="loader-spinner"></div>
+          <p class="waiting-text">In attesa che l'Host avvii il gioco...</p>
+        </div>
+      </section>
+
+      <!-- SCHERMATA 3: GAMEPLAY -->
+      <section id="screen-gameplay" class="screen">
+        <!-- Header con pulsante Audio ed Esci -->
+        <div class="gameplay-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 8px; flex: 0 0 auto;">
+          <button id="btn-toggle-audio" class="nav-btn-audio" title="Disattiva Audio">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+              <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+          </button>
+
+          <!-- Lista orizzontale avatar partecipanti -->
+          <div id="gameplay-avatars-wrapper" style="position: relative; max-width: 60%; display: flex; align-items: center;">
+            <div id="gameplay-avatars-list" class="gameplay-avatars-list" style="display: flex; align-items: center; gap: 4px; width: 100%; overflow-x: auto; cursor: pointer; padding: 4px 8px; border-radius: 20px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); scrollbar-width: none;">
+              <!-- Popolato via JS -->
+            </div>
+            <!-- Badge numeretto partecipanti -->
+            <div id="gameplay-player-count-badge" style="position: absolute; top: -6px; right: -6px; background: var(--color-underrated); color: white; font-family: var(--font-title); font-size: 0.65rem; font-weight: 800; border-radius: 50%; width: 16px; height: 16px; display: flex; justify-content: center; align-items: center; border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 2px 6px rgba(6, 182, 212, 0.4); pointer-events: none;">0</div>
+          </div>
+          
+          <button id="btn-quit-gameplay" class="nav-btn-close" title="Esci">&times;</button>
+        </div>
+
+        <!-- Barra tempo, mazzo e progressi -->
+        <div class="timer-area" style="position: relative;">
+          <div class="timer-bar-wrapper">
+            <div id="timer-bar" class="timer-bar"></div>
+          </div>
+          <div class="timer-info">
+            <span id="timer-counter" class="timer-counter">10.0s</span>
+            <span id="deck-progress" class="deck-progress">Carta 1 / 3</span>
+          </div>
+
+          <!-- Pannello selezione durata timer (solo host) -->
+          <div id="timer-picker-panel" class="timer-picker-panel" style="display: none;">
+            <div class="timer-picker-header">
+              <span class="timer-picker-title">⏱ Durata Timer</span>
+              <button id="btn-timer-picker-close" class="timer-picker-close">&times;</button>
+            </div>
+            <div class="timer-picker-options">
+              <button class="timer-picker-option" data-duration="15000">
+                <span class="timer-picker-check">✓</span>
+                <span>15s</span>
+              </button>
+              <button class="timer-picker-option selected" data-duration="10000">
+                <span class="timer-picker-check">✓</span>
+                <span>10s</span>
+              </button>
+              <button class="timer-picker-option" data-duration="5000">
+                <span class="timer-picker-check">✓</span>
+                <span>5s</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prompt della Carta -->
+        <div class="prompt-container-wrapper">
+          <div class="prompt-card glass-panel" id="prompt-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
+            <!-- Tasto Segnala (Discreto, invisibile/semi-trasparente) -->
+            <button id="btn-report-card" title="Segnala contenuto inappropriato" style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: rgba(255, 255, 255, 0.15); cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; z-index: 10; transition: color 0.2s ease;">
+              <svg viewBox="0 0 24 24" style="width: 1.1rem; height: 1.1rem;" fill="currentColor">
+                <path d="M12.36 6l.4 2H18v6h-3.36l-.4-2H7V6h5.36M14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6L14 4z"/>
+              </svg>
+            </button>
+            <span class="prompt-category" id="current-deck-name">MAZZO</span>
+            <!-- Contenitore Immagine Gameplay Premium -->
+            <div id="gameplay-prompt-image-container" style="display: none; width: 140px; height: 140px; border-radius: 12px; overflow: hidden; margin: 10px 0; border: 2px solid rgba(255, 255, 255, 0.15); box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+              <img id="gameplay-prompt-image" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+            <h1 class="prompt-text" id="current-prompt-text">Caricamento domanda...</h1>
+          </div>
+        </div>
+
+        <!-- Stato dei voti del gruppo (Pressione sociale in tempo reale) -->
+        <div id="gameplay-status-panel" class="gameplay-status-panel glass-panel">
+          <div class="status-panel-title">Stato Votazioni:</div>
+          <div id="gameplay-players-status" class="gameplay-players-status">
+            <!-- Matteo: ✔️ Votato, Giulia: 🤔 Decisione... -->
+          </div>
+        </div>
+
+
+        <!-- Pulsanti di Voto -->
+        <div class="voter-actions">
+          <button id="btn-overrated" class="btn-vote btn-overrated">
+            <div class="btn-vote-content">
+              <span class="btn-vote-label">SOPRAVVALUTATO</span>
+              <span class="btn-vote-sub">OVER</span>
+            </div>
+            <svg class="vote-icon" viewBox="0 0 24 24">
+              <path d="M4 12h16l-8-8z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+
+          <button id="btn-underrated" class="btn-vote btn-underrated">
+            <div class="btn-vote-content">
+              <span class="btn-vote-label">SOTTOVALUTATO</span>
+              <span class="btn-vote-sub">UNDER</span>
+            </div>
+            <svg class="vote-icon" viewBox="0 0 24 24">
+              <path d="M20 12H4l8 8z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Overlay fine round: PROSSIMA CARTA... -->
+        <div id="round-end-overlay" class="round-end-overlay">
+          <div class="round-end-content glass-panel" style="padding: 18px;">
+            <div class="round-end-prompt" id="round-end-prompt-text">Verdetto per questa carta:</div>
+            
+            <!-- Filtro voti fine round -->
+            <div class="votes-filter-container">
+              <button class="filter-btn active" data-filter="all">Tutti</button>
+              <button class="filter-btn" data-filter="over">Over</button>
+              <button class="filter-btn" data-filter="under">Under</button>
+            </div>
+
+            <div class="round-end-votes-list" id="round-end-votes-list">
+              <!-- Voti iniettati via JS -->
+            </div>
+            <!-- Riepilogo Statistiche Gruppo e Mondo -->
+            <div id="round-end-stats-summary" style="display: none; flex-direction: column; gap: 8px; width: 100%; margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.04); border-radius: 10px; font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.06);">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Gruppo:</span>
+                <span id="round-end-group-pct" style="font-weight: 800; color: #F59E0B;">OVER 50% - UNDER 50%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Mondo:</span>
+                <span id="round-end-global-pct" style="font-weight: 800; color: #06B6D4;">OVER 50% - UNDER 50%</span>
+              </div>
+            </div>
+            <!-- Mini pulsanti di voto per ritardatari -->
+            <div id="round-end-overlay-vote-actions" style="display: none; width: 100%; gap: 10px; margin-top: 8px;">
+              <button id="btn-next-over" class="btn btn-primary" style="flex: 1; background: linear-gradient(135deg, rgba(245,158,11,0.3), rgba(245,158,11,0.1)); border: 1px solid rgba(245,158,11,0.4); font-size: 0.72rem; padding: 10px;">OVER</button>
+              <button id="btn-next-under" class="btn btn-primary" style="flex: 1; background: linear-gradient(135deg, rgba(6,182,212,0.3), rgba(6,182,212,0.1)); border: 1px solid rgba(6,182,212,0.4); font-size: 0.72rem; padding: 10px;">UNDER</button>
+            </div>
+            <!-- Host: pulsante per avanzare -->
+            <button id="btn-next-overlay" class="btn-next-overlay" style="display: none;">PROSSIMA CARTA...</button>
+            <!-- Player: attesa -->
+            <div id="round-end-player-wait" class="round-end-waiting">
+              <div class="loader-spinner"></div>
+              <p>In attesa dell'Host...</p>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- SCHERMATA 4: RISULTATI & STATISTICHE (MULTIPLAYER REAL-TIME) -->
+      <section id="screen-results" class="screen">
+        <!-- Header Statico con pulsante Esci -->
+        <div class="results-header-static-wrapper" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 18px 20px 8px 20px; flex: 0 0 auto;">
+          <div style="width: 32px;"></div>
+          <div class="results-header-static" style="padding: 0; margin: 0; flex: 1; text-align: center;">Verdetto per</div>
+          <button id="btn-quit-results" class="nav-btn-close" title="Esci">&times;</button>
+        </div>
+
+        <!-- Area Scrollabile -->
+        <div class="results-scrollable-content">
+          <!-- Card del Prompt -->
+          <div class="results-prompt-card results-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+            <!-- Contenitore Immagine Risultati Premium -->
+            <div id="results-prompt-image-container" style="display: none; width: 100px; height: 100px; border-radius: 10px; overflow: hidden; border: 1.5px solid rgba(255, 255, 255, 0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
+              <img id="results-prompt-image" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+            <div class="results-prompt-subject" id="results-prompt-subject">Caricamento soggetto...</div>
+          </div>
+
+          <!-- Modulo Dettaglio Voti -->
+          <div class="results-votes-detail results-card" id="results-votes-detail-card" style="display: none;">
+            <!-- Filtro voti risultati -->
+            <div class="votes-filter-container">
+              <button class="filter-btn active" data-filter="all">Tutti</button>
+              <button class="filter-btn" data-filter="over">Over</button>
+              <button class="filter-btn" data-filter="under">Under</button>
+            </div>
+            <div class="results-votes-list" id="results-votes-list">
+              <!-- Voti dei giocatori iniettati via JS -->
+            </div>
+          </div>
+
+          <!-- Modulo 1: Il Tuo Gruppo -->
+          <div class="results-module results-card">
+            <div class="module-title">Il Tuo Gruppo:</div>
+            <div class="module-labels">
+              <span class="label-over-pct" id="group-over-pct-text">OVER 50%</span>
+              <span class="label-divider">
+                <span class="dash-over">-</span><span class="dash-under">-</span>
+              </span>
+              <span class="label-under-pct" id="group-under-pct-text">UNDER 50%</span>
+            </div>
+            <div class="bipolar-bar-container">
+              <div class="bipolar-half over-half">
+                <div class="bipolar-fill over-fill" id="group-over-fill" style="width: 50%;"></div>
+              </div>
+              <div class="bipolar-half under-half">
+                <div class="bipolar-fill under-fill" id="group-under-fill" style="width: 50%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Toggle Bridge (World Icon) -->
+          <div class="world-toggle-bridge" id="world-toggle-bridge">
+            <button id="btn-toggle-world-stats" class="world-toggle-btn" aria-label="Mostra statistiche mondiali">
+              <svg viewBox="0 0 24 24" width="30" height="30" class="globe-svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.53c-.26-.81-1-1.4-1.9-1.4h-1v-3c0-.55-.45-1-1-1h-6v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.4z" fill="currentColor"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Modulo 2: Il Mondo (Global) -->
+          <div class="results-module collapsible-world-card" id="global-stats-card">
+            <div class="module-title-row">
+              <div class="module-title">Il Mondo:</div>
+              <div class="module-badge-global">
+                <svg class="globe-icon" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.53c-.26-.81-1-1.4-1.9-1.4h-1v-3c0-.55-.45-1-1-1h-6v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.4z" fill="currentColor"/>
+                </svg>
+              </div>
+            </div>
+            <div class="module-labels">
+              <span class="label-over-pct" id="global-over-pct-text">OVER 50%</span>
+              <span class="label-divider">
+                <span class="dash-over">-</span><span class="dash-under">-</span>
+              </span>
+              <span class="label-under-pct" id="global-under-pct-text">UNDER 50%</span>
+            </div>
+            <div class="bipolar-bar-container">
+              <div class="bipolar-half over-half">
+                <div class="bipolar-fill over-fill" id="global-over-fill" style="width: 50%;"></div>
+              </div>
+              <div class="bipolar-half under-half">
+                <div class="bipolar-fill under-fill" id="global-under-fill" style="width: 50%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Button (Fissato in basso) -->
+        <div class="results-footer-container">
+          <button id="btn-next-card-confluent" class="btn-footer-action">
+            <span>PROSSIMA CARTA</span>
+            <svg class="footer-action-icon" viewBox="0 0 24 24">
+              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+          </button>
+          <div id="results-player-waiting-confluent" class="btn-footer-action player-waiting disabled" style="display: none;">
+            <span>IN ATTESA DELL'HOST</span>
+            <div class="loader-spinner-mini"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCHERMATA 5: RIEPILOGO FINALE PARTITA & PREMI -->
+      <section id="screen-summary" class="screen">
+        <div class="summary-header">
+          <h2 class="summary-main-title">Partita Completata! 🎉</h2>
+          <p id="summary-subtitle" class="summary-subtitle">Classifiche e premi finali del gruppo:</p>
+        </div>
+
+        <!-- Premi Speciali -->
+        <div class="awards-section-title">🏆 Premi Speciali:</div>
+        <div id="group-awards-container" class="group-awards-container">
+          <!-- Assegnazione dinamica server-side -->
+        </div>
+
+        <!-- Verdetti Completi -->
+        <div class="awards-section-title">📊 Tutti i Verdetti:</div>
+        <div class="summary-scroll-panel glass-panel">
+          <div id="summary-cards-list" class="summary-cards-list">
+            <!-- Lista inserita via JS -->
+          </div>
+        </div>
+
+        <!-- Pulsante Riavvio (Solo Host controlla, Player vede dicitura di attesa) -->
+        <div id="summary-host-controls" style="display: none; width: 100%;">
+          <button id="btn-restart" class="btn btn-primary btn-pulse-blue">
+            <span>TORNA AL MENU</span>
+            <svg class="btn-icon" viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" fill="currentColor"/></svg>
+          </button>
+        </div>
+        <div id="summary-player-waiting" class="results-player-waiting glass-panel" style="display: block; text-align: center; padding: 15px;">
+          <div class="loader-spinner"></div>
+          <p class="waiting-text">In attesa che l'Host riavvii la stanza...</p>
+        </div>
+      </section>
+
+      <!-- SCHERMATA KICKED (Espulso) -->
+      <section id="screen-kicked" class="screen" style="justify-content: center; align-items: center; text-align: center; gap: 20px; height: 100%;">
+        <div style="font-size: 4rem;">🚫</div>
+        <h2 style="font-family: var(--font-title); font-weight: 800; font-size: 1.6rem; color: #ff3838; text-transform: uppercase; letter-spacing: 1px; margin: 0;">Sei stato disconnesso</h2>
+        <p style="font-size: 0.95rem; color: var(--color-text-secondary); max-width: 80%; line-height: 1.4; margin: 0;">Sei stato rimosso da questa stanza dall'Host o la connessione è stata interrotta.</p>
+        <button id="btn-kicked-home" class="btn btn-primary" style="margin-top: 10px; min-width: 180px;">
+          TORNA ALLA HOME
+        </button>
+      </section>
+
+      <!-- SCHERMATA STANZA PIENA -->
+      <section id="screen-room-full" class="screen" style="justify-content: center; align-items: center; text-align: center; gap: 20px; height: 100%;">
+        <div style="font-size: 4rem;">🔥</div>
+        <h2 style="font-family: var(--font-title); font-weight: 800; font-size: 1.6rem; color: #ff8800; text-transform: uppercase; letter-spacing: 1px; margin: 0;">Stanza al completo</h2>
+        <p style="font-size: 0.95rem; color: var(--color-text-secondary); max-width: 80%; line-height: 1.4; margin: 0;">Impossibile accedere: la stanza ha raggiunto il limite massimo di giocatori (30/30).</p>
+        <button id="btn-room-full-home" class="btn btn-primary" style="margin-top: 10px; min-width: 180px;">
+          TORNA ALLA HOME
+        </button>
+      </section>
+
+      <!-- SCHERMATA DI CARICAMENTO INTERMEDIA -->
+      <section id="screen-loading" class="screen" style="justify-content: center; align-items: center; text-align: center; gap: 24px; height: 100%;">
+        <div id="loading-spinner-container" class="loading-spinner-container">
+          <div class="loader-spinner premium-glow"></div>
+        </div>
+        <div id="loading-status-text" class="loading-status-text" style="font-size: 1.05rem; font-weight: 600; color: white; line-height: 1.4; transition: opacity 0.15s ease;">Connessione alla stanza in corso...</div>
+        <button id="btn-loading-home" class="btn btn-primary" style="display: none; margin-top: 15px; min-width: 180px;">
+          TORNA ALLA HOME
+        </button>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- Modal Custom per Uscita/Abbandono Partita -->
+  <div id="exit-modal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box glass-panel">
+      <h3 class="custom-modal-title">Vuoi davvero abbandonare?</h3>
+      <p id="exit-modal-desc" class="custom-modal-desc">I progressi di questa partita andranno persi per tutto il gruppo.</p>
+      <div class="custom-modal-actions">
+        <button id="btn-exit-cancel" class="btn-modal-cancel">Resta</button>
+        <button id="btn-exit-confirm" class="btn-modal-confirm">Abbandona</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal per Ritaglio Immagine (Cropper) -->
+  <div id="cropper-modal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box glass-panel" style="max-width: 90%; width: 360px; padding: 18px; display: flex; flex-direction: column; gap: 14px; align-items: center;">
+      <h3 class="custom-modal-title" style="font-size: 1.05rem; text-transform: uppercase;">Ritaglia Immagine (1:1)</h3>
+      <div class="cropper-container" style="width: 100%; height: 260px; background: #000; border-radius: 12px; overflow: hidden; position: relative;">
+        <img id="cropper-image-target" style="max-width: 100%; display: block;">
+      </div>
+      <div class="custom-modal-actions" style="width: 100%; display: flex; gap: 10px; margin-top: 5px;">
+        <button id="btn-cropper-cancel" class="btn-modal-cancel" style="flex: 1;">Annulla</button>
+        <button id="btn-cropper-confirm" class="btn-modal-confirm" style="flex: 1;">Conferma</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Come Funziona (Modalità "Judgement Day" Info) -->
+  <div id="info-gogna-modal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box glass-panel" style="max-width: 90%; width: 340px; padding: 24px; text-align: left; gap: 20px;">
+      
+      <!-- Intestazione (Header) -->
+      <h2 style="font-family: var(--font-title); font-weight: 800; font-size: 1.15rem; text-align: center; margin: 0; background: linear-gradient(135deg, #df33ff, #ff007f); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-transform: uppercase; letter-spacing: 0.5px;">COME FUNZIONA?</h2>
+      
+      <!-- Contenuto (I 3 Step Verticali) -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        
+        <!-- Step 1 -->
+        <div style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+          <span style="font-size: 1.3rem; line-height: 1; flex-shrink: 0; user-select: none;">📱</span>
+          <div>
+            <h4 style="font-size: 0.82rem; font-weight: 700; color: white; margin: 0 0 2px 0;">Il Vostro Mazzo</h4>
+            <p style="font-size: 0.72rem; color: var(--color-text-secondary); line-height: 1.35; margin: 0;">Tutti i partecipanti creano il mazzo inserendo contemporaneamente immagini e didascalie personalizzate.</p>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+          <span style="font-size: 1.3rem; line-height: 1; flex-shrink: 0; user-select: none;">🛑</span>
+          <div>
+            <h4 style="font-size: 0.82rem; font-weight: 700; color: white; margin: 0 0 2px 0;">Zero Filtri</h4>
+            <p style="font-size: 0.72rem; color: var(--color-text-secondary); line-height: 1.35; margin: 0;">Ogni giocatore deve inserire almeno una carta per poter iniziare. Non c'è alcun limite al massimo di carte inseribili. Vale tutto.</p>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+          <span style="font-size: 1.3rem; line-height: 1; flex-shrink: 0; user-select: none;">🕵️‍♂️</span>
+          <div>
+            <h4 style="font-size: 0.82rem; font-weight: 700; color: white; margin: 0 0 2px 0;">Anonimato & Caos</h4>
+            <p style="font-size: 0.72rem; color: var(--color-text-secondary); line-height: 1.35; margin: 0;">Le carte vengono mostrate in modo completamente anonimo. Sparate a zero: nessuno saprà chi ha inserito la frase, ma il gruppo voterà di pancia scatenando il dibattito al tavolo.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Pulsante di Chiusura (Footer) -->
+      <div style="display: flex; justify-content: center; width: 100%; margin-top: 5px;">
+        <button id="btn-info-gogna-close" class="btn-modal-cancel" style="flex: 0 1 auto; min-width: 100px; padding: 10px 20px; font-weight: 700; font-family: var(--font-title); font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">CHIUDI</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal Guida Inserimento Carte -->
+  <div id="input-help-modal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box glass-panel" style="max-width: 90%; width: 320px; padding: 24px; text-align: center; gap: 18px;">
+      
+      <!-- Intestazione -->
+      <h3 style="font-family: var(--font-title); font-weight: 800; font-size: 1.05rem; color: white; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">GUIDA</h3>
+      
+      <!-- Contenuto -->
+      <p style="font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.45; margin: 0; text-align: center;">
+        Scrivi una frase, aggiungi un'immagine se vuoi e premi il tasto <span style="color: var(--color-underrated); font-weight: 800; font-size: 1rem;">+</span> per salvare la carta nella tua lista.
+      </p>
+
+      <!-- Pulsante di Chiusura -->
+      <div style="display: flex; justify-content: center; width: 100%; margin-top: 5px;">
+        <button id="btn-input-help-close" class="btn-modal-cancel" style="flex: 0 1 auto; min-width: 100px; padding: 10px 20px; font-weight: 700; font-family: var(--font-title); font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">CHIUDI</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal per Fotocamera In-App -->
+  <div id="camera-modal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box glass-panel" style="max-width: 90%; width: 340px; padding: 18px; display: flex; flex-direction: column; gap: 14px; align-items: center;">
+      <h3 class="custom-modal-title" style="font-size: 1.05rem; text-transform: uppercase; margin: 0;">Fotocamera</h3>
+      <div style="width: 100%; height: 260px; background: #000; border-radius: 12px; overflow: hidden; position: relative;">
+        <video id="camera-video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+      </div>
+      <div class="custom-modal-actions" style="width: 100%; display: flex; gap: 10px; margin-top: 5px;">
+        <button id="btn-camera-close" class="btn-modal-cancel" style="flex: 1;">Annulla</button>
+        <button id="btn-camera-capture" class="btn-modal-confirm" style="flex: 1;">Scatta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Lista Giocatori Completa (Fullscreen) -->
+  <div id="player-list-modal" class="custom-modal-overlay fullscreen-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 11000;">
+    <div class="fullscreen-modal-box glass-panel" style="width: 100%; height: 100%; display: flex; flex-direction: column; padding: 24px; box-sizing: border-box; justify-content: flex-start; align-items: center; position: relative; border-radius: 0;">
+      <!-- Bottone Chiudi in alto a destra -->
+      <button id="btn-player-list-close" style="position: absolute; top: 20px; right: 20px; background: none; border: none; font-size: 2.2rem; color: white; cursor: pointer; line-height: 1; z-index: 1000;">&times;</button>
+      
+      <h2 style="font-family: var(--font-title); font-weight: 800; font-size: 1.5rem; color: white; margin-top: 40px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px;">Partecipanti</h2>
+      
+      <!-- Lista dei giocatori con avatar ingrandito -->
+      <div id="player-list-modal-content" style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex: 1; padding-bottom: 20px; padding-right: 4px;">
+        <!-- Popolato dinamicamente da JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Zoom Foto Profilo -->
+  <div id="avatar-zoom-modal" class="custom-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 12000; justify-content: center; align-items: center; background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+    <div style="position: relative; display: flex; flex-direction: column; align-items: center; max-width: 90%; max-height: 90%;">
+      <button id="btn-avatar-zoom-close" style="position: absolute; top: -45px; right: 0; background: none; border: none; font-size: 2.2rem; color: white; cursor: pointer; line-height: 1;">&times;</button>
+      <img id="avatar-zoom-image" style="max-width: 100%; max-height: 80vh; border-radius: 16px; object-fit: contain; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 2px solid rgba(255,255,255,0.1);">
+      <div id="avatar-zoom-fallback" style="display: none; width: 200px; height: 200px; border-radius: 50%; justify-content: center; align-items: center; font-size: 4.5rem; font-family: var(--font-title); font-weight: 800; color: white; border: 4px solid rgba(255, 255, 255, 0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.8);"></div>
+      <div id="avatar-zoom-name" style="margin-top: 15px; color: white; font-family: var(--font-title); font-weight: 800; font-size: 1.2rem; letter-spacing: 0.5px;">Nome</div>
+    </div>
+  </div>
+
+  <!-- Modal Zoom Immagine Carta (Modalità "Judgement Day") -->
+  <div id="card-image-zoom-modal" class="custom-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 12000; justify-content: center; align-items: center; background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+    <div style="position: relative; display: flex; flex-direction: column; align-items: center; max-width: 90%; max-height: 90%;">
+      <button id="btn-card-image-zoom-close" style="position: absolute; top: -45px; right: 0; background: none; border: none; font-size: 2.2rem; color: white; cursor: pointer; line-height: 1;">&times;</button>
+      <img id="card-image-zoom-image" style="max-width: 100%; max-height: 80vh; border-radius: 16px; object-fit: contain; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 2px solid rgba(255,255,255,0.1);">
+      <div id="card-image-zoom-prompt" style="margin-top: 15px; color: white; font-family: var(--font-title); font-weight: 800; font-size: 1.2rem; letter-spacing: 0.5px; text-align: center; text-transform: uppercase;">Prompt</div>
+    </div>
+  </div>
+
+
+  <!-- Menu Contestuale per Espulsione Giocatore (Lobby) -->
+  <div id="kick-context-menu" class="kick-context-menu" style="display: none; position: fixed; z-index: 10000; padding: 6px; border-radius: 12px; min-width: 200px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid rgba(255, 255, 255, 0.15); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); background: rgba(18, 18, 18, 0.95); box-sizing: border-box;">
+    <button id="btn-kick-player" style="width: 100%; text-align: left; padding: 10px 14px; background: none; border: none; color: #ff3838; font-weight: 700; font-family: var(--font-title); font-size: 0.82rem; cursor: pointer; border-radius: 8px; transition: background 0.15s; outline: none; box-sizing: border-box;">
+      Rimuovi giocatore
+    </button>
+    <div style="height: 1px; background: rgba(255, 255, 255, 0.15); margin: 4px 0;"></div>
+    <button id="btn-cancel-kick" style="width: 100%; text-align: left; padding: 10px 14px; background: none; border: none; color: rgba(255, 255, 255, 0.6); font-weight: 600; font-family: var(--font-title); font-size: 0.82rem; cursor: pointer; border-radius: 8px; transition: background 0.15s; outline: none; box-sizing: border-box;">
+      Annulla
+    </button>
+  </div>
+
+  <!-- Modal Regalo di Benvenuto (Modalità "Judgement Day" Trial) -->
+  <div id="trial-gift-modal" class="custom-modal-overlay" style="display: none; justify-content: center; align-items: center; z-index: 15000;">
+    <div class="gift-modal-box">
+      
+      <!-- Icona Pacco Regalo con Starburst CSS -->
+      <div class="gift-icon-container">
+        <div class="gift-starburst"></div>
+        <div class="gift-emoji">🎁</div>
+      </div>
+
+      <!-- Titolo -->
+      <h2 class="gift-modal-title">
+        UN REGALO<br>PER TE!
+      </h2>
+
+      <!-- Sottotitolo -->
+      <p class="gift-modal-desc">
+        Sblocca la modalità <span class="text-pink">"JUDGEMENT DAY"</span> gratis per <span class="text-bold-white">30 giorni.</span><br>
+        <span class="desc-small">Dai vita alle tue carte personalizzate: aggiungi le tue immagini, crea le didascalie e scatena il delirio al tavolo con i tuoi amici!</span>
+      </p>
+
+      <!-- Pulsanti d'azione -->
+      <div class="gift-modal-actions">
+        <button id="btn-activate-trial" class="btn-gift-primary">
+          ATTIVA ORA
+        </button>
+        <button id="btn-activate-later-modal" class="btn-gift-secondary">
+          CONSERVA PER DOPO
+        </button>
+      </div>
+
+      <!-- Canvas per particelle -->
+      <canvas id="trial-particles-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; border-radius: 20px; z-index: 5;"></canvas>
+    </div>
+  </div>
+
+  <!-- Modal Paywall Scadenza Trial -->
+  <div id="trial-expired-modal" class="custom-modal-overlay paywall-overlay" style="display: none; justify-content: center; align-items: center; z-index: 16000;">
+    <div class="trial-expired-modal-box">
+      
+      <!-- Titolo -->
+      <h2 class="title-floating">
+        <span style="display: block; font-size: 2.2rem; margin-bottom: 4px;">⏳</span>I TUOI 30 GIORNI SONO<br>VOLATI!
+      </h2>
+
+      <!-- Descrizione -->
+      <div class="paywall-desc-box">
+        <p class="paywall-desc-glow">
+          Il tuo periodo di prova gratuito è terminato. In questo mese hai messo alla gogna il tuo gruppo e scatenato il delirio al tavolo con le vostre carte più assurde. Non fermare il divertimento!
+        </p>
+      </div>
+
+      <!-- Prezzo -->
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%;">
+        <div class="price-neon-glow">
+          16,99 €
+        </div>
+        <div style="font-size: 0.72rem; color: #a0a0a0; line-height: 1.4; padding: 0 10px; text-align: center; font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;">
+          Acquisto unico. Sblocca la modalità per sempre, senza abbonamenti o rinnovi automatici. Paga solo l'Host, tutta la comitiva gioca GRATIS.
+        </div>
+      </div>
+
+      <!-- Azioni -->
+      <div style="width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+        <button id="btn-paywall-buy" class="btn-sblocca-fucsia">
+          SBLOCCA PER SEMPRE
+        </button>
+        <button id="btn-paywall-close" class="btn-paywall-close-styled">
+          CHIUDI
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Paywall Standard (Vendita Diretta) -->
+  <div id="paywall-standard-modal" class="custom-modal-overlay paywall-overlay" style="display: none; justify-content: center; align-items: center; z-index: 16000;">
+    <div class="trial-expired-modal-box">
+      
+      <!-- Titolo -->
+      <h2 class="title-floating" style="font-size: 1.35rem; line-height: 1.3;">
+        <span style="display: block; font-size: 2.2rem; margin-bottom: 4px;">👑</span>PORTA IL GIOCO AL<br>LIVELLO SUCCESSIVO
+      </h2>
+
+      <!-- Descrizione -->
+      <div class="paywall-desc-box">
+        <p class="paywall-desc-glow">
+          Sblocca la modalità "JUDGEMENT DAY" per personalizzare al 100% le partite con i tuoi amici. Carica le immagini dal tuo rullino, inventa le didascalie e decidi: Over o Under ?
+        </p>
+      </div>
+
+      <!-- Prezzo -->
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%;">
+        <div class="price-neon-glow">
+          16,99 €
+        </div>
+        <div style="font-size: 0.72rem; color: #a0a0a0; line-height: 1.4; padding: 0 10px; text-align: center; font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;">
+          Acquisto unico. Sblocca la modalità per sempre sul tuo dispositivo. Paga solo l'Host, tutti i partecipanti in stanza giocano GRATIS.
+        </div>
+      </div>
+
+      <!-- Azioni -->
+      <div style="width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+        <button id="btn-paywall-standard-buy" class="btn-sblocca-fucsia">
+          ACQUISTA ORA
+        </button>
+        <button id="btn-paywall-standard-close" class="btn-paywall-close-styled">
+          CHIUDI
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification per la copia invito -->
+  <div id="toast-notification" class="toast-notification">
+    <span id="toast-message">Invito copiato!</span>
+  </div>
+
+  <button id="btn-test-expired" style="display: none; position: fixed; bottom: 10px; right: 10px; z-index: 9999; opacity: 0.3; background: #ff5722; color: white; font-weight: bold; border: none; border-radius: 5px; padding: 6px 12px; font-size: 0.75rem; cursor: pointer;">TEST SCADENZA</button>
+  <button id="btn-reset-no-premium" style="display: none; position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 9999; opacity: 0.3; background: #333333; color: white; border: none; border-radius: 5px; padding: 6px 12px; font-size: 0.75rem; cursor: pointer;">RESET TO NO-PREMIUM</button>
+
+  <!-- Caricamento Socket.io Client e script applicativo -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js?v=7"></script>
+</body>
+</html>

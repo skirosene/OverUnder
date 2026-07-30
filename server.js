@@ -1,0 +1,1784 @@
+/**
+ * OverUnder MVP - Server di Gioco (Express + Socket.io)
+ * Gestisce le stanze, i partecipanti, la sincronizzazione del timer e lo stato del gioco.
+ */
+
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const cors = require('cors');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'overunder_super_secret_key_12345_mvp';
+
+// ==========================================================================
+// PERSISTENT DATA DIRECTORY (Render disk mount or local fallback)
+// ==========================================================================
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+// Ensure data directory exists
+if (DATA_DIR !== __dirname && !fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+const USERS_DB_PATH = path.join(DATA_DIR, 'users.json');
+
+function readUsersDb() {
+  try {
+    if (fs.existsSync(USERS_DB_PATH)) {
+      const data = fs.readFileSync(USERS_DB_PATH, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error("Errore lettura users.json:", err);
+  }
+  return {};
+}
+
+function writeUsersDb(db) {
+  try {
+    fs.writeFileSync(USERS_DB_PATH, JSON.stringify(db, null, 2), 'utf8');
+  } catch (err) {
+    console.error("Errore scrittura users.json:", err);
+  }
+}
+
+const users = readUsersDb();
+
+
+// Controllo d'ambiente globale per la fase di testing
+const IS_PRODUCTION = true; // Impostare a false per tornare in fase di sviluppo
+
+// Database persistente simulato per i regali di benvenuto (Trial)
+const TRIAL_DB_PATH = path.join(DATA_DIR, 'trial_db.json');
+
+function readTrialDb() {
+  try {
+    if (fs.existsSync(TRIAL_DB_PATH)) {
+      const data = fs.readFileSync(TRIAL_DB_PATH, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error("Errore lettura trial_db.json:", err);
+  }
+  return [];
+}
+
+function writeTrialDb(db) {
+  try {
+    fs.writeFileSync(TRIAL_DB_PATH, JSON.stringify(db, null, 2), 'utf8');
+  } catch (err) {
+    console.error("Errore scrittura trial_db.json:", err);
+  }
+}
+
+const app = express();
+app.use(cors());
+app.use(express.json()); // support json encoded bodies
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  },
+  // Improve mobile connectivity
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
+
+const PORT = process.env.PORT || 3000;
+
+// Health check endpoint (used by Render to verify the service is running)
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
+
+// Assicura l'esistenza della cartella uploads
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
+
+// Configurazione Multer per caricamento file fino a 2MB
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 2 * 1024 * 1024 } // Limite 2MB
+});
+
+// ==========================================================================
+// CARICAMENTO MAZZI DI GIOCO (Con Fallback)
+// ==========================================================================
+let DECK_DATA = null;
+const decksPath = path.join(__dirname, 'decks.json');
+
+try {
+  if (fs.existsSync(decksPath)) {
+    const rawData = fs.readFileSync(decksPath, 'utf8');
+    DECK_DATA = JSON.parse(rawData);
+    console.log("Mazzi caricati correttamente da decks.json");
+  } else {
+    throw new Error("decks.json non trovato");
+  }
+} catch (error) {
+  console.warn("Impossibile caricare decks.json. Uso il mazzo di backup pre-caricato.", error.message);
+  DECK_DATA = {
+    "decks": [
+      {
+        "deck_id": "gli_intoccabili",
+        "deck_name": "🔥 Gli Intoccabili",
+        "cards": [
+          { "card_id": "c001", "prompt": "Il senso del rotolo della carta igienica (con lo strappo in avanti)", "global_stats": { "underrated": 85, "overrated": 15 } },
+          { "card_id": "c002", "prompt": "Gino Paoli", "global_stats": { "underrated": 30, "overrated": 70 } },
+          { "card_id": "c003", "prompt": "Il supermercato Tigre", "global_stats": { "underrated": 92, "overrated": 8 } },
+          { "card_id": "c004", "prompt": "La pizza con l'ananas", "global_stats": { "underrated": 15, "overrated": 85 } },
+          { "card_id": "c005", "prompt": "Il pandoro senza canditi né uvetta", "global_stats": { "underrated": 78, "overrated": 22 } },
+          { "card_id": "c006", "prompt": "Il Festival di Sanremo", "global_stats": { "underrated": 42, "overrated": 58 } },
+          { "card_id": "c007", "prompt": "Ordinare un cappuccino dopo le 12:00", "global_stats": { "underrated": 20, "overrated": 80 } },
+          { "card_id": "c008", "prompt": "L'uso quotidiano del bidet", "global_stats": { "underrated": 96, "overrated": 4 } },
+          { "card_id": "c009", "prompt": "La pizza napoletana con il cornicione 'a canotto'", "global_stats": { "underrated": 64, "overrated": 36 } },
+          { "card_id": "c010", "prompt": "Mettere il ketchup sulla pasta davanti a un italiano", "global_stats": { "underrated": 8, "overrated": 92 } },
+          { "card_id": "c011", "prompt": "Aggiungere la panna nella pasta alla carbonara", "global_stats": { "underrated": 12, "overrated": 88 } },
+          { "card_id": "c012", "prompt": "Andare in vacanza in estate a Riccione", "global_stats": { "underrated": 35, "overrated": 65 } },
+          { "card_id": "c013", "prompt": "Il fantacalcio", "global_stats": { "underrated": 58, "overrated": 42 } },
+          { "card_id": "c014", "prompt": "Il caffè espresso al bar a meno di 1 euro", "global_stats": { "underrated": 88, "overrated": 12 } },
+          { "card_id": "c015", "prompt": "I film comici di Checco Zalone", "global_stats": { "underrated": 70, "overrated": 30 } },
+          { "card_id": "c016", "prompt": "Il gelato al gusto pistacchio", "global_stats": { "underrated": 84, "overrated": 16 } },
+          { "card_id": "c017", "prompt": "Prendere le ferie tassativamente ad agosto", "global_stats": { "underrated": 25, "overrated": 75 } },
+          { "card_id": "c018", "prompt": "La piadina romagnola come pranzo veloce", "global_stats": { "underrated": 90, "overrated": 10 } },
+          { "card_id": "c019", "prompt": "L'aperitivo con il Negroni", "global_stats": { "underrated": 76, "overrated": 24 } },
+          { "card_id": "c020", "prompt": "L'oroscopo di Paolo Fox a capodanno", "global_stats": { "underrated": 33, "overrated": 67 } },
+          { "card_id": "c021", "prompt": "La lasagna della domenica", "global_stats": { "underrated": 95, "overrated": 5 } },
+          { "card_id": "c022", "prompt": "I classici 'Cinepanettoni' di Natale", "global_stats": { "underrated": 46, "overrated": 54 } },
+          { "card_id": "c023", "prompt": "La musica trap italiana", "global_stats": { "underrated": 18, "overrated": 82 } },
+          { "card_id": "c024", "prompt": "Lo stadio di San Siro a Milano", "global_stats": { "underrated": 80, "overrated": 20 } },
+          { "card_id": "c025", "prompt": "La focaccia barese calda", "global_stats": { "underrated": 93, "overrated": 7 } },
+          { "card_id": "c026", "prompt": "Fare il pesto genovese rigorosamente senza aglio", "global_stats": { "underrated": 22, "overrated": 78 } },
+          { "card_id": "c027", "prompt": "Mangiare la Nutella direttamente dal barattolo con il cucchiaio", "global_stats": { "underrated": 86, "overrated": 14 } },
+          { "card_id": "c028", "prompt": "La mozzarella di bufala mangiata fredda di frigorifero", "global_stats": { "underrated": 15, "overrated": 85 } },
+          { "card_id": "c029", "prompt": "L'aperitivo all'aperto sui Navigli", "global_stats": { "underrated": 40, "overrated": 60 } },
+          { "card_id": "c030", "prompt": "Gli spiedini di arrosticini abruzzesi", "global_stats": { "underrated": 94, "overrated": 6 } }
+        ]
+      },
+      {
+        "deck_id": "tendenze_social",
+        "deck_name": "📱 Cultura & Trend",
+        "cards": [
+          { "card_id": "t001", "prompt": "I messaggi vocali più lunghi di 2 minuti", "global_stats": { "underrated": 12, "overrated": 88 } },
+          { "card_id": "t002", "prompt": "Mettere la modalità scura (Dark Mode) su ogni app", "global_stats": { "underrated": 94, "overrated": 6 } },
+          { "card_id": "t003", "prompt": "I video su TikTok con la voce sintetica che legge il testo", "global_stats": { "underrated": 18, "overrated": 82 } },
+          { "card_id": "t004", "prompt": "Gli influencer che promuovono iniziative di beneficenza", "global_stats": { "underrated": 30, "overrated": 70 } },
+          { "card_id": "t005", "prompt": "I podcast incentrati su storie di True Crime", "global_stats": { "underrated": 74, "overrated": 26 } },
+          { "card_id": "t006", "prompt": "Ordinare vestiti ultra-economici su Shein o Temu", "global_stats": { "underrated": 38, "overrated": 62 } },
+          { "card_id": "t007", "prompt": "Le sigarette elettroniche usa e getta al gusto frutta", "global_stats": { "underrated": 20, "overrated": 80 } },
+          { "card_id": "t008", "prompt": "Indossare i sandali Birkenstock con i calzini", "global_stats": { "underrated": 45, "overrated": 55 } },
+          { "card_id": "t009", "prompt": "Fare il digital nomad lavorando da remoto da Bali", "global_stats": { "underrated": 52, "overrated": 48 } },
+          { "card_id": "t010", "prompt": "Usare ChatGPT per scrivere le email formali al tuo capo", "global_stats": { "underrated": 87, "overrated": 13 } },
+          { "card_id": "t011", "prompt": "I filtri di bellezza di Instagram che alterano i connotati", "global_stats": { "underrated": 10, "overrated": 90 } },
+          { "card_id": "t012", "prompt": "L'acquisto di sneakers in edizione limitata a prezzi folli", "global_stats": { "underrated": 22, "overrated": 78 } },
+          { "card_id": "t013", "prompt": "Collezionare opere d'arte digitali in formato NFT", "global_stats": { "underrated": 5, "overrated": 95 } },
+          { "card_id": "t014", "prompt": "I monopattini elettrici in condivisione parcheggiati ovunque", "global_stats": { "underrated": 24, "overrated": 76 } },
+          { "card_id": "t015", "prompt": "Le cene nei ristoranti Sushi All You Can Eat a 15 euro", "global_stats": { "underrated": 68, "overrated": 32 } },
+          { "card_id": "t016", "prompt": "Fare la foto al piatto al ristorante prima di poter mangiare", "global_stats": { "underrated": 15, "overrated": 85 } },
+          { "card_id": "t017", "prompt": "L'abbonamento mensile a Spotify Premium", "global_stats": { "underrated": 95, "overrated": 5 } },
+          { "card_id": "t018", "prompt": "I video di spacchettamento (Unboxing) su TikTok", "global_stats": { "underrated": 34, "overrated": 66 } },
+          { "card_id": "t019", "prompt": "La funzione 'Rispondi' nei messaggi di gruppo WhatsApp", "global_stats": { "underrated": 91, "overrated": 9 } },
+          { "card_id": "t020", "prompt": "I balletti coreografati di TikTok eseguiti nei luoghi pubblici", "global_stats": { "underrated": 8, "overrated": 92 } },
+          { "card_id": "t021", "prompt": "Iscriversi a corsi di Pilates per rimettersi in forma", "global_stats": { "underrated": 60, "overrated": 40 } },
+          { "card_id": "t022", "prompt": "Comprare dischi in vinile pur non avendo un giradischi", "global_stats": { "underrated": 25, "overrated": 75 } },
+          { "card_id": "t023", "prompt": "I meme divertenti con i gatti su internet", "global_stats": { "underrated": 88, "overrated": 12 } },
+          { "card_id": "t024", "prompt": "Le storie di Instagram delle vacanze degli altri", "global_stats": { "underrated": 14, "overrated": 86 } },
+          { "card_id": "t025", "prompt": "Mangiare Avocado Toast a colazione", "global_stats": { "underrated": 48, "overrated": 52 } },
+          { "card_id": "t026", "prompt": "Ordinare il Bubble Tea il sabato pomeriggio", "global_stats": { "underrated": 36, "overrated": 64 } },
+          { "card_id": "t027", "prompt": "Le dirette streaming di 8 ore degli streamer su Twitch", "global_stats": { "underrated": 28, "overrated": 72 } },
+          { "card_id": "t028", "prompt": "Ascoltare audio ASMR con sussurri e rumori per rilassarsi", "global_stats": { "underrated": 40, "overrated": 60 } },
+          { "card_id": "t029", "prompt": "L'utilizzo quotidiano degli smartwatch per contare i passi", "global_stats": { "underrated": 80, "overrated": 20 } },
+          { "card_id": "t030", "prompt": "Ordinare cibo a domicilio con Deliveroo o Glovo", "global_stats": { "underrated": 82, "overrated": 18 } }
+        ]
+      },
+      {
+        "deck_id": "vita_ufficio",
+        "deck_name": "👔 Vita da Ufficio",
+        "cards": [
+          { "card_id": "u001", "prompt": "Le riunioni che potevano essere una semplice email", "global_stats": { "underrated": 5, "overrated": 95 } },
+          { "card_id": "u002", "prompt": "Scrivere 'Come da accordi telefonici...' nelle email", "global_stats": { "underrated": 72, "overrated": 28 } },
+          { "card_id": "u003", "prompt": "La pizza offerta dall'azienda invece del bonus monetario", "global_stats": { "underrated": 9, "overrated": 91 } },
+          { "card_id": "u004", "prompt": "La pausa caffè programmata e sincronizzata su Teams", "global_stats": { "underrated": 18, "overrated": 82 } },
+          { "card_id": "u005", "prompt": "Pianificare lo Smart Working il venerdì pomeriggio", "global_stats": { "underrated": 93, "overrated": 7 } },
+          { "card_id": "u006", "prompt": "I corsi obbligatori sulla sicurezza sul lavoro online", "global_stats": { "underrated": 15, "overrated": 85 } },
+          { "card_id": "u007", "prompt": "Le attività di Team Building organizzate nel fine settimana", "global_stats": { "underrated": 10, "overrated": 90 } },
+          { "card_id": "u008", "prompt": "Il tavolo da ping pong in ufficio per apparire una start-up cool", "global_stats": { "underrated": 32, "overrated": 68 } },
+          { "card_id": "u009", "prompt": "Il rientro obbligatorio in presenza 5 giorni su 5", "global_stats": { "underrated": 6, "overrated": 94 } },
+          { "card_id": "u010", "prompt": "La frase aziendale 'Qui siamo tutti una grande famiglia'", "global_stats": { "underrated": 11, "overrated": 89 } },
+          { "card_id": "u011", "prompt": "La cena o l'aperitivo aziendale di Natale", "global_stats": { "underrated": 42, "overrated": 58 } },
+          { "card_id": "u012", "prompt": "Inserire l'acronimo 'ASAP' nell'oggetto di ogni email", "global_stats": { "underrated": 14, "overrated": 86 } },
+          { "card_id": "u013", "prompt": "Il collega che risponde attivamente alle email alle 23:00", "global_stats": { "underrated": 20, "overrated": 80 } },
+          { "card_id": "u014", "prompt": "Consumare il pranzo veloce seduti davanti allo schermo del PC", "global_stats": { "underrated": 16, "overrated": 84 } },
+          { "card_id": "u015", "prompt": "Spendere 500 euro per acquistare una sedia ergonomica", "global_stats": { "underrated": 85, "overrated": 15 } },
+          { "card_id": "u016", "prompt": "La call di allineamento del lunedì mattina alle 9:00", "global_stats": { "underrated": 12, "overrated": 88 } },
+          { "card_id": "u017", "prompt": "L'istituzione del 'Casual Friday'", "global_stats": { "underrated": 50, "overrated": 50 } },
+          { "card_id": "u018", "prompt": "L'aria condizionata regolata a 18 gradi in piena estate", "global_stats": { "underrated": 30, "overrated": 70 } },
+          { "card_id": "u019", "prompt": "Gli uffici open space privi di barriere divisorie", "global_stats": { "underrated": 22, "overrated": 78 } },
+          { "card_id": "u020", "prompt": "La burocrazia per richiedere le ferie sul portale", "global_stats": { "underrated": 18, "overrated": 82 } },
+          { "card_id": "u021", "prompt": "Iniziare una chat con 'Ti disturbo per un allineamento al volo?'", "global_stats": { "underrated": 26, "overrated": 74 } },
+          { "card_id": "u022", "prompt": "Il caffè espresso della macchinetta automatica dell'ufficio", "global_stats": { "underrated": 45, "overrated": 55 } },
+          { "card_id": "u023", "prompt": "Le slide di PowerPoint piene zeppe di grafici minuscoli", "global_stats": { "underrated": 8, "overrated": 92 } },
+          { "card_id": "u024", "prompt": "La definizione annuale delle metriche di performance OKR", "global_stats": { "underrated": 25, "overrated": 75 } },
+          { "card_id": "u025", "prompt": "Il collega che fa 'over-sharing' dei propri problemi personali", "global_stats": { "underrated": 28, "overrated": 72 } },
+          { "card_id": "u026", "prompt": "La timbratura fisica del badge all'ingresso e all'uscita", "global_stats": { "underrated": 35, "overrated": 65 } },
+          { "card_id": "u027", "prompt": "La firma dell'email con due paragrafi di avvertenze legali", "global_stats": { "underrated": 13, "overrated": 87 } },
+          { "card_id": "u028", "prompt": "La direzione Risorse Umane che definisce i dipendenti 'risorse'", "global_stats": { "underrated": 10, "overrated": 90 } },
+          { "card_id": "u029", "prompt": "Le chiusure aziendali collettive forzate ad agosto", "global_stats": { "underrated": 21, "overrated": 79 } },
+          { "card_id": "u030", "prompt": "Organizzare riunioni di Brainstorming senza un ordine del giorno", "global_stats": { "underrated": 15, "overrated": 85 } }
+        ]
+      }
+    ]
+  };
+}
+
+// ==========================================================================
+// ROTTE EXPRESS (Static Files, Uploads, Auth, and IAP)
+// ==========================================================================
+app.use(express.static(__dirname));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.get('/api/decks', (req, res) => {
+  res.json(DECK_DATA);
+});
+
+// Endpoint per controllare lo stato del regalo di benvenuto (Trial)
+app.get('/api/trial/status', (req, res) => {
+  const { deviceUuid, fingerprint } = req.query;
+  if (!deviceUuid && !fingerprint) {
+    return res.status(400).json({ error: 'Identificatori dispositivo mancanti' });
+  }
+
+  const db = readTrialDb();
+  const record = db.find(r => 
+    (deviceUuid && r.deviceUuid === deviceUuid) || 
+    (fingerprint && r.fingerprint === fingerprint)
+  );
+
+  if (!record) {
+    return res.json({ activated: false });
+  }
+
+  const isExpired = Date.now() > record.trial_end_date;
+  res.json({
+    activated: true,
+    active: !isExpired,
+    trial_end_date: record.trial_end_date
+  });
+});
+
+// Endpoint per attivare il regalo di benvenuto (Trial 30 giorni)
+app.post('/api/trial/activate', (req, res) => {
+  const { deviceUuid, fingerprint } = req.body;
+  if (!deviceUuid && !fingerprint) {
+    return res.status(400).json({ error: 'Identificatori dispositivo mancanti' });
+  }
+
+  const db = readTrialDb();
+  const existingRecord = db.find(r => 
+    (deviceUuid && r.deviceUuid === deviceUuid) || 
+    (fingerprint && r.fingerprint === fingerprint)
+  );
+
+  if (existingRecord) {
+    return res.status(403).json({ error: 'Regalo di benvenuto già utilizzato su questo dispositivo' });
+  }
+
+  const now = Date.now();
+  const trialRecord = {
+    deviceUuid,
+    fingerprint,
+    trial_activated: true,
+    trial_start_date: now,
+    trial_end_date: now + 30 * 24 * 60 * 60 * 1000, // 30 giorni
+    userId: null
+  };
+
+  const authHeader = req.headers.authorization;
+  let decoded = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded.role === 'host') {
+        const user = users[decoded.userId];
+        if (user) {
+          user.isPremium = true;
+          trialRecord.userId = user.id;
+        }
+      }
+    } catch (err) {
+      console.warn("[TRIAL] Token inviato non valido durante attivazione:", err.message);
+    }
+  }
+
+  db.push(trialRecord);
+  writeTrialDb(db);
+  console.log(`[TRIAL] Attivata prova di 30 giorni per deviceUuid: ${deviceUuid} | fingerprint: ${fingerprint}`);
+
+  if (decoded && decoded.role === 'host') {
+    const newToken = jwt.sign({
+      userId: decoded.userId,
+      username: decoded.username,
+      role: 'host',
+      isPremium: true,
+      trial_active: true,
+      trial_end_date: trialRecord.trial_end_date
+    }, JWT_SECRET, { expiresIn: '7d' });
+    
+    return res.json({ success: true, token: newToken });
+  }
+
+  res.json({ success: true });
+});
+
+// Helper hashing password
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+// 1. Registrazione Host
+app.post('/api/auth/register', (req, res) => {
+  const { username, password, deviceUuid, fingerprint } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username e password obbligatori' });
+  }
+  const cleanUsername = username.trim().toLowerCase();
+  
+  // Controlla se utente esiste
+  const exists = Object.values(users).some(u => u.username === cleanUsername);
+  if (exists) {
+    return res.status(400).json({ error: 'Questo username è già registrato' });
+  }
+
+  const db = readTrialDb();
+  const activeTrial = db.find(r => 
+    ((deviceUuid && r.deviceUuid === deviceUuid) || 
+     (fingerprint && r.fingerprint === fingerprint)) &&
+    Date.now() <= r.trial_end_date
+  );
+
+  const userId = 'host_' + crypto.randomBytes(4).toString('hex');
+  users[userId] = {
+    id: userId,
+    username: cleanUsername,
+    passwordHash: hashPassword(password),
+    isPremium: activeTrial ? true : false
+  };
+  writeUsersDb(users);
+
+
+  if (activeTrial) {
+    activeTrial.userId = userId;
+    writeTrialDb(db);
+  }
+
+  console.log(`[AUTH] Nuovo Host registrato: ${cleanUsername} (${userId}) | Trial Attivo: ${!!activeTrial}`);
+  res.json({ success: true });
+});
+
+// 2. Login Host
+app.post('/api/auth/login', (req, res) => {
+  const { username, password, deviceUuid, fingerprint } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username e password obbligatori' });
+  }
+  const cleanUsername = username.trim().toLowerCase();
+
+  const user = Object.values(users).find(u => u.username === cleanUsername);
+  if (!user || user.passwordHash !== hashPassword(password)) {
+    return res.status(401).json({ error: 'Credenziali non valide' });
+  }
+
+  const db = readTrialDb();
+  const activeTrial = db.find(r => 
+    ((deviceUuid && r.deviceUuid === deviceUuid) || 
+     (fingerprint && r.fingerprint === fingerprint) ||
+     (r.userId === user.id)) &&
+    Date.now() <= r.trial_end_date
+  );
+
+  let isPremium = user.isPremium;
+  let trial_active = false;
+  let trial_end_date = null;
+
+  if (activeTrial) {
+    user.isPremium = true;
+    writeUsersDb(users);
+    isPremium = true;
+    trial_active = true;
+    trial_end_date = activeTrial.trial_end_date;
+    if (!activeTrial.userId) {
+      activeTrial.userId = user.id;
+      writeTrialDb(db);
+    }
+  }
+
+  // Genera JWT con claim trial
+  const token = jwt.sign({
+    userId: user.id,
+    username: user.username,
+    role: 'host',
+    isPremium: isPremium,
+    trial_active: trial_active,
+    trial_end_date: trial_end_date
+  }, JWT_SECRET, { expiresIn: '7d' });
+
+  res.json({ token, isPremium: isPremium, username: user.username });
+});
+
+// 3. Autenticazione Guest (Zero registrazioni)
+app.post('/api/auth/guest', (req, res) => {
+  const { roomCode, playerName, sessionId } = req.body;
+  if (!roomCode || !playerName || !sessionId) {
+    return res.status(400).json({ error: 'Codice stanza, nickname e sessionId obbligatori' });
+  }
+
+  const code = roomCode.toUpperCase().trim();
+  const room = rooms[code];
+  if (!room) {
+    return res.status(404).json({ error: 'Codice stanza non esistente!' });
+  }
+
+  if (room.state !== 'lobby') {
+    return res.status(400).json({ error: 'La partita è già iniziata in questa stanza!' });
+  }
+
+  // Controlla blacklist
+  if (room.blacklist && room.blacklist.includes(sessionId)) {
+    return res.status(403).json({ error: 'Sei stato espulso da questa stanza.' });
+  }
+
+  // Controlla duplicati (escludendo riconnessione)
+  const isReconnecting = room.players.some(p => p.sessionId === sessionId);
+  if (!isReconnecting) {
+    const nameExists = room.players.some(p => p.name.toLowerCase() === playerName.toLowerCase().trim());
+    if (nameExists) {
+      return res.status(400).json({ error: 'Questo nome è già presente in questa stanza!' });
+    }
+    // Controllo Stanza Piena (Solo stanze non premium / normali)
+    if (!room.isPremium && room.players.length >= 30) {
+      return res.status(400).json({ error: 'La stanza ha raggiunto il limite massimo di 30 giocatori.' });
+    }
+  }
+
+  // Genera JWT Guest
+  const token = jwt.sign({
+    sessionId,
+    playerName: playerName.trim(),
+    roomCode: code,
+    role: 'guest',
+    isPremium: false
+  }, JWT_SECRET, { expiresIn: '2h' });
+
+  res.json({ token });
+});
+
+// 4. Validazione IAP (Zero Trust Server-side)
+app.post('/api/iap/verify', (req, res) => {
+  const { platform, receipt } = req.body;
+  
+  // Ottieni il JWT dall'header Authorization
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token mancante o non valido' });
+  }
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'host') {
+      return res.status(403).json({ error: 'Solo gli Host registrati possono effettuare acquisti' });
+    }
+
+    const userId = decoded.userId;
+    const user = users[userId];
+    if (!user) {
+      return res.status(404).json({ error: 'Utente non trovato' });
+    }
+
+    // Zero Trust Validation: Invia la ricevuta alle API store esterne (Apple/Google)
+    // Per questa demo IAP simuleremo il risultato positivo dopo aver effettuato la convalida formale
+    console.log(`[IAP] Convalida ricevuta ${platform} lato server per utente ${user.username}...`);
+    
+    // Apple StoreKit 2 / Google Play Billing Receipt Check simulation:
+    if (!receipt || receipt.trim() === '') {
+      return res.status(400).json({ error: 'Ricevuta non valida' });
+    }
+
+    // Convalida riuscita: aggiorna DB/Cache
+    user.isPremium = true;
+    user.premiumStatus = 'PREMIUM_A_VITA';
+    writeUsersDb(users);
+
+    // Genera un nuovo token aggiornato con sblocco permanente
+    const newToken = jwt.sign({
+      userId: user.id,
+      username: user.username,
+      role: 'host',
+      isPremium: true,
+      premiumStatus: 'PREMIUM_A_VITA'
+    }, JWT_SECRET, { expiresIn: '7d' });
+
+    console.log(`[IAP] Acquisto approvato ed abilitato Premium A Vita per: ${user.username}`);
+    res.json({ token: newToken, isPremium: true });
+
+  } catch (err) {
+    res.status(401).json({ error: 'Errore validazione token: ' + err.message });
+  }
+});
+
+// Endpoint per caricamento immagini (Foto Profilo & Carte Premium)
+app.post('/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Nessun file caricato' });
+  }
+  const fileUrl = '/uploads/' + req.file.filename;
+
+  const roomCode = (req.body.roomCode || '').trim().toUpperCase();
+  const target = (req.body.target || '').trim();
+  
+  if (roomCode && rooms[roomCode] && target === 'card') {
+    const room = rooms[roomCode];
+    if (!room.assets) {
+      room.assets = [];
+    }
+    if (!room.assets.includes(fileUrl)) {
+      room.assets.push(fileUrl);
+    }
+    console.log(`[ASSET] Registrata immagine carta per la stanza ${roomCode}: ${fileUrl}`);
+  }
+
+  res.json({ url: fileUrl });
+});
+
+// ==========================================================================
+// GESTIONE STATO DELLE STANZE DI GIOCO (LOBBY / PLAYING / FREEZE)
+// ==========================================================================
+const rooms = {}; // roomCode => Room Object
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let code;
+  do {
+    code = '';
+    for (let i = 0; i < 4; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+  } while (rooms[code]);
+  return code;
+}
+
+// ==========================================================================
+// WEBSOCKET LOGIC (SOCKET.IO)
+// ==========================================================================
+io.on('connection', (socket) => {
+  let authenticated = false;
+  let currentRoomCode = null;
+  let currentPlayerName = null;
+
+  console.log(`Nuovo client connesso: ${socket.id} (in attesa di AUTH...)`);
+
+  // Timeout autenticazione socket
+  const authTimeout = setTimeout(() => {
+    if (!authenticated) {
+      console.log(`Socket ${socket.id} disconnesso per timeout autenticazione (5s)`);
+      socket.disconnect(true);
+    }
+  }, 5000);
+
+  // Intercettore di pacchetti per costringere l'autenticazione
+  socket.use((packet, next) => {
+    const eventName = packet[0];
+    if (eventName === 'AUTH') {
+      return next();
+    }
+    if (!authenticated) {
+      console.warn(`[AUTH] Socket ${socket.id} bloccato: ha inviato evento '${eventName}' prima di AUTH.`);
+      return; // Rifiuta l'evento
+    }
+    next();
+  });
+
+  // Handshake AUTH as First Message
+  socket.on('AUTH', ({ token }) => {
+    try {
+      if (!token) {
+        throw new Error('Token mancante');
+      }
+      const decoded = jwt.verify(token, JWT_SECRET);
+      authenticated = true;
+      clearTimeout(authTimeout);
+      socket.userData = decoded;
+      socket.emit('AUTH_SUCCESS', {
+        role: decoded.role,
+        isPremium: decoded.isPremium || false,
+        playerName: decoded.playerName || decoded.username
+      });
+      console.log(`[AUTH] Socket ${socket.id} autenticato con successo come ${decoded.role}:${decoded.playerName || decoded.username}`);
+    } catch (err) {
+      console.error(`[AUTH] Autenticazione fallita per socket ${socket.id}:`, err.message);
+      socket.emit('AUTH_ERROR', { error: 'Token non valido o scaduto' });
+      socket.disconnect(true);
+    }
+  });
+
+  // Evento 1: Creazione della Stanza (Host)
+  socket.on('create_room', ({ roomCode, avatar, isPremium }) => {
+    if (!authenticated || !socket.userData) {
+      socket.emit('room_error', "Non sei autenticato.");
+      return;
+    }
+    const hostName = socket.userData.username;
+    const isPremiumUser = socket.userData.isPremium;
+    const sessionId = socket.userData.userId;
+
+    let code = (roomCode || '').trim().toUpperCase();
+
+    if (!code) {
+      socket.emit('room_error', "Inserisci un codice per la stanza!");
+      return;
+    }
+
+    // Validazione codice stanza
+    const alphanumericRegex = /^[A-Z0-9 ]+$/;
+    if (!alphanumericRegex.test(code)) {
+      socket.emit('room_error', "Il codice stanza può contenere solo lettere, numeri e spazi!");
+      return;
+    }
+    if (code.length > 10) {
+      socket.emit('room_error', "Il codice stanza può contenere al massimo 10 caratteri!");
+      return;
+    }
+
+    if (rooms[code]) {
+      socket.emit('room_error', "Questo codice stanza è già in uso! Scegline un altro.");
+      return;
+    }
+
+    currentRoomCode = code;
+    currentPlayerName = hostName;
+
+    // Per consentire i test locali della Modalità Gogna senza transazione reale
+    let finalIsPremium = (isPremium !== undefined) ? !!isPremium : !!isPremiumUser;
+
+    if (finalIsPremium) {
+      // Controllo preventivo scadenza trial
+      const db = readTrialDb();
+      const trialRecord = db.find(r => r.userId === sessionId || r.deviceUuid === sessionId);
+      if (trialRecord && Date.now() > trialRecord.trial_end_date) {
+        const user = users[sessionId];
+        if (user && user.premiumStatus !== 'PREMIUM_A_VITA') {
+          user.isPremium = false;
+          writeUsersDb(users);
+        }
+        if (!user || user.premiumStatus !== 'PREMIUM_A_VITA') {
+          socket.emit('trial_expired_error', {
+            message: "Il tuo periodo di prova di 30 giorni per la Modalità \"Judgement Day\" è scaduto!"
+          });
+          return;
+        }
+      }
+
+      if (IS_PRODUCTION && !isPremiumUser && (!trialRecord || Date.now() > trialRecord.trial_end_date)) {
+        const user = users[sessionId];
+        if (!user || user.premiumStatus !== 'PREMIUM_A_VITA') {
+          socket.emit('room_error', "L'accesso alla Modalità \"Judgement Day\" richiede lo sblocco Premium.");
+          return;
+        }
+      }
+    }
+
+    rooms[code] = {
+      roomCode: code,
+      hostId: socket.id,
+      players: [{ id: socket.id, name: hostName, isHost: true, connected: true, premiumReady: false, avatar: avatar || null, sessionId: sessionId }],
+      state: 'lobby', // lobby, playing, freeze, results, summary
+      deck: null,
+      currentCardIndex: 0,
+      votes: {},       // socketId => voteType
+      playerResponses: [], // storico dei voti delle risposte per i premi
+      roundTimeout: null,
+      isPremium: finalIsPremium,
+      customCards: [],
+      reportedFiles: [],
+      assets: [],
+      chat: [],
+      roundId: 0,
+      blacklist: [],
+      isLocked: false,
+      timerDurationMs: 10000 // Durata timer round (5000 o 10000)
+    };
+
+    socket.join(code);
+    socket.emit('room_created', {
+      roomCode: code,
+      players: rooms[code].players,
+      isHost: true,
+      isPremium: rooms[code].isPremium
+    });
+    console.log(`Stanza creata con codice personalizzato: ${code} da ${hostName} (${socket.id}) | Premium: ${rooms[code].isPremium}`);
+  });
+
+  // Evento 2: Ingresso nella Stanza (Giocatore)
+  socket.on('join_room', ({ avatar }) => {
+    if (!authenticated || !socket.userData) {
+      socket.emit('room_error', "Non sei autenticato.");
+      return;
+    }
+    const { roomCode, playerName, sessionId } = socket.userData;
+    
+    const code = roomCode.toUpperCase();
+    const room = rooms[code];
+
+    if (!room) {
+      socket.emit('room_error', "Codice stanza non esistente!");
+      return;
+    }
+
+    // A. Controlla Blacklist
+    if (room.blacklist && room.blacklist.includes(sessionId)) {
+      socket.emit('room_error', "Sei stato espulso da questa stanza.");
+      return;
+    }
+
+    // B. Controlla se è una riconnessione (Grace Period / Bypass)
+    let player = room.players.find(p => (p.sessionId && p.sessionId === sessionId) || (p.name.toLowerCase() === playerName.toLowerCase() && !p.isBot));
+    if (player) {
+      player.id = socket.id;
+      player.connected = true;
+      if (avatar) player.avatar = avatar;
+      if (sessionId) player.sessionId = sessionId;
+
+      currentRoomCode = code;
+      currentPlayerName = player.name;
+      socket.join(code);
+
+      socket.emit('room_joined', {
+        roomCode: code,
+        players: room.players,
+        isHost: player.isHost,
+        isPremium: room.isPremium,
+        isLocked: room.isLocked
+      });
+
+      io.to(code).emit('player_list_update', { players: room.players });
+      console.log(`Giocatore ${player.name} si è riconnesso (join_room) alla stanza ${code}`);
+      return;
+    }
+
+    // Nuovi ingressi: Emetti auth_completed
+    socket.emit('auth_completed');
+
+    if (room.state !== 'lobby') {
+      socket.emit('room_error', "Il gioco è già iniziato in questa stanza!");
+      return;
+    }
+
+    // Controlla nomi duplicati
+    const nameExists = room.players.some(p => p.name.toLowerCase() === playerName.toLowerCase());
+    if (nameExists) {
+      socket.emit('room_error', "Questo nome è già presente in questa stanza!");
+      return;
+    }
+
+    // C. Controllo Lucchetto (isLocked)
+    if (room.isLocked) {
+      socket.emit('room_error', "Stanza bloccata dall'Host.");
+      return;
+    }
+
+    // D. Controllo Stanza Piena (30/30 - Solo per stanze non premium / normali)
+    if (!room.isPremium && room.players.length >= 30) {
+      socket.emit('room_full_error');
+      return;
+    }
+
+    currentRoomCode = code;
+    currentPlayerName = playerName;
+
+    // Aggiungi giocatore
+    room.players.push({ id: socket.id, name: playerName, isHost: false, connected: true, premiumReady: false, avatar: avatar || null, sessionId: sessionId });
+    socket.join(code);
+
+    socket.emit('room_joined', {
+      roomCode: code,
+      players: room.players,
+      isHost: false,
+      isPremium: room.isPremium,
+      isLocked: room.isLocked
+    });
+
+    // Notifica tutti gli altri
+    io.to(code).emit('player_list_update', { players: room.players });
+    console.log(`Giocatore ${playerName} si è unito alla stanza ${code}`);
+
+    // Se la stanza è piena, notifica tutti (Solo per stanze non premium / normali)
+    if (!room.isPremium && room.players.length === 30) {
+      io.to(code).emit('room_full');
+    }
+  });
+
+  // Evento 3: Avvio della Partita (Solo Host)
+  socket.on('start_game', ({ gameLength }) => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id) return;
+
+    if (room.isPremium) {
+      // Costruisci il mazzo personalizzato con le carte inviate dai partecipanti
+      const customCards = room.customCards.map((cardObj, index) => {
+        const und = Math.floor(Math.random() * 41) + 30; // Percentuale casuale realistica 30-70%
+        const promptText = typeof cardObj === 'string' ? cardObj : (cardObj.text || '');
+        const image = typeof cardObj === 'string' ? null : (cardObj.image || null);
+        return {
+          card_id: `custom_${index}_${Date.now()}`,
+          prompt: promptText,
+          image: image,
+          global_stats: {
+            underrated: und,
+            overrated: 100 - und
+          }
+        };
+      });
+
+      // Mescola le carte personalizzate
+      const shuffledCustom = customCards.sort(() => 0.5 - Math.random());
+
+      room.deck = {
+        deck_id: 'custom_premium',
+        deck_name: '👑 MODALITÀ "JUDGEMENT DAY"',
+        cards: shuffledCustom
+      };
+      room.gameLength = shuffledCustom.length;
+    } else {
+      const deck = DECK_DATA.decks[0];
+      if (!deck) return;
+
+      // Clona il mazzo unico e seleziona la quantità desiderata di carte casuali
+      const clonedDeck = JSON.parse(JSON.stringify(deck));
+      const shuffledCards = clonedDeck.cards.sort(() => 0.5 - Math.random());
+      const limit = parseInt(gameLength, 10) || 30;
+      clonedDeck.cards = shuffledCards.slice(0, limit);
+
+      room.deck = clonedDeck;
+      room.gameLength = limit;
+    }
+
+    room.currentCardIndex = 0;
+    room.playerResponses = [];
+    room.state = 'playing';
+
+    io.to(room.roomCode).emit('game_started', {
+      deckName: room.deck.deck_name,
+      totalCards: room.gameLength
+    });
+
+    startNewRound(room);
+  });
+
+  // Evento 4: Invio del Voto dal Client
+  socket.on('submit_vote', ({ voteType }) => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.state !== 'playing') return;
+
+    // Registra il voto del mittente
+    room.votes[socket.id] = voteType;
+
+    // Invia lo stato aggiornato di chi ha votato (nomi dei votanti)
+    const votedNames = room.players
+      .filter(p => room.votes[p.id])
+      .map(p => p.name);
+
+    io.to(room.roomCode).emit('player_voted_update', { votedPlayers: votedNames });
+
+    // Verifica se tutti i partecipanti hanno espresso il voto
+    const allVoted = room.players.every(p => room.votes[p.id]);
+    if (allVoted) {
+      freezeRound(room, "TUTTI I VOTI REGISTRATI!");
+    }
+  });
+
+  // Evento 4b: Aggiunta Bot Simulati (Solo Host, Solo in Lobby)
+  socket.on('add_bots', () => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id || room.state !== 'lobby') return;
+
+    const botNames = ['Marco', 'Giulia', 'Alessandro'];
+    const existingNames = room.players.map(p => p.name);
+    const botAvatars = [
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80', // Marco
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80', // Giulia
+      'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&h=150&q=80'  // Alessandro
+    ];
+
+    botNames.forEach((botName, index) => {
+      if (!existingNames.includes(botName)) {
+        const botId = 'bot_' + botName.replace(/[^a-zA-Z]/g, '') + '_' + Math.random().toString(36).substr(2, 5);
+        const avatarUrl = botAvatars[index % botAvatars.length];
+
+        room.players.push({
+          id: botId,
+          name: botName,
+          isHost: false,
+          connected: true,
+          isBot: true,
+          premiumReady: !room.isPremium,
+          avatar: avatarUrl
+        });
+
+        // Se la stanza è premium, simuliamo la scrittura dei bot con un ritardo casuale
+        if (room.isPremium) {
+          const delay = 1500 + Math.random() * 2000; // 1.5 - 3.5 secondi
+          setTimeout(() => {
+            const r = rooms[room.roomCode];
+            if (!r || r.state !== 'lobby') return;
+            const b = r.players.find(p => p.id === botId);
+            if (!b) return;
+
+            const botPrompts = [
+              `Il caffè freddo in lattina`,
+              `Le riunioni di allineamento alle 8:30 del lunedì`,
+              `Mettere l'ananas sulla pizza a tradimento`,
+              `Comprare vestiti solo per fare i resi gratuiti`,
+              `La ricarica wireless lentissima`,
+              `Mandare note vocali di 7 minuti`,
+              `Chi applaude quando atterra l'aereo`
+            ];
+            const count = Math.floor(Math.random() * 2) + 1;
+            for (let i = 0; i < count; i++) {
+              const pStr = botPrompts[Math.floor(Math.random() * botPrompts.length)];
+              const exists = r.customCards.some(c => (typeof c === 'string' && c === pStr) || (c && c.text === pStr));
+              if (!exists) {
+                r.customCards.push({ text: pStr, image: null });
+              }
+            }
+
+            b.premiumReady = true;
+            io.to(r.roomCode).emit('player_list_update', { players: r.players });
+            console.log(`Bot ${b.name} pronto e carte inviate.`);
+          }, delay);
+        }
+      }
+    });
+
+    io.to(room.roomCode).emit('player_list_update', { players: room.players });
+    console.log(`Bot aggiunti alla stanza ${currentRoomCode}`);
+  });
+
+  // Evento 4c: Invio delle carte custom Premium
+  socket.on('submit_premium_cards', ({ cards }) => {
+    const room = rooms[currentRoomCode];
+    if (!room || !room.isPremium) return;
+
+    if (Array.isArray(cards)) {
+      cards.forEach(cardObj => {
+        if (cardObj && typeof cardObj === 'object') {
+          const trimmedText = (cardObj.text || '').trim();
+          if (trimmedText) {
+            const exists = room.customCards.some(c => c.text === trimmedText);
+            if (!exists) {
+              room.customCards.push({
+                text: trimmedText,
+                image: cardObj.image || null
+              });
+            }
+          }
+        } else if (typeof cardObj === 'string') {
+          const trimmed = cardObj.trim();
+          if (trimmed) {
+            const exists = room.customCards.some(c => (typeof c === 'string' && c === trimmed) || (c && c.text === trimmed));
+            if (!exists) {
+              room.customCards.push({
+                text: trimmed,
+                image: null
+              });
+            }
+          }
+        }
+      });
+    }
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (player) {
+      player.premiumReady = true;
+    }
+
+    io.to(room.roomCode).emit('player_list_update', { players: room.players });
+    console.log(`Giocatore ${player ? player.name : socket.id} ha inviato ${cards ? cards.length : 0} carte custom. Totale stanza: ${room.customCards.length}`);
+  });
+
+
+
+  // Evento 6: Prossima Carta (Solo Host)
+  socket.on('next_card', () => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id || (room.state !== 'results' && room.state !== 'playing')) return;
+
+    if (room.state === 'playing') {
+      freezeRound(room, "Avanzamento Host");
+      return;
+    }
+
+    room.currentCardIndex++;
+    if (room.currentCardIndex < room.deck.cards.length) {
+      startNewRound(room);
+    } else {
+      endGame(room);
+    }
+  });
+
+  // Evento 6b: Cambia Durata Timer (Solo Host)
+  socket.on('set_timer_duration', ({ durationMs }) => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id) return;
+
+    const validDurations = [5000, 10000, 15000];
+    if (!validDurations.includes(durationMs)) return;
+
+    room.timerDurationMs = durationMs;
+    console.log(`[TIMER] Durata timer aggiornata a ${durationMs}ms nella stanza ${currentRoomCode}`);
+
+    // Notifica tutti i client del cambio timer
+    io.to(currentRoomCode).emit('timer_duration_changed', { durationMs });
+  });
+
+  // Evento 7: Torna al Menu / Ricomincia (Solo Host)
+  socket.on('restart_game', () => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id) return;
+
+    if (room.isPremium) {
+      const hostSessionId = socket.userData ? socket.userData.userId : null;
+      if (hostSessionId) {
+        const db = readTrialDb();
+        const trialRecord = db.find(r => r.userId === hostSessionId || r.deviceUuid === hostSessionId);
+        if (trialRecord && Date.now() > trialRecord.trial_end_date) {
+          const user = users[hostSessionId];
+          if (user && user.premiumStatus !== 'PREMIUM_A_VITA') {
+            user.isPremium = false;
+            writeUsersDb(users);
+          }
+          if (!user || user.premiumStatus !== 'PREMIUM_A_VITA') {
+            socket.emit('trial_expired_error', {
+              message: "Il tuo periodo di prova di 30 giorni per la Modalità \"Judgement Day\" è scaduto! Non puoi riavviare la partita."
+            });
+            return;
+          }
+        }
+      }
+    }
+
+    // Cancella e distrugge qualsiasi timer del round pendente
+    if (room.roundTimeout) {
+      clearTimeout(room.roundTimeout);
+      room.roundTimeout = null;
+    }
+
+    // 1. I Capisaldi del Reset (Uguali per tutte le modalità)
+    // PULIZIA TOTALE dello Stato di Round
+    room.currentCardIndex = 0;
+    room.playerResponses = [];
+    room.votes = {};
+    room.roundId = 0;
+    room.timeIsUp = false;
+    room.chat = []; // Wipe della chat sul server
+
+    // Garbage Collection immediata degli Asset: elimina le immagini delle carte dal disco
+    cleanupRoomAssets(room);
+
+    if (room.isPremium) {
+      // SCENARIO B: Nella "Modalità Gogna" (Mazzo Creato dai Giocatori)
+      room.state = 'lobby';
+      room.customCards = [];
+      room.deck = null;
+
+      // Imposta tutti i giocatori su "Non Pronto" (premiumReady = false)
+      room.players.forEach(p => {
+        p.premiumReady = false;
+      });
+
+      // Simula i bot che riscrivono e inviano le carte al restart
+      const botPlayers = room.players.filter(p => p.isBot);
+      botPlayers.forEach(bot => {
+        const delay = 1500 + Math.random() * 2000;
+        setTimeout(() => {
+          const r = rooms[room.roomCode];
+          if (!r || r.state !== 'lobby') return;
+          const b = r.players.find(p => p.id === bot.id);
+          if (!b) return;
+
+          const botPrompts = [
+            `Il caffè freddo in lattina`,
+            `Le riunioni di allineamento alle 8:30 del lunedì`,
+            `Mettere l'ananas sulla pizza a tradimento`,
+            `Comprare vestiti solo per fare i resi gratuiti`,
+            `La ricarica wireless lentissima`,
+            `Mandare note vocali di 7 minuti`,
+            `Chi applaude quando atterra l'aereo`
+          ];
+          const count = Math.floor(Math.random() * 2) + 1;
+          for (let i = 0; i < count; i++) {
+            const pStr = botPrompts[Math.floor(Math.random() * botPrompts.length)];
+            const exists = r.customCards.some(c => (typeof c === 'string' && c === pStr) || (c && c.text === pStr));
+            if (!exists) {
+              r.customCards.push({ text: pStr, image: null });
+            }
+          }
+
+          b.premiumReady = true;
+          io.to(r.roomCode).emit('player_list_update', { players: r.players });
+          console.log(`Bot ${b.name} pronto di nuovo dopo il restart.`);
+        }, delay);
+      });
+
+      // Invia l'evento globale di reset Gogna
+      io.to(room.roomCode).emit('game_reset_gogna', { players: room.players });
+      console.log(`[RESET] Stanza ${room.roomCode} resettata in Modalità Gogna. Tutti i giocatori rimandati alla creazione carte.`);
+
+    } else {
+      // SCENARIO A: Nella "Stanza Normale" (Mazzo di Default)
+      room.state = 'playing';
+
+      const deck = DECK_DATA.decks[0];
+      if (deck) {
+        // Clona il mazzo unico e seleziona la quantità desiderata di carte casuali
+        const clonedDeck = JSON.parse(JSON.stringify(deck));
+        const shuffledCards = clonedDeck.cards.sort(() => 0.5 - Math.random());
+        const limit = parseInt(room.gameLength, 10) || 30;
+        clonedDeck.cards = shuffledCards.slice(0, limit);
+
+        room.deck = clonedDeck;
+        room.gameLength = limit;
+      }
+
+      // Invia l'evento globale di reset Default
+      io.to(room.roomCode).emit('game_reset_default');
+
+      // Notifica avvio partita classica
+      io.to(room.roomCode).emit('game_started', {
+        deckName: room.deck.deck_name,
+        totalCards: room.gameLength
+      });
+
+      // Avvia immediatamente il primo round
+      startNewRound(room);
+      console.log(`[RESET] Stanza ${room.roomCode} resettata in Modalità Classica. Inizio partita immediato.`);
+    }
+  });
+
+  // Evento 7b: Segnalazione Carta Corrente (Silente, Moderazione)
+  socket.on('report_current_card', () => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.state !== 'playing') return;
+
+    const card = room.deck.cards[room.currentCardIndex];
+    if (!card) return;
+
+    console.log(`[MODERATION] Carta segnalata nella stanza ${room.roomCode} dal client ${socket.id}: text="${card.prompt || ''}", image="${card.image || ''}"`);
+
+    if (card.image && card.image.startsWith('/uploads/')) {
+      if (!room.reportedFiles) {
+        room.reportedFiles = [];
+      }
+      if (!room.reportedFiles.includes(card.image)) {
+        room.reportedFiles.push(card.image);
+        console.log(`[MODERATION] File registrato per la rimozione a fine sessione: ${card.image}`);
+      }
+    }
+  });
+
+  // Evento 8: Ripristino Sessione (Gestione re-connect e riavvio)
+  socket.on('restore_session', ({ roomCode, playerName, isHost, sessionId }) => {
+    const room = rooms[roomCode];
+    if (!room) {
+      socket.emit('session_failed', "Stanza non trovata.");
+      return;
+    }
+    
+    // Controlla Blacklist
+    if (room.blacklist && room.blacklist.includes(sessionId)) {
+      socket.emit('kicked_from_room');
+      return;
+    }
+
+    socket.emit('auth_completed');
+    
+    // Trova il giocatore corrispondente nella stanza
+    let player = room.players.find(p => (p.sessionId && p.sessionId === sessionId) || p.name === playerName);
+    if (!player) {
+      socket.emit('session_failed', "Giocatore non registrato in questa stanza.");
+      return;
+    }
+    
+    // Aggiorna l'ID socket del giocatore, stato connessione e sessionId
+    player.id = socket.id;
+    player.connected = true;
+    if (sessionId) player.sessionId = sessionId;
+    
+    // Annulla eventuale timeout disconnessione Host
+    if (player.isHost || isHost) {
+      if (room.hostDisconnectTimeout) {
+        clearTimeout(room.hostDisconnectTimeout);
+        room.hostDisconnectTimeout = null;
+        console.log(`Host si è riconnesso alla stanza ${roomCode}. Grace period annullato.`);
+      }
+      room.hostId = socket.id;
+      player.isHost = true;
+    }
+    
+    currentRoomCode = roomCode;
+    currentPlayerName = playerName;
+    
+    socket.join(roomCode);
+    
+    // Costruisci il pacchetto dati del gioco
+    const gameData = {
+      deckName: room.deck ? room.deck.deck_name : '',
+      totalCards: room.gameLength || (room.deck ? room.deck.cards.length : 0),
+      cardIndex: room.currentCardIndex,
+      prompt: room.deck ? room.deck.cards[room.currentCardIndex].prompt : '',
+      image: room.deck ? (room.deck.cards[room.currentCardIndex].image || null) : null,
+      userHasVoted: !!room.votes[socket.id],
+      votedPlayers: room.players.filter(p => room.votes[p.id] && room.votes[p.id] !== 'timeout').map(p => p.name),
+      roundStartTime: room.roundStartTime || Date.now(),
+      timerDurationMs: room.timerDurationMs || 10000,
+      freezeMessage: room.freezeMessage || ''
+    };
+    
+    if (room.state === 'results') {
+      const card = room.deck.cards[room.currentCardIndex];
+      const voteDetails = room.players.map(p => ({
+        player: p.name,
+        vote: room.votes[p.id] || 'timeout'
+      }));
+      
+      let countUnder = 0;
+      let countOver = 0;
+      voteDetails.forEach(v => {
+        if (v.vote === 'underrated') countUnder++;
+        if (v.vote === 'overrated') countOver++;
+      });
+      const totalValid = countUnder + countOver;
+      let groupUnderPct = 50;
+      let groupOverPct = 50;
+      if (totalValid > 0) {
+        groupUnderPct = Math.round((countUnder / totalValid) * 100);
+        groupOverPct = 100 - groupUnderPct;
+      }
+      
+      gameData.results = {
+        votes: voteDetails,
+        groupStats: { underrated: groupUnderPct, overrated: groupOverPct },
+        globalStats: card.global_stats,
+        prompt: card.prompt,
+        image: card.image || null,
+        cardIndex: room.currentCardIndex,
+        totalCards: room.gameLength || room.deck.cards.length
+      };
+    } else if (room.state === 'summary') {
+      gameData.summary = {
+        awards: calculateAwards(room),
+        summary: room.playerResponses
+      };
+    }
+    
+    socket.emit('session_restored', {
+      state: room.state,
+      roomCode: room.roomCode,
+      players: room.players,
+      isHost: player.isHost,
+      isPremium: room.isPremium,
+      isLocked: room.isLocked,
+      currentScreen: room.state,
+      gameData: gameData
+    });
+    
+    // Notifica tutti gli altri player che la lista è aggiornata (connesso di nuovo)
+    io.to(roomCode).emit('player_list_update', { players: room.players });
+    console.log(`Sessione ripristinata con successo per ${playerName} (${socket.id}) nella stanza ${roomCode}`);
+  });
+
+  // Evento 8b: Toggle blocco stanza (Solo Host, Solo in Lobby)
+  socket.on('toggle_room_lock', () => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id || room.state !== 'lobby') return;
+
+    room.isLocked = !room.isLocked;
+
+    // Emetti stato aggiornato a tutti
+    io.to(room.roomCode).emit('room_lock_update', { isLocked: room.isLocked });
+
+    // Toast globali
+    const toastMsg = room.isLocked ? "🔒 L'Host ha chiuso la stanza" : "🔓 L'Host ha riaperto la stanza";
+    io.to(room.roomCode).emit('global_toast', { message: toastMsg });
+
+    console.log(`Lucchetto stanza ${room.roomCode} impostato a: ${room.isLocked}`);
+  });
+
+  // Evento 8c: Stealth Kick manuale (Solo Host, Solo in Lobby)
+  socket.on('kick_player', ({ playerId, sessionId, name }) => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id || room.state !== 'lobby') return;
+
+    const playerIndex = room.players.findIndex(p => p.id === playerId || (p.sessionId && p.sessionId === sessionId) || p.name === name);
+    if (playerIndex === -1) return;
+
+    const player = room.players[playerIndex];
+
+    if (!player.isBot) {
+      if (!room.blacklist) {
+        room.blacklist = [];
+      }
+      if (player.sessionId && !room.blacklist.includes(player.sessionId)) {
+        room.blacklist.push(player.sessionId);
+      }
+
+      // Chiudi il socket ed emetti evento di kick
+      const targetSocket = io.sockets.sockets.get(player.id);
+      if (targetSocket) {
+        targetSocket.emit('kicked_from_room');
+        setTimeout(() => {
+          targetSocket.disconnect(true);
+        }, 100);
+      } else {
+        io.to(player.id).emit('kicked_from_room');
+      }
+    }
+
+    // Rimuovi dalla stanza
+    room.players.splice(playerIndex, 1);
+
+    // Toast notifiche (Neutro per gli altri, specifico per l'Host)
+    room.players.forEach(p => {
+      if (p.isHost) {
+        io.to(p.id).emit('global_toast', { message: `Giocatore ${player.name} espulso dalla stanza` });
+      } else {
+        io.to(p.id).emit('global_toast', { message: `${player.name} ha lasciato la partita` });
+      }
+    });
+
+    // Aggiorna lista partecipanti
+    io.to(room.roomCode).emit('player_list_update', { players: room.players });
+    console.log(`Giocatore/Bot ${player.name} rimosso dalla stanza ${room.roomCode}`);
+  });
+
+  // Disconnessione
+  socket.on('disconnect', () => {
+    console.log(`Client disconnesso: ${socket.id}`);
+    if (!currentRoomCode) return;
+
+    const room = rooms[currentRoomCode];
+    if (!room) return;
+
+    // Troviamo il player ed impostiamo lo stato connected = false
+    const player = room.players.find(p => p.id === socket.id);
+    if (player) {
+      player.connected = false;
+      console.log(`Giocatore ${player.name} segnato come disconnesso temporaneamente.`);
+    }
+
+    // Notifichiamo gli altri client che il player è offline temporaneamente
+    io.to(currentRoomCode).emit('player_list_update', { players: room.players });
+
+    // Se tutti i player sono disconnessi, o se l'host si disconnette, impostiamo un grace period di 15 secondi prima di chiudere la stanza.
+    if (room.hostId === socket.id) {
+      console.log(`Host si è disconnesso da stanza ${currentRoomCode}. Avvio grace period di 15s.`);
+      
+      if (room.hostDisconnectTimeout) clearTimeout(room.hostDisconnectTimeout);
+      
+      room.hostDisconnectTimeout = setTimeout(() => {
+        const checkRoom = rooms[currentRoomCode];
+        // Se l'host non si è riconnesso entro 15s (l'hostId della stanza corrisponde ancora a questo socket disconnesso)
+        if (checkRoom && checkRoom.hostId === socket.id) {
+          if (checkRoom.roundTimeout) clearTimeout(checkRoom.roundTimeout);
+          io.to(currentRoomCode).emit('room_closed', "L'Host si è disconnesso permanentemente. Partita terminata.");
+          cleanupRoomFiles(checkRoom);
+          cleanupRoomAssets(checkRoom);
+          delete rooms[currentRoomCode];
+          console.log(`Stanza ${currentRoomCode} chiusa definitivamente per inattività Host.`);
+        }
+      }, 15000);
+    } else {
+      // Se eravamo in gioco ed era un player semplice a disconnettersi, verifichiamo se lo stato dei voti è sbloccato.
+      // Trattiamo i player non connessi come astensioni se tutti i player attivi rimanenti hanno votato.
+      if (room.state === 'playing') {
+        const activePlayers = room.players.filter(p => p.connected !== false);
+        const allActiveVoted = activePlayers.every(p => room.votes[p.id]);
+        if (allActiveVoted && activePlayers.length > 0) {
+          freezeRound(room, "TUTTI I GIOCATORI ATTIVI HANNO VOTATO");
+        }
+      }
+    }
+  });
+});
+
+// ==========================================================================
+// FUNZIONI SUPPORTO LOGICA ROUND
+// ==========================================================================
+function startNewRound(room) {
+  room.state = 'playing';
+  room.votes = {}; // Resetta i voti
+  room.timeIsUp = false; // Reset stato fine tempo
+  room.roundStartTime = Date.now();
+
+  const timerMs = room.timerDurationMs || 10000;
+  const card = room.deck.cards[room.currentCardIndex];
+
+  if (room.roundTimeout) {
+    clearTimeout(room.roundTimeout);
+  }
+
+  // Notifica tutti i client della nuova carta (include la durata timer corrente)
+  io.to(room.roomCode).emit('new_card', {
+    prompt: card.prompt,
+    image: card.image || null,
+    cardIndex: room.currentCardIndex,
+    totalCards: room.gameLength || room.deck.cards.length,
+    timerDurationMs: timerMs
+  });
+
+  // Programmazione del voto dei Bot con ritardi casuali scalati sulla durata
+  const botPlayers = room.players.filter(p => p.isBot);
+  const scheduledCardIndex = room.currentCardIndex;
+  const botMaxDelay = timerMs * 1.2; // Bot possono votare fino al 120% del timer
+
+  botPlayers.forEach(bot => {
+    const delay = (timerMs * 0.2) + Math.random() * botMaxDelay;
+    
+    setTimeout(() => {
+      // Verifica che la stanza sia ancora nello stesso round ed in uno stato valido
+      if (room.currentCardIndex !== scheduledCardIndex) return;
+      if (room.state !== 'playing') return;
+      if (room.votes[bot.id]) return; // Già votato
+
+      // Genera voto casuale
+      const voteType = Math.random() < 0.5 ? 'underrated' : 'overrated';
+      room.votes[bot.id] = voteType;
+
+      console.log(`Bot ${bot.name} ha votato: ${voteType}`);
+
+      // Notifica i client dello stato del voto
+      const votedNames = room.players
+        .filter(p => room.votes[p.id])
+        .map(p => p.name);
+      io.to(room.roomCode).emit('player_voted_update', { votedPlayers: votedNames });
+
+      // Se il tempo è già scaduto ed è attivo l'overlay, aggiorna i voti in tempo reale
+      if (room.timeIsUp) {
+        const roundVotes = room.players.map(p => ({
+          player: p.name,
+          vote: room.votes[p.id] || 'thinking'
+        }));
+        io.to(room.roomCode).emit('verdict_update', { votes: roundVotes });
+      }
+
+      // Se tutti hanno votato, congela il round
+      const allVoted = room.players.every(p => room.votes[p.id]);
+      if (allVoted) {
+        freezeRound(room, "TUTTI I VOTI REGISTRATI!");
+      }
+    }, delay);
+  });
+
+  // Avvia timer master di sicurezza sul server (timerMs + 500ms di latenza di rete)
+  room.roundTimeout = setTimeout(() => {
+    room.timeIsUp = true;
+    // Invia segnale di tempo scaduto con i voti correnti
+    const roundVotes = room.players.map(p => ({
+      player: p.name,
+      vote: room.votes[p.id] || 'thinking'
+    }));
+    io.to(room.roomCode).emit('time_up', { votes: roundVotes });
+  }, timerMs + 500);
+}
+
+function freezeRound(room, message) {
+  if (room.state !== 'playing') return;
+  room.state = 'results';
+  room.freezeMessage = message;
+
+  if (room.roundTimeout) {
+    clearTimeout(room.roundTimeout);
+    room.roundTimeout = null;
+  }
+
+  // Identifica i ritardatari ed assegna 'timeout'
+  room.players.forEach(p => {
+    if (!room.votes[p.id]) {
+      room.votes[p.id] = 'timeout';
+    }
+  });
+
+  // Salva risposte storiche per calcolo finale
+  const card = room.deck.cards[room.currentCardIndex];
+  const roundVotes = room.players.map(p => ({
+    player: p.name,
+    vote: room.votes[p.id]
+  }));
+
+  room.playerResponses.push({
+    prompt: card.prompt,
+    image: card.image || null,
+    votes: roundVotes,
+    stats: card.global_stats
+  });
+
+  // Calcola percentuali del gruppo
+  let countUnder = 0;
+  let countOver = 0;
+  roundVotes.forEach(v => {
+    if (v.vote === 'underrated') countUnder++;
+    if (v.vote === 'overrated') countOver++;
+  });
+  const totalValid = countUnder + countOver;
+  let groupUnderPct = 50;
+  let groupOverPct = 50;
+  if (totalValid > 0) {
+    groupUnderPct = Math.round((countUnder / totalValid) * 100);
+    groupOverPct = 100 - groupUnderPct;
+  }
+
+  // Emetti i risultati del round a tutti i client
+  io.to(room.roomCode).emit('round_results', {
+    votes: roundVotes,
+    groupStats: { underrated: groupUnderPct, overrated: groupOverPct },
+    globalStats: card.global_stats,
+    prompt: card.prompt,
+    image: card.image || null,
+    cardIndex: room.currentCardIndex,
+    totalCards: room.gameLength || room.deck.cards.length
+  });
+}
+
+function endGame(room) {
+  room.state = 'summary';
+
+  // Calcola i premi speciali
+  const awards = calculateAwards(room);
+
+  // Invia il segnale di game over con resoconto e premi
+  io.to(room.roomCode).emit('game_over', {
+    awards: awards,
+    summary: room.playerResponses
+  });
+}
+
+// Calcolo premi speciali sul server
+function calculateAwards(room) {
+  const stats = {};
+  room.players.forEach(p => {
+    stats[p.name] = {
+      underrated: 0,
+      overrated: 0,
+      timeouts: 0,
+      agreedWithGroup: 0,
+      disagreedWithGroup: 0
+    };
+  });
+
+  room.playerResponses.forEach(res => {
+    let countUnder = 0;
+    let countOver = 0;
+    res.votes.forEach(v => {
+      if (v.vote === 'underrated') countUnder++;
+      if (v.vote === 'overrated') countOver++;
+    });
+
+    let majority = null;
+    if (countUnder > countOver) majority = 'underrated';
+    else if (countOver > countUnder) majority = 'overrated';
+
+    res.votes.forEach(v => {
+      const pStats = stats[v.player];
+      if (!pStats) return;
+
+      if (v.vote === 'underrated') {
+        pStats.underrated++;
+        if (majority) {
+          if (majority === 'underrated') pStats.agreedWithGroup++;
+          else pStats.disagreedWithGroup++;
+        }
+      } else if (v.vote === 'overrated') {
+        pStats.overrated++;
+        if (majority) {
+          if (majority === 'overrated') pStats.agreedWithGroup++;
+          else pStats.disagreedWithGroup++;
+        }
+      } else {
+        pStats.timeouts++;
+      }
+    });
+  });
+
+  const list = [];
+  const playerNames = room.players.map(p => p.name);
+
+  // 1. L'omologato
+  let maxAgree = 0;
+  let winnersAgree = [];
+  playerNames.forEach(name => {
+    const s = stats[name];
+    if (s.agreedWithGroup > maxAgree) {
+      maxAgree = s.agreedWithGroup;
+      winnersAgree = [name];
+    } else if (s.agreedWithGroup === maxAgree && maxAgree > 0) {
+      winnersAgree.push(name);
+    }
+  });
+  if (maxAgree > 0) {
+    list.push({
+      title: "🏆 L'OMOLOGATO",
+      winner: winnersAgree.join(', '),
+      desc: `Ha votato d'accordo con il gruppo per ${maxAgree} volte. Persona socievole o senza personalità?`,
+      icon: "🐑"
+    });
+  }
+
+  // 2. La pecora nera
+  let maxDisagree = 0;
+  let winnersDisagree = [];
+  playerNames.forEach(name => {
+    const s = stats[name];
+    if (s.disagreedWithGroup > maxDisagree) {
+      maxDisagree = s.disagreedWithGroup;
+      winnersDisagree = [name];
+    } else if (s.disagreedWithGroup === maxDisagree && maxDisagree > 0) {
+      winnersDisagree.push(name);
+    }
+  });
+  if (maxDisagree > 0) {
+    list.push({
+      title: "🐺 LA PECORA NERA",
+      winner: winnersDisagree.join(', '),
+      desc: `In disaccordo con la maggioranza per ${maxDisagree} volte. Bastian contrario nato!`,
+      icon: "🖤"
+    });
+  }
+
+  // 3. Il pigro
+  let maxTimeouts = 0;
+  let winnersTimeouts = [];
+  playerNames.forEach(name => {
+    const s = stats[name];
+    if (s.timeouts > maxTimeouts) {
+      maxTimeouts = s.timeouts;
+      winnersTimeouts = [name];
+    } else if (s.timeouts === maxTimeouts && maxTimeouts > 0) {
+      winnersTimeouts.push(name);
+    }
+  });
+  if (maxTimeouts > 0) {
+    list.push({
+      title: "🐌 IL PIGRO",
+      winner: winnersTimeouts.join(', '),
+      desc: `Tempo scaduto per ${maxTimeouts} volte. La fretta non fa per lui.`,
+      icon: "💤"
+    });
+  }
+
+  // 4. Il Sopra-valutatore
+  let maxOver = 0;
+  let winnersOver = [];
+  playerNames.forEach(name => {
+    const s = stats[name];
+    if (s.overrated > maxOver) {
+      maxOver = s.overrated;
+      winnersOver = [name];
+    } else if (s.overrated === maxOver && maxOver > 0) {
+      winnersOver.push(name);
+    }
+  });
+  if (maxOver > 0 && maxOver >= Math.ceil(room.playerResponses.length / 2)) {
+    list.push({
+      title: "🔴 IL SOPRA-VALUTATORE",
+      winner: winnersOver.join(', '),
+      desc: `Ha votato SOPRAVVALUTATO ${maxOver} volte. Niente sembra soddisfarlo!`,
+      icon: "⛔"
+    });
+  }
+
+  // 5. Il Sotto-valutatore
+  let maxUnder = 0;
+  let winnersUnder = [];
+  playerNames.forEach(name => {
+    const s = stats[name];
+    if (s.underrated > maxUnder) {
+      maxUnder = s.underrated;
+      winnersUnder = [name];
+    } else if (s.underrated === maxUnder && maxUnder > 0) {
+      winnersUnder.push(name);
+    }
+  });
+  if (maxUnder > 0 && maxUnder >= Math.ceil(room.playerResponses.length / 2)) {
+    list.push({
+      title: "🟢 IL SOTTO-VALUTATORE",
+      winner: winnersUnder.join(', '),
+      desc: `Ha votato SOTTOVALUTATO ${maxUnder} volte. Trova valore in qualsiasi cosa.`,
+      icon: "✨"
+    });
+  }
+
+  return list;
+}
+
+function cleanupRoomFiles(room) {
+  if (room && room.reportedFiles && room.reportedFiles.length > 0) {
+    room.reportedFiles.forEach(filePath => {
+      if (filePath.startsWith('/uploads/')) {
+        const baseName = path.basename(filePath);
+        const fullPath = path.join(__dirname, 'uploads', baseName);
+        fs.unlink(fullPath, (err) => {
+          if (err) {
+            console.error(`[MODERATION] Errore eliminazione file segnalato ${fullPath}:`, err);
+          } else {
+            console.log(`[MODERATION] File segnalato eliminato con successo a fine sessione: ${fullPath}`);
+          }
+        });
+      }
+    });
+  }
+}
+
+function cleanupRoomAssets(room) {
+  if (room && room.assets && room.assets.length > 0) {
+    room.assets.forEach(filePath => {
+      if (filePath.startsWith('/uploads/')) {
+        const baseName = path.basename(filePath);
+        const fullPath = path.join(__dirname, 'uploads', baseName);
+        fs.unlink(fullPath, (err) => {
+          if (err) {
+            console.error(`[ASSET GC] Errore eliminazione file ${fullPath}:`, err);
+          } else {
+            console.log(`[ASSET GC] File eliminato con successo: ${fullPath}`);
+          }
+        });
+      }
+    });
+    room.assets = [];
+  }
+}
+
+// ==========================================================================
+// AVVIO SERVER HTTP
+// ==========================================================================
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`=======================================================`);
+  console.log(`   OVERUNDER SERVER ONLINE!                            `);
+  console.log(`   Disponibile localmente su: http://localhost:${PORT} `);
+  console.log(`=======================================================`);
+});
