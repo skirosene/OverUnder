@@ -1953,6 +1953,18 @@ function setupSocketListeners() {
     showError("Errore di sessione: " + error);
   });
 
+  // Sessione non ripristinabile (stanza chiusa o server riavviato)
+  socket.on('session_failed', (message) => {
+    console.log("Ripristino sessione fallito:", message);
+    if (state.connectionTimeout) {
+      clearTimeout(state.connectionTimeout);
+      state.connectionTimeout = null;
+    }
+    state.connectionLoadingActive = false;
+    clearSession();
+    resetToMenu();
+  });
+
   socket.on('session_restored', ({ state: roomState, roomCode, players, isHost, isPremium, isLocked, currentScreen, gameData, assignedName }) => {
     if (state.connectionTimeout) {
       clearTimeout(state.connectionTimeout);
@@ -3471,7 +3483,7 @@ function startConnectionLoading(mode = 'join') {
     if (state.connectionLoadingActive) {
       handleConnectionError('timeout');
     }
-  }, 10000);
+  }, 20000);
 }
 
 function updateLoadingText(newText) {
