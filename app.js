@@ -2202,7 +2202,7 @@ function setupLobbyUI() {
   // Mostra elementi lobby per multiplayer e resetta layout round
   el.lobbyHeader.style.display = 'block';
   el.lobbyPlayersPanel.style.display = 'block';
-  el.btnAddBots.style.display = 'block';
+  if (el.btnAddBots) el.btnAddBots.style.display = 'block';
   el.roundsSelectorGrid.classList.remove('rounds-vertical');
   
   if (state.isHost) {
