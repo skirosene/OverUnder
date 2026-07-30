@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="style.css?v=104">
+  <link rel="stylesheet" href="style.css?v=105">
 </head>
 <body>
   <!-- Sfondo con sfere colorate sfumate (glowing blobs) animate -->
@@ -942,6 +942,28 @@
     </div>
   </div>
 
+  <!-- Modal Informativa "Come Funziona Judgement Day" (Solo Info) -->
+  <div id="info-gogna-modal" class="custom-modal-overlay" style="display: none; justify-content: center; align-items: center; z-index: 16000;">
+    <div class="trial-expired-modal-box" style="border-color: rgba(223, 51, 255, 0.4); max-width: 320px;">
+      <h2 class="title-floating" style="font-size: 1.25rem; color: #df33ff; line-height: 1.3;">
+        <span style="display: block; font-size: 2rem; margin-bottom: 4px;">👑</span>MODALITÀ "JUDGEMENT DAY"
+      </h2>
+
+      <div class="paywall-desc-box" style="text-align: left; display: flex; flex-direction: column; gap: 8px; font-size: 0.74rem; line-height: 1.4; color: #e0e0e0; padding: 12px 14px;">
+        <p style="font-weight: 700; color: #df33ff; font-size: 0.82rem; margin-bottom: 2px;">Come funziona?</p>
+        <p>📸 <strong>Crea le tue carte:</strong> Tutti i partecipanti alla stanza caricano foto dal proprio telefono ed inventano didascalie personalizzate.</p>
+        <p>⚖️ <strong>Metti alla gogna il gruppo:</strong> Durante la partita le carte personalizzate compaiono a schermo per votare se l'entità o l'amico è <strong>SOPRAVVALUTATO</strong> o <strong>SOTTOVALUTATO</strong>!</p>
+        <p>💡 <strong>Pagamento unico:</strong> Sblocca l'Host (16,99 € una tantum). Tutti gli amici che entrano in stanza giocano GRATIS!</p>
+      </div>
+
+      <div style="width: 100%; margin-top: 6px;">
+        <button id="btn-info-gogna-close" class="btn-paywall-close-styled" style="width: 100%;">
+          HO CAPITO
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification per la copia invito -->
   <div id="toast-notification" class="toast-notification">
     <span id="toast-message">Invito copiato!</span>
@@ -952,6 +974,6 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=104"></script>
+  <script src="app.js?v=105"></script>
 </body>
 </html>

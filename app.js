@@ -367,6 +367,8 @@ const el = {
   btnCancelJoinLink: document.getElementById('btn-cancel-join-link'),
   joinRoomCodeDisplay: document.getElementById('join-room-code-display'),
   btnInfoGogna: document.getElementById('btn-info-gogna'),
+  infoGognaModal: document.getElementById('info-gogna-modal'),
+  btnInfoGognaClose: document.getElementById('btn-info-gogna-close'),
   judgementDayCard: document.getElementById('judgement-day-card'),
   createPremiumToggle: document.getElementById('create-premium-toggle'),
   paywallStandardModal: document.getElementById('paywall-standard-modal'),
@@ -1173,7 +1175,40 @@ function setupEventListeners() {
     }
   }
 
-  // === JUDGEMENT DAY CARD & INFO TAP HANDLER ===
+  // === JUDGEMENT DAY INFO MODAL (Solo Info) ===
+  const openInfoModal = () => {
+    const targetModal = el.infoGognaModal || document.getElementById('info-gogna-modal');
+    if (targetModal) {
+      targetModal.style.display = 'flex';
+      targetModal.classList.add('active');
+    }
+  };
+
+  const closeInfoModal = () => {
+    const targetModal = el.infoGognaModal || document.getElementById('info-gogna-modal');
+    if (targetModal) {
+      targetModal.style.display = 'none';
+      targetModal.classList.remove('active');
+    }
+  };
+
+  if (el.btnInfoGogna) {
+    ['click', 'touchend'].forEach(evtType => {
+      el.btnInfoGogna.addEventListener(evtType, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openInfoModal();
+      });
+    });
+  }
+
+  if (el.btnInfoGognaClose) {
+    el.btnInfoGognaClose.addEventListener('click', () => {
+      closeInfoModal();
+    });
+  }
+
+  // === JUDGEMENT DAY SWITCH & CARD TAP (Acquisto / Paywall) ===
   const forceOpenPaywallModal = () => {
     const targetModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
     if (targetModal) {
@@ -1193,16 +1228,6 @@ function setupEventListeners() {
       forceOpenPaywallModal();
     }
   };
-
-  if (el.btnInfoGogna) {
-    ['click', 'touchend'].forEach(evtType => {
-      el.btnInfoGogna.addEventListener(evtType, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        forceOpenPaywallModal();
-      });
-    });
-  }
 
   if (el.judgementDayCard) {
     ['click', 'touchend'].forEach(evtType => {
