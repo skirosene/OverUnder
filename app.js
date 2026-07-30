@@ -26,11 +26,37 @@ const process = {
   }
 };
 
+// Helper per la gestione sicura del localStorage/sessionStorage su Safari iOS e In-App Browsers (WhatsApp/Telegram/Instagram)
+const memoryStorage = {};
+const safeStorage = {
+  getItem(key) {
+    try { return localStorage.getItem(key); } catch (e) { return memoryStorage[key] || null; }
+  },
+  setItem(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { memoryStorage[key] = String(value); }
+  },
+  removeItem(key) {
+    try { localStorage.removeItem(key); } catch (e) { delete memoryStorage[key]; }
+  }
+};
+
+const safeSessionStorage = {
+  getItem(key) {
+    try { return sessionStorage.getItem(key); } catch (e) { return memoryStorage['session_' + key] || null; }
+  },
+  setItem(key, value) {
+    try { sessionStorage.setItem(key, value); } catch (e) { memoryStorage['session_' + key] = String(value); }
+  },
+  removeItem(key) {
+    try { sessionStorage.removeItem(key); } catch (e) { delete memoryStorage['session_' + key]; }
+  }
+};
+
 // Recupera o genera un sessionId persistente per l'utente (Cross-Platform)
-let sessionId = localStorage.getItem('overunder_sessionId');
+let sessionId = safeStorage.getItem('overunder_sessionId');
 if (!sessionId) {
   sessionId = 'sess_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-  localStorage.setItem('overunder_sessionId', sessionId);
+  safeStorage.setItem('overunder_sessionId', sessionId);
 }
 
 // ==========================================================================
@@ -50,10 +76,10 @@ async function authenticateHost(hostName) {
 
   const data = await logRes.json();
   if (data.token) {
-    sessionStorage.setItem('overunder_token', data.token);
-    localStorage.setItem('overunder_token', data.token);
+    safeSessionStorage.setItem('overunder_token', data.token);
+    safeStorage.setItem('overunder_token', data.token);
     if (data.isPremium) {
-      localStorage.setItem('overunder_premium_unlocked', 'true');
+      safeStorage.setItem('overunder_premium_unlocked', 'true');
     }
   }
   return data.token;
@@ -746,36 +772,25 @@ function setupTimerCounterClickable() {
 // ==========================================================================
 
 function getDeviceFingerprint() {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  ctx.textBaseline = "top";
-  ctx.font = "14px 'Arial'";
-  ctx.fillStyle = "#f60";
-  ctx.fillRect(125, 1, 62, 20);
-  ctx.fillStyle = "#069";
-  ctx.fillText("OverUnderFingerprint", 2, 15);
-  ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
-  ctx.fillText("OverUnderFingerprint", 4, 17);
-  const canvasData = canvas.toDataURL();
-  
-  const components = [
-    navigator.userAgent,
-    navigator.language,
-    screen.colorDepth,
-    screen.width + 'x' + screen.height,
-    new Date().getTimezoneOffset(),
-    navigator.hardwareConcurrency || 2,
-    navigator.deviceMemory || 4,
-    canvasData
-  ];
-  const str = components.join('###');
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+  try {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.textBaseline = "top";
+      ctx.font = "14px 'Arial'";
+      ctx.fillStyle = "#f60";
+      ctx.fillRect(125, 1, 62, 20);
+      ctx.fillStyle = "#069";
+      ctx.fillText("OverUnderFingerprint", 2, 15);
+      ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+      ctx.fillText("OverUnderFingerprint", 4, 17);
+      const canvasData = canvas.toDataURL();
+      return canvasData.substring(0, 50);
+    }
+  } catch (e) {
+    console.warn("Canvas fingerprinting non disponibile:", e);
   }
-  return 'fp_' + Math.abs(hash);
+  return (navigator.userAgent || '') + '_' + (screen ? (screen.width + 'x' + screen.height) : '');
 }
 
 function triggerParticleExplosion() {
