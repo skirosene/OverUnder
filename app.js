@@ -83,11 +83,19 @@ const AudioSynth = {
   isMuted: localStorage.getItem('overunder_muted') === 'true',
 
   init() {
-    if (!this.ctx) {
-      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+    if (this.isMuted) return;
+    try {
+      if (!this.ctx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          this.ctx = new AudioCtx();
+        }
+      }
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+    } catch (e) {
+      console.warn("AudioSynth init error:", e);
     }
   },
 
@@ -1827,11 +1835,13 @@ function setupEventListeners() {
   }
 
   // Annulla ingresso via Link
-  el.btnCancelJoinLink.addEventListener('click', () => {
-    AudioSynth.playConfirm(false);
-    resetFromJoinLink();
-    showScreen(el.screenWelcome);
-  });
+  if (el.btnCancelJoinLink) {
+    el.btnCancelJoinLink.addEventListener('click', () => {
+      try { AudioSynth.playConfirm(false); } catch (e) {}
+      resetFromJoinLink();
+      showScreen(el.screenWelcome);
+    });
+  }
 
   // Torna a Benvenuto da Onboarding
   el.btnBackOnboarding.addEventListener('click', () => {

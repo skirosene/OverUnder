@@ -84,5 +84,21 @@
     "passwordHash": "c1a8bebd8709e7645c3d5a060c50698ac0638fb7249eaadd1122ccf5809125bb",
     "isPremium": true,
     "premiumStatus": "PREMIUM_A_VITA"
+  },
+  "test_dev_host_123": {
+    "id": "test_dev_host_123",
+    "deviceUuid": "test_dev_host_123",
+    "username": "hosttest",
+    "displayName": "HostTest",
+    "isPremium": false,
+    "premiumStatus": "STANDARD"
+  },
+  "test_dev_123": {
+    "id": "test_dev_123",
+    "deviceUuid": "test_dev_123",
+    "username": "testhost",
+    "displayName": "TestHost",
+    "isPremium": false,
+    "premiumStatus": "STANDARD"
   }
 }
