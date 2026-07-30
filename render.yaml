@@ -8,7 +8,3 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-    disk:
-      name: overunder-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
