@@ -1098,122 +1098,68 @@ function setupEventListeners() {
     });
   }
 
-  // === PAYWALL BLOCKER ACQUISTA (IAP) ===
-  if (el.btnPaywallBuy) {
-    el.btnPaywallBuy.addEventListener('click', async () => {
-      try {
-        el.btnPaywallBuy.disabled = true;
-        el.btnPaywallBuy.innerText = "ELABORAZIONE...";
-        
-        let token = sessionStorage.getItem('overunder_token');
-        if (!token) {
-          const defaultName = (el.hostNameInput && el.hostNameInput.value.trim()) || "matteo";
-          token = await authenticateHost(defaultName);
-          sessionStorage.setItem('overunder_token', token);
+  // Helper per acquisto Stripe Checkout
+  async function handleStripePurchase(buttonEl) {
+    try {
+      buttonEl.disabled = true;
+      buttonEl.innerText = "REINDIRIZZAMENTO...";
+      
+      let token = sessionStorage.getItem('overunder_token');
+      if (!token) {
+        const defaultName = (el.hostNameInput && el.hostNameInput.value.trim()) || "host_" + Math.floor(Math.random() * 1000);
+        token = await authenticateHost(defaultName);
+        sessionStorage.setItem('overunder_token', token);
+      }
+      
+      const res = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
         }
-        
-        const res = await fetch('/api/iap/verify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token
-          },
-          body: JSON.stringify({ platform: 'web', receipt: 'receipt_trial_upgrade' })
-        });
-        
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "Acquisto non riuscito.");
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Impossibile avviare il pagamento.");
+      }
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+
+      if (data.directSuccess && data.token) {
+        sessionStorage.setItem('overunder_token', data.token);
+        state.roomIsPremium = true;
+        if (socket.connected) {
+          socket.disconnect();
+          socket.connect();
         }
-        
-        const data = await res.json();
-        if (data.token) {
-          sessionStorage.setItem('overunder_token', data.token);
-          state.roomIsPremium = true;
-          if (socket.connected) {
-            socket.disconnect();
-            socket.connect();
-          }
-        }
-        
         showError("Acquisto completato! Modalità \"Judgement Day\" sbloccata per sempre! 👑");
         updatePremiumUI();
-        
-        if (el.trialExpiredModal) {
-          el.trialExpiredModal.style.display = 'none';
-          el.trialExpiredModal.classList.remove('active');
-        }
-        
-        if (el.onboardingGiftBanner) {
-          el.onboardingGiftBanner.style.display = 'none';
-        }
-      } catch (err) {
-        showError(err.message || "Errore durante l'acquisto.");
-      } finally {
-        el.btnPaywallBuy.disabled = false;
-        el.btnPaywallBuy.innerText = "SBLOCCA PER SEMPRE";
+        if (el.trialExpiredModal) el.trialExpiredModal.style.display = 'none';
+        const standardModal = document.getElementById('paywall-standard-modal');
+        if (standardModal) standardModal.style.display = 'none';
       }
-    });
+    } catch (err) {
+      showError(err.message || "Errore durante l'acquisto.");
+    } finally {
+      buttonEl.disabled = false;
+      buttonEl.innerText = "SBLOCCA PER SEMPRE";
+    }
   }
 
-  // === PAYWALL STANDARD BUY (IAP) ===
+  // === PAYWALL BLOCKER ACQUISTA (Stripe / IAP) ===
+  if (el.btnPaywallBuy) {
+    el.btnPaywallBuy.addEventListener('click', () => handleStripePurchase(el.btnPaywallBuy));
+  }
+
+  // === PAYWALL STANDARD BUY (Stripe / IAP) ===
   const btnPaywallStandardBuy = document.getElementById('btn-paywall-standard-buy');
   if (btnPaywallStandardBuy) {
-    btnPaywallStandardBuy.addEventListener('click', async () => {
-      try {
-        btnPaywallStandardBuy.disabled = true;
-        btnPaywallStandardBuy.innerText = "ELABORAZIONE...";
-        
-        let token = sessionStorage.getItem('overunder_token');
-        if (!token) {
-          const defaultName = (el.hostNameInput && el.hostNameInput.value.trim()) || "matteo";
-          token = await authenticateHost(defaultName);
-          sessionStorage.setItem('overunder_token', token);
-        }
-        
-        const res = await fetch('/api/iap/verify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token
-          },
-          body: JSON.stringify({ platform: 'web', receipt: 'receipt_standard_upgrade' })
-        });
-        
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "Acquisto non riuscito.");
-        }
-        
-        const data = await res.json();
-        if (data.token) {
-          sessionStorage.setItem('overunder_token', data.token);
-          state.roomIsPremium = true;
-          if (socket.connected) {
-            socket.disconnect();
-            socket.connect();
-          }
-        }
-        
-        showError("Acquisto completato! Modalità \"Judgement Day\" sbloccata per sempre! 👑");
-        updatePremiumUI();
-        
-        const standardModal = document.getElementById('paywall-standard-modal');
-        if (standardModal) {
-          standardModal.style.display = 'none';
-          standardModal.classList.remove('active');
-        }
-        
-        if (el.onboardingGiftBanner) {
-          el.onboardingGiftBanner.style.display = 'none';
-        }
-      } catch (err) {
-        showError(err.message || "Errore durante l'acquisto.");
-      } finally {
-        btnPaywallStandardBuy.disabled = false;
-        btnPaywallStandardBuy.innerText = "ACQUISTA ORA";
-      }
-    });
+    btnPaywallStandardBuy.addEventListener('click', () => handleStripePurchase(btnPaywallStandardBuy));
   }
 
   // === PAYWALL STANDARD CLOSE ===
@@ -3385,15 +3331,43 @@ function openKickContextMenu(e, player) {
   }
 }
 
-function checkUrlParams() {
+async function checkUrlParams() {
   const params = new URLSearchParams(window.location.search);
-  const room = params.get('room');
-  if (room) {
-    // Pulisce la barra degli indirizzi lasciando la cronologia pulita
+  const payment = params.get('payment');
+  const sessionId = params.get('session_id');
+
+  if (payment === 'success' && sessionId) {
     const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
     window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
-    
-    // Mostra il form di ingresso stanza precompilato
+
+    try {
+      let token = sessionStorage.getItem('overunder_token');
+      if (!token) {
+        token = await authenticateHost("host_player");
+        sessionStorage.setItem('overunder_token', token);
+      }
+
+      const res = await fetch(`/api/stripe/verify-session?session_id=${sessionId}`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.token) {
+          sessionStorage.setItem('overunder_token', data.token);
+        }
+        state.roomIsPremium = true;
+        showError("Pagamento confermato! Modalità \"Judgement Day\" sbloccata per sempre! 👑");
+        updatePremiumUI();
+      }
+    } catch (e) {
+      console.error("Errore verifica pagamento:", e);
+    }
+  }
+
+  const room = params.get('room');
+  if (room) {
+    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+    window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
     showJoinFromLink(room.toUpperCase());
   }
 }

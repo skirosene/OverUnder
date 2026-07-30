@@ -489,7 +489,126 @@ app.post('/api/auth/guest', (req, res) => {
   res.json({ token });
 });
 
-// 4. Validazione IAP (Zero Trust Server-side)
+// Initialize Stripe if key is present
+const stripeSecret = process.env.STRIPE_SECRET_KEY;
+const stripe = stripeSecret ? require('stripe')(stripeSecret) : null;
+if (stripeSecret) {
+  console.log("[STRIPE] Inizializzato con successo con STRIPE_SECRET_KEY.");
+} else {
+  console.log("[STRIPE] STRIPE_SECRET_KEY non ancora impostata.");
+}
+
+// 4. Validazione IAP e Stripe Checkout
+app.post('/api/stripe/create-checkout-session', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token mancante o non valido' });
+  }
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.userId;
+
+    if (!stripe) {
+      // Fallback demo se STRIPE_SECRET_KEY non è ancora inserita
+      console.warn("[STRIPE] STRIPE_SECRET_KEY non configurata. Attivazione automatica in modalità test.");
+      const user = users[userId];
+      if (user) {
+        user.isPremium = true;
+        user.premiumStatus = 'PREMIUM_A_VITA';
+        writeUsersDb(users);
+      }
+      const newToken = jwt.sign({
+        userId: decoded.userId,
+        username: decoded.username,
+        role: 'host',
+        isPremium: true,
+        premiumStatus: 'PREMIUM_A_VITA'
+      }, JWT_SECRET, { expiresIn: '7d' });
+      return res.json({ directSuccess: true, token: newToken });
+    }
+
+    const domain = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'eur',
+            product_data: {
+              name: 'OverUnder - Modalità "Judgement Day"',
+              description: 'Sblocco permanente per creare mazzi con foto e didascalie personalizzate.',
+            },
+            unit_amount: 1699, // 16,99 €
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${domain}/?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${domain}/?payment=cancel`,
+      client_reference_id: userId,
+      metadata: { userId }
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error("[STRIPE] Errore creazione sessione checkout:", err);
+    res.status(500).json({ error: 'Impossibile avviare il pagamento: ' + err.message });
+  }
+});
+
+// Endpoint per verificare la sessione di pagamento Stripe al ritorno
+app.get('/api/stripe/verify-session', async (req, res) => {
+  const { session_id } = req.query;
+  if (!session_id) {
+    return res.status(400).json({ error: 'Session ID mancante' });
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token mancante' });
+  }
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.userId;
+    const user = users[userId];
+
+    if (!user) {
+      return res.status(404).json({ error: 'Utente non trovato' });
+    }
+
+    if (stripe) {
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+      if (session.payment_status !== 'paid') {
+        return res.status(400).json({ error: 'Pagamento non ancora completato' });
+      }
+    }
+
+    user.isPremium = true;
+    user.premiumStatus = 'PREMIUM_A_VITA';
+    writeUsersDb(users);
+
+    const newToken = jwt.sign({
+      userId: user.id,
+      username: user.username,
+      role: 'host',
+      isPremium: true,
+      premiumStatus: 'PREMIUM_A_VITA'
+    }, JWT_SECRET, { expiresIn: '7d' });
+
+    console.log(`[STRIPE] Pagamento verificato con successo per utente ${user.username}`);
+    res.json({ success: true, token: newToken, isPremium: true });
+
+  } catch (err) {
+    console.error("[STRIPE] Errore verifica sessione:", err);
+    res.status(500).json({ error: 'Errore verifica pagamento: ' + err.message });
+  }
+});
+
 app.post('/api/iap/verify', (req, res) => {
   const { platform, receipt } = req.body;
   
