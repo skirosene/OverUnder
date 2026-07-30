@@ -572,21 +572,20 @@ function initClock() {
 }
 
 function runSplashScreen() {
-  // Avvia il timer di 6.6s (6600ms) per far partire il fade-out dello splash screen
+  // Avvia il fade-out dello splash screen a 1.0s
   setTimeout(() => {
     if (el.screenSplash) {
       el.screenSplash.classList.add('fade-out');
     }
-  }, 6600);
+  }, 1000);
 
-  // Avvia il timer di 7.0s (7000ms) per nascondere del tutto lo splash screen e navigare
+  // Nascondi lo splash screen a 1.2s e mostra la schermata principale
   setTimeout(() => {
     if (el.screenSplash) {
       el.screenSplash.style.display = 'none';
       el.screenSplash.classList.remove('active');
     }
     
-    // Controlla se una schermata è già attiva (es. onboarding via link o gameplay via session restoration)
     const screens = [
       el.screenWelcome,
       el.screenOnboarding,
@@ -600,7 +599,7 @@ function runSplashScreen() {
     if (!anyActive) {
       showScreen(el.screenWelcome);
     }
-  }, 7000);
+  }, 1200);
 }
 
 function showScreen(targetScreen) {
