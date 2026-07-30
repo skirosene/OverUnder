@@ -1227,39 +1227,14 @@ function setupEventListeners() {
     });
   }
 
-  // === JUDGEMENT DAY SWITCH & CARD TAP (Acquisto / Paywall) ===
-  const forceOpenPaywallModal = () => {
-    const targetModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
-    if (targetModal) {
-      targetModal.style.display = 'flex';
-      targetModal.classList.add('active');
-    }
-  };
-
-  const handleJudgementDayTap = (e) => {
-    const isUnlocked = checkPremiumStatusFromToken() || localStorage.getItem('overunder_premium_unlocked') === 'true';
-    if (!isUnlocked) {
-      if (e && e.type !== 'change') {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      if (el.createPremiumToggle) el.createPremiumToggle.checked = false;
-      forceOpenPaywallModal();
-    }
-  };
-
+  // === JUDGEMENT DAY CARD TAP & INFO ===
   if (el.judgementDayCard) {
-    ['click', 'touchend'].forEach(evtType => {
-      el.judgementDayCard.addEventListener(evtType, (e) => {
-        if (e.target && (e.target.id === 'btn-info-gogna' || e.target.closest('#btn-info-gogna'))) return;
-        handleJudgementDayTap(e);
-      });
-    });
-  }
-
-  if (el.createPremiumToggle) {
-    el.createPremiumToggle.addEventListener('change', (e) => {
-      handleJudgementDayTap(e);
+    el.judgementDayCard.addEventListener('click', (e) => {
+      // Evita intercettazione se l'utente clicca sul pulsante 'i' o sullo switch stesso
+      if (e.target && (e.target.id === 'btn-info-gogna' || e.target.closest('#btn-info-gogna') || e.target.id === 'create-premium-toggle' || e.target.closest('.switch-container'))) return;
+      if (el.createPremiumToggle) {
+        el.createPremiumToggle.checked = !el.createPremiumToggle.checked;
+      }
     });
   }
 
@@ -1415,18 +1390,6 @@ function setupEventListeners() {
     }
 
     const isPremiumToggleOn = el.createPremiumToggle ? el.createPremiumToggle.checked : false;
-    const isUnlocked = checkPremiumStatusFromToken() || localStorage.getItem('overunder_premium_unlocked') === 'true';
-
-    // Se l'utente tenta di creare una stanza Judgement Day senza essere sbloccato: apri il Paywall d'acquisto
-    if (isPremiumToggleOn && !isUnlocked) {
-      if (el.createPremiumToggle) el.createPremiumToggle.checked = false;
-      const targetModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
-      if (targetModal) {
-        targetModal.style.display = 'flex';
-        targetModal.classList.add('active');
-      }
-      return;
-    }
 
     sessionStorage.setItem('overunder_playerName', name);
     sessionStorage.setItem('overunder_roomCode', code);
