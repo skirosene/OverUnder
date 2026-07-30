@@ -2099,21 +2099,28 @@ function setupSocketListeners() {
     updateLockIcon();
   });
 
-  // 3. Errore durante onboarding
+  // 3. Errore durante onboarding (Richiede acquisto o ripristino Premium)
   socket.on('trial_expired_error', ({ message }) => {
     if (state.connectionLoadingActive) {
-      clearTimeout(state.connectionTimeout);
+      if (state.connectionTimeout) {
+        clearTimeout(state.connectionTimeout);
+        state.connectionTimeout = null;
+      }
       state.connectionLoadingActive = false;
     }
     state.roomIsPremium = false;
     if (el.createPremiumToggle) {
       el.createPremiumToggle.checked = false;
     }
-    if (el.trialExpiredModal) {
-      el.trialExpiredModal.style.display = 'flex';
-      el.trialExpiredModal.classList.add('active');
+    if (el.nameErrorMsg) {
+      el.nameErrorMsg.style.display = 'none';
+      el.nameErrorMsg.textContent = '';
     }
-    showError(message || "Il tuo regalo di benvenuto è scaduto!");
+    const paywallModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
+    if (paywallModal) {
+      paywallModal.style.display = 'flex';
+      paywallModal.classList.add('active');
+    }
   });
 
   socket.on('room_error', (message) => {

@@ -907,29 +907,19 @@ io.on('connection', (socket) => {
     let finalIsPremium = (isPremium !== undefined) ? !!isPremium : !!isPremiumUser;
 
     if (finalIsPremium) {
-      // Controllo preventivo scadenza trial
-      const db = readTrialDb();
-      const trialRecord = db.find(r => r.userId === sessionId || r.deviceUuid === sessionId);
-      if (trialRecord && Date.now() > trialRecord.trial_end_date) {
-        const user = users[sessionId];
-        if (user && user.premiumStatus !== 'PREMIUM_A_VITA') {
-          user.isPremium = false;
-          writeUsersDb(users);
-        }
-        if (!user || user.premiumStatus !== 'PREMIUM_A_VITA') {
-          socket.emit('trial_expired_error', {
-            message: "Il tuo periodo di prova di 30 giorni per la Modalità \"Judgement Day\" è scaduto!"
-          });
-          return;
-        }
-      }
+      // Controllo preventivo acquisto Premium o Trial
+      const isDevicePremium = Object.values(users).some(u => u.isPremium && (
+        u.id === socket.userData?.userId ||
+        (deviceUuid && u.deviceUuid === deviceUuid) ||
+        (sessionId && (u.deviceUuid === sessionId || u.id === sessionId)) ||
+        u.username === (hostName || '').toLowerCase()
+      ));
 
-      if (IS_PRODUCTION && !isPremiumUser && (!trialRecord || Date.now() > trialRecord.trial_end_date)) {
-        const user = users[sessionId];
-        if (!user || user.premiumStatus !== 'PREMIUM_A_VITA') {
-          socket.emit('room_error', "L'accesso alla Modalità \"Judgement Day\" richiede lo sblocco Premium.");
-          return;
-        }
+      if (IS_PRODUCTION && !isPremiumUser && !isDevicePremium) {
+        socket.emit('trial_expired_error', {
+          message: "L'accesso alla Modalità \"Judgement Day\" richiede lo sblocco Premium."
+        });
+        return;
       }
     }
 
