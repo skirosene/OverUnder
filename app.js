@@ -1459,7 +1459,7 @@ function setupEventListeners() {
   // Pulsante invita in lobby
   el.btnLobbyInvite.addEventListener('click', () => {
     if (!state.roomCode) return;
-    const inviteLink = window.location.origin + '/?room=' + state.roomCode;
+    const inviteLink = window.location.origin + '/?room=' + encodeURIComponent(state.roomCode);
     navigator.clipboard.writeText(inviteLink).then(() => {
       showToast("Invito copiato!");
     }).catch(err => {
@@ -1795,18 +1795,25 @@ function setupEventListeners() {
   }
 
   // Entra in Stanza via Link
-  el.btnJoinRoomLink.addEventListener('click', async () => {
-    const name = el.joinNameInput.value.trim();
-    const code = state.pendingRoomToJoin;
+  const handleJoinRoomLinkSubmit = async () => {
+    const name = el.joinNameInput ? el.joinNameInput.value.trim() : '';
+    const displayCode = el.joinRoomCodeDisplay ? el.joinRoomCodeDisplay.textContent.trim() : '';
+    const code = (state.pendingRoomToJoin || (displayCode !== '-' ? displayCode : '') || sessionStorage.getItem('overunder_roomCode') || '').toUpperCase().trim();
+    
     if (!name) {
       showError("Inserisci il tuo nome!");
       return;
     }
-    if (!code) {
+    if (!code || code === '-') {
       showError("Codice stanza non valido!");
       return;
     }
-    AudioSynth.init();
+
+    try {
+      AudioSynth.init();
+    } catch (e) {
+      console.warn("AudioSynth init non riuscito:", e);
+    }
     
     sessionStorage.setItem('overunder_playerName', name);
     sessionStorage.setItem('overunder_roomCode', code);
@@ -1838,7 +1845,19 @@ function setupEventListeners() {
       showError(err.message || "Impossibile accedere alla stanza.");
       state.pendingSocketAction = null;
     }
-  });
+  };
+
+  if (el.btnJoinRoomLink) {
+    el.btnJoinRoomLink.addEventListener('click', handleJoinRoomLinkSubmit);
+  }
+  if (el.joinNameInput) {
+    el.joinNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleJoinRoomLinkSubmit();
+      }
+    });
+  }
 
   // Annulla ingresso via Link
   el.btnCancelJoinLink.addEventListener('click', () => {
@@ -3649,25 +3668,27 @@ async function checkUrlParams() {
   if (room) {
     const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
     window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
-    showJoinFromLink(room.toUpperCase());
+    const decodedRoom = decodeURIComponent(room.replace(/\+/g, ' ')).trim().toUpperCase();
+    showJoinFromLink(decodedRoom);
   }
 }
 
 function showJoinFromLink(roomCode) {
-  state.pendingRoomToJoin = roomCode;
+  const cleanCode = (roomCode || '').trim().toUpperCase();
+  state.pendingRoomToJoin = cleanCode;
   
   // Nascondi le schede standard
-  el.modeTabs.style.display = 'none';
-  el.formSoloPlay.style.display = 'none';
-  el.formCreateRoom.style.display = 'none';
+  if (el.modeTabs) el.modeTabs.style.display = 'none';
+  if (el.formSoloPlay) el.formSoloPlay.style.display = 'none';
+  if (el.formCreateRoom) el.formCreateRoom.style.display = 'none';
   
   // Mostra il form dedicato
-  el.joinRoomCodeDisplay.textContent = roomCode;
-  el.formJoinRoomLink.style.display = 'block';
+  if (el.joinRoomCodeDisplay) el.joinRoomCodeDisplay.textContent = cleanCode;
+  if (el.formJoinRoomLink) el.formJoinRoomLink.style.display = 'block';
   
   // Resetta input ed errori
-  el.joinNameInput.value = '';
-  el.nameErrorMsg.style.display = 'none';
+  if (el.joinNameInput) el.joinNameInput.value = '';
+  if (el.nameErrorMsg) el.nameErrorMsg.style.display = 'none';
   
   // Mostra la schermata di onboarding con il modulo di ingresso attivo
   showScreen(el.screenOnboarding);

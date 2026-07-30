@@ -445,10 +445,13 @@ app.post('/api/auth/guest', (req, res) => {
     return res.status(400).json({ error: 'Codice stanza, nickname e sessionId obbligatori' });
   }
 
-  const code = roomCode.toUpperCase().trim();
+  let code = roomCode;
+  try { code = decodeURIComponent(roomCode); } catch (e) {}
+  code = code.toUpperCase().trim();
+
   const room = rooms[code];
   if (!room) {
-    return res.status(404).json({ error: 'Codice stanza non esistente!' });
+    return res.status(404).json({ error: 'Codice stanza non esistente o terminata!' });
   }
 
   // Controlla blacklist
@@ -456,9 +459,11 @@ app.post('/api/auth/guest', (req, res) => {
     return res.status(403).json({ error: 'Sei stato espulso da questa stanza.' });
   }
 
-  // Controlla se è una riconnessione per lo stesso nome utente
-  const isReconnecting = room.players.some(p => p.name.toLowerCase() === playerName.toLowerCase().trim());
-  
+  const cleanName = playerName.trim();
+  // Riconnessione valida solo se il sessionId o il nome corrisponde alla sessione dello stesso utente
+  const existingPlayer = room.players.find(p => p.name.toLowerCase() === cleanName.toLowerCase());
+  const isReconnecting = existingPlayer && (existingPlayer.sessionId === sessionId || !existingPlayer.connected);
+
   if (!isReconnecting) {
     if (room.state !== 'lobby') {
       return res.status(400).json({ error: 'La partita è già iniziata in questa stanza!' });
@@ -466,9 +471,8 @@ app.post('/api/auth/guest', (req, res) => {
     if (room.isLocked) {
       return res.status(400).json({ error: 'La stanza è stata bloccata dall\'Host.' });
     }
-    const nameExists = room.players.some(p => p.name.toLowerCase() === playerName.toLowerCase().trim());
-    if (nameExists) {
-      return res.status(400).json({ error: 'Questo nome è già presente in questa stanza!' });
+    if (existingPlayer) {
+      return res.status(400).json({ error: 'Questo nome è già presente in questa stanza! Scegline un altro.' });
     }
     // Controllo Stanza Piena (Solo stanze non premium / normali)
     if (!room.isPremium && room.players.length >= 30) {
@@ -479,7 +483,7 @@ app.post('/api/auth/guest', (req, res) => {
   // Genera JWT Guest
   const token = jwt.sign({
     sessionId,
-    playerName: playerName.trim(),
+    playerName: cleanName,
     roomCode: code,
     role: 'guest',
     isPremium: false
