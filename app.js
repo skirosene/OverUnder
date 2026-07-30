@@ -7,11 +7,11 @@
 const socket = io({
   autoConnect: false,
   reconnection: true,
-  reconnectionAttempts: 5,
+  reconnectionAttempts: 10,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
-  timeout: 20000,
-  transports: ['websocket', 'polling']
+  timeout: 30000,
+  transports: ['polling', 'websocket']
 });
 
 // Definizione Ambiente Simulata per il frontend
@@ -1408,7 +1408,11 @@ function setupEventListeners() {
       showError("Il codice stanza può contenere al massimo 10 caratteri!");
       return;
     }
-    AudioSynth.init();
+    try {
+      AudioSynth.init();
+    } catch (e) {
+      console.warn("AudioSynth init non riuscito:", e);
+    }
 
     const isPremiumToggleOn = el.createPremiumToggle ? el.createPremiumToggle.checked : false;
     const isUnlocked = checkPremiumStatusFromToken() || localStorage.getItem('overunder_premium_unlocked') === 'true';
@@ -1945,6 +1949,15 @@ function setupSocketListeners() {
     }
   });
 
+  socket.on('connect_error', (err) => {
+    console.warn("[SOCKET] Errore di connessione:", err.message);
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.warn("[SOCKET] Socket disconnesso:", reason);
+    state.socketAuthenticated = false;
+  });
+
   socket.on('AUTH_SUCCESS', () => {
     state.socketAuthenticated = true;
     console.log("Socket autenticato con successo!");
@@ -1966,7 +1979,12 @@ function setupSocketListeners() {
 
     if (savedRoom && savedName) {
       console.log("Tentativo di ripristino sessione:", savedRoom, savedName);
-      startConnectionLoading('restore');
+      const isInActiveGame = el.screenLobby.classList.contains('active') || 
+                             el.screenGameplay.classList.contains('active') || 
+                             el.screenResults.classList.contains('active');
+      if (!isInActiveGame) {
+        startConnectionLoading('restore');
+      }
       socket.emit('restore_session', { roomCode: savedRoom, playerName: savedName, isHost: savedHost, sessionId: sessionId });
     }
   });
@@ -3512,12 +3530,18 @@ function startConnectionLoading(mode = 'join') {
       updateLoadingText(progressText);
     }
   }, 1000);
+
+  setTimeout(() => {
+    if (state.connectionLoadingActive) {
+      updateLoadingText("Avvio del server in corso, attendi qualche secondo...");
+    }
+  }, 12000);
   
   state.connectionTimeout = setTimeout(() => {
     if (state.connectionLoadingActive) {
       handleConnectionError('timeout');
     }
-  }, 20000);
+  }, 35000);
 }
 
 function updateLoadingText(newText) {

@@ -856,9 +856,9 @@ io.on('connection', (socket) => {
     }
 
     // Validazione codice stanza
-    const alphanumericRegex = /^[A-Z0-9 ]+$/;
-    if (!alphanumericRegex.test(code)) {
-      socket.emit('room_error', "Il codice stanza può contenere solo lettere, numeri e spazi!");
+    code = code.replace(/[^A-Z0-9 _-]/gi, '').trim().toUpperCase();
+    if (!code) {
+      socket.emit('room_error', "Codice stanza non valido!");
       return;
     }
     if (code.length > 10) {
