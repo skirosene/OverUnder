@@ -1357,7 +1357,7 @@ function setupEventListeners() {
     });
   }
 
-  // === LUCCHETTO BLOCCA STANZA (POPUP & EVENTI) ===
+  // === LUCCHETTO BLOCCA STANZA (1 TOUCH DIRECT TOGGLE) ===
   if (el.btnLockRoom) {
     el.btnLockRoom.addEventListener('click', (e) => {
       e.preventDefault();
@@ -1368,45 +1368,8 @@ function setupEventListeners() {
         return;
       }
 
-      if (!state.roomIsLocked) {
-        if (el.lockModalTitle) el.lockModalTitle.textContent = "🔒 BLOCCA LA STANZA";
-        if (el.lockModalDesc) el.lockModalDesc.textContent = "Vuoi chiudere la stanza a nuovi partecipanti? Nessun altro giocatore potrà accedere, anche se inserisce il codice.";
-        if (el.btnLockConfirm) {
-          el.btnLockConfirm.textContent = "CONFERMA BLOCCO";
-          el.btnLockConfirm.style.background = "linear-gradient(135deg, #ff5722, #e64a19)";
-        }
-      } else {
-        if (el.lockModalTitle) el.lockModalTitle.textContent = "🔓 SBLOCCA LA STANZA";
-        if (el.lockModalDesc) el.lockModalDesc.textContent = "Vuoi riaprire la stanza? Nuovi partecipanti potranno tornare ad accedere inserendo il codice.";
-        if (el.btnLockConfirm) {
-          el.btnLockConfirm.textContent = "SBLOCCA STANZA";
-          el.btnLockConfirm.style.background = "linear-gradient(135deg, #2ecc71, #27ae60)";
-        }
-      }
-
-      if (el.lockRoomModal) {
-        el.lockRoomModal.style.display = 'flex';
-        el.lockRoomModal.classList.add('active');
-      }
-    });
-  }
-
-  if (el.btnLockConfirm) {
-    el.btnLockConfirm.addEventListener('click', () => {
-      if (el.lockRoomModal) {
-        el.lockRoomModal.style.display = 'none';
-        el.lockRoomModal.classList.remove('active');
-      }
+      AudioSynth.playConfirm(true);
       socket.emit('toggle_lock_room');
-    });
-  }
-
-  if (el.btnLockCancel) {
-    el.btnLockCancel.addEventListener('click', () => {
-      if (el.lockRoomModal) {
-        el.lockRoomModal.style.display = 'none';
-        el.lockRoomModal.classList.remove('active');
-      }
     });
   }
 
@@ -3515,6 +3478,8 @@ function updateLockIcon() {
   
   if (state.roomIsLocked) {
     el.btnLockRoom.className = 'btn-lock-room locked';
+    el.btnLockRoom.title = 'Stanza bloccata (Clicca per sbloccare)';
+    el.btnLockRoom.style.color = '#ff4444';
     el.btnLockRoom.innerHTML = `
       <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
         <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
@@ -3522,6 +3487,8 @@ function updateLockIcon() {
     `;
   } else {
     el.btnLockRoom.className = 'btn-lock-room unlocked';
+    el.btnLockRoom.title = 'Stanza aperta (Clicca per bloccare)';
+    el.btnLockRoom.style.color = 'rgba(255, 255, 255, 0.4)';
     el.btnLockRoom.innerHTML = `
       <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
         <path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h1.9c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/>
