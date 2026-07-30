@@ -352,7 +352,7 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-// 1. Autenticazione Host unificata (Zero attrito - accetta qualsiasi nome Host)
+// 1. Autenticazione Host unificata (Zero attrito - Riconoscimento dispositivo a vita)
 app.post('/api/auth/host', (req, res) => {
   const { username, deviceUuid, sessionId } = req.body;
   if (!username) {
@@ -363,31 +363,41 @@ app.post('/api/auth/host', (req, res) => {
 
   let user = users[idKey];
   if (!user) {
-    // Cerca se esiste un utente con lo stesso nome utente
-    const existing = Object.values(users).find(u => u.username === cleanUsername.toLowerCase());
-    if (existing) {
-      user = existing;
-    } else {
-      user = {
-        id: idKey,
-        username: cleanUsername.toLowerCase(),
-        displayName: cleanUsername,
-        isPremium: false
-      };
-      users[idKey] = user;
-    }
+    // Cerca se esiste già un utente o dispositivo registrato con acquisto Premium A Vita
+    const existingPremiumDevice = Object.values(users).find(u => (u.deviceUuid === deviceUuid || u.id === idKey) && u.isPremium);
+    user = {
+      id: idKey,
+      deviceUuid: deviceUuid || idKey,
+      username: cleanUsername.toLowerCase(),
+      displayName: cleanUsername,
+      isPremium: existingPremiumDevice ? true : false,
+      premiumStatus: existingPremiumDevice ? 'PREMIUM_A_VITA' : 'STANDARD'
+    };
+    users[idKey] = user;
   } else {
     user.displayName = cleanUsername;
+    if (deviceUuid) user.deviceUuid = deviceUuid;
   }
+
+  // Controlla se questo dispositivo ha un acquisto a vita registrato nel DB
+  if (!user.isPremium && deviceUuid) {
+    const hasLifetimePurchase = Object.values(users).some(u => u.deviceUuid === deviceUuid && u.isPremium);
+    if (hasLifetimePurchase) {
+      user.isPremium = true;
+      user.premiumStatus = 'PREMIUM_A_VITA';
+    }
+  }
+
   writeUsersDb(users);
 
   const token = jwt.sign({
     userId: user.id,
+    deviceUuid: user.deviceUuid || deviceUuid || user.id,
     username: cleanUsername,
     role: 'host',
     isPremium: !!user.isPremium,
     premiumStatus: user.premiumStatus || 'STANDARD'
-  }, JWT_SECRET, { expiresIn: '7d' });
+  }, JWT_SECRET, { expiresIn: '365d' }); // Valido 1 anno per il dispositivo
 
   res.json({ token, isPremium: !!user.isPremium, username: cleanUsername });
 });
@@ -563,17 +573,21 @@ app.get('/api/stripe/verify-session', async (req, res) => {
 
     user.isPremium = true;
     user.premiumStatus = 'PREMIUM_A_VITA';
+    if (decoded.deviceUuid) {
+      user.deviceUuid = decoded.deviceUuid;
+    }
     writeUsersDb(users);
 
     const newToken = jwt.sign({
       userId: user.id,
+      deviceUuid: user.deviceUuid || decoded.deviceUuid || user.id,
       username: user.username,
       role: 'host',
       isPremium: true,
       premiumStatus: 'PREMIUM_A_VITA'
-    }, JWT_SECRET, { expiresIn: '7d' });
+    }, JWT_SECRET, { expiresIn: '365d' });
 
-    console.log(`[STRIPE] Pagamento verificato con successo per utente ${user.username}`);
+    console.log(`[STRIPE] Pagamento A VITA verificato e registrato per dispositivo ${user.deviceUuid || user.id} (utente ${user.username})`);
     res.json({ success: true, token: newToken, isPremium: true });
 
   } catch (err) {

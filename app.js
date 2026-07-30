@@ -29,21 +29,10 @@ if (!sessionId) {
 // SERVIZI DI AUTENTICAZIONE (JWT)
 // ==========================================================================
 async function authenticateHost(hostName) {
-  const password = "host_" + sessionId;
-  try {
-    await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: hostName, password, deviceUuid: sessionId, fingerprint: getDeviceFingerprint() })
-    });
-  } catch (e) {
-    console.warn("Registrazione host fallita o utente esistente:", e);
-  }
-
-  const logRes = await fetch('/api/auth/login', {
+  const logRes = await fetch('/api/auth/host', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: hostName, password, deviceUuid: sessionId, fingerprint: getDeviceFingerprint() })
+    body: JSON.stringify({ username: hostName, deviceUuid: sessionId, sessionId, fingerprint: getDeviceFingerprint() })
   });
 
   if (!logRes.ok) {
@@ -52,6 +41,13 @@ async function authenticateHost(hostName) {
   }
 
   const data = await logRes.json();
+  if (data.token) {
+    sessionStorage.setItem('overunder_token', data.token);
+    localStorage.setItem('overunder_token', data.token);
+    if (data.isPremium) {
+      localStorage.setItem('overunder_premium_unlocked', 'true');
+    }
+  }
   return data.token;
 }
 
