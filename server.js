@@ -788,15 +788,23 @@ io.on('connection', (socket) => {
 
     if (rooms[code]) {
       const existingRoom = rooms[code];
-      const isSameHost = existingRoom.hostSessionId === sessionId || existingRoom.hostName === hostName;
-      const isRoomEmpty = !existingRoom.players || existingRoom.players.length === 0;
+      const hostPlayer = existingRoom.players && existingRoom.players.find(p => p.isHost);
+      const savedHostSession = existingRoom.hostSessionId || (hostPlayer && hostPlayer.sessionId);
+      const savedHostName = existingRoom.hostName || (hostPlayer && hostPlayer.name);
+      
+      const isSameHost = (savedHostSession && savedHostSession === sessionId) || 
+                         (savedHostName && savedHostName.toLowerCase() === hostName.toLowerCase());
+                         
+      const activeConnectedPlayers = (existingRoom.players || []).filter(p => p.connected !== false);
+      const isRoomEmpty = activeConnectedPlayers.length === 0;
+      const isLobbyState = existingRoom.state === 'lobby';
 
-      if (!isSameHost && !isRoomEmpty) {
-        socket.emit('room_error', "Questo codice stanza è attualmente occupato da un'altra partita! Scegline un altro.");
+      if (!isSameHost && !isRoomEmpty && !isLobbyState) {
+        socket.emit('room_error', "Questo codice stanza è attualmente occupato da una partita in corso! Scegline un altro.");
         return;
       }
 
-      // Se la stanza appartiene allo stesso Host o è vuota, puliscila e ricreala
+      // Se lo stesso Host ricrea la stanza, o se è in fase lobby o vuota, ricreala pulita
       if (existingRoom.roundTimeout) clearTimeout(existingRoom.roundTimeout);
       cleanupRoomAssets(existingRoom);
       cleanupRoomFiles(existingRoom);
@@ -839,6 +847,9 @@ io.on('connection', (socket) => {
     rooms[code] = {
       roomCode: code,
       hostId: socket.id,
+      hostSessionId: sessionId,
+      hostName: hostName,
+      createdAt: Date.now(),
       players: [{ id: socket.id, name: hostName, isHost: true, connected: true, premiumReady: false, avatar: avatar || null, sessionId: sessionId }],
       state: 'lobby', // lobby, playing, freeze, results, summary
       deck: null,
