@@ -1174,41 +1174,48 @@ function setupEventListeners() {
   }
 
   // === JUDGEMENT DAY CARD & INFO TAP HANDLER ===
-  const openPaywallModal = () => {
+  const forceOpenPaywallModal = () => {
+    const targetModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
+    if (targetModal) {
+      targetModal.style.display = 'flex';
+      targetModal.classList.add('active');
+    }
+  };
+
+  const handleJudgementDayTap = (e) => {
     const isUnlocked = checkPremiumStatusFromToken() || localStorage.getItem('overunder_premium_unlocked') === 'true';
     if (!isUnlocked) {
-      if (el.createPremiumToggle) el.createPremiumToggle.checked = false;
-      const targetModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
-      if (targetModal) {
-        targetModal.style.display = 'flex';
-        targetModal.classList.add('active');
+      if (e && e.type !== 'change') {
+        e.preventDefault();
+        e.stopPropagation();
       }
+      if (el.createPremiumToggle) el.createPremiumToggle.checked = false;
+      forceOpenPaywallModal();
     }
   };
 
   if (el.btnInfoGogna) {
-    el.btnInfoGogna.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openPaywallModal();
+    ['click', 'touchend'].forEach(evtType => {
+      el.btnInfoGogna.addEventListener(evtType, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        forceOpenPaywallModal();
+      });
     });
   }
 
   if (el.judgementDayCard) {
-    el.judgementDayCard.addEventListener('click', (e) => {
-      if (e.target && (e.target.id === 'btn-info-gogna' || e.target.classList.contains('switch-slider') || e.target.id === 'create-premium-toggle')) return;
-      openPaywallModal();
+    ['click', 'touchend'].forEach(evtType => {
+      el.judgementDayCard.addEventListener(evtType, (e) => {
+        if (e.target && (e.target.id === 'btn-info-gogna' || e.target.closest('#btn-info-gogna'))) return;
+        handleJudgementDayTap(e);
+      });
     });
   }
 
   if (el.createPremiumToggle) {
     el.createPremiumToggle.addEventListener('change', (e) => {
-      const isUnlocked = checkPremiumStatusFromToken() || localStorage.getItem('overunder_premium_unlocked') === 'true';
-      if (!isUnlocked) {
-        e.preventDefault();
-        el.createPremiumToggle.checked = false;
-        openPaywallModal();
-      }
+      handleJudgementDayTap(e);
     });
   }
 
