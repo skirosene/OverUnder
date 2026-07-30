@@ -352,94 +352,81 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-// 1. Registrazione Host
-app.post('/api/auth/register', (req, res) => {
-  const { username, password, deviceUuid, fingerprint } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username e password obbligatori' });
+// 1. Autenticazione Host unificata (Zero attrito - accetta qualsiasi nome Host)
+app.post('/api/auth/host', (req, res) => {
+  const { username, deviceUuid, sessionId } = req.body;
+  if (!username) {
+    return res.status(400).json({ error: 'Nome Host obbligatorio' });
   }
-  const cleanUsername = username.trim().toLowerCase();
-  
-  // Controlla se utente esiste
-  const exists = Object.values(users).some(u => u.username === cleanUsername);
-  if (exists) {
-    return res.status(400).json({ error: 'Questo username è già registrato' });
+  const cleanUsername = username.trim();
+  const idKey = deviceUuid || sessionId || 'host_' + cleanUsername.toLowerCase();
+
+  let user = users[idKey];
+  if (!user) {
+    // Cerca se esiste un utente con lo stesso nome utente
+    const existing = Object.values(users).find(u => u.username === cleanUsername.toLowerCase());
+    if (existing) {
+      user = existing;
+    } else {
+      user = {
+        id: idKey,
+        username: cleanUsername.toLowerCase(),
+        displayName: cleanUsername,
+        isPremium: false
+      };
+      users[idKey] = user;
+    }
+  } else {
+    user.displayName = cleanUsername;
   }
-
-  const db = readTrialDb();
-  const activeTrial = db.find(r => 
-    ((deviceUuid && r.deviceUuid === deviceUuid) || 
-     (fingerprint && r.fingerprint === fingerprint)) &&
-    Date.now() <= r.trial_end_date
-  );
-
-  const userId = 'host_' + crypto.randomBytes(4).toString('hex');
-  users[userId] = {
-    id: userId,
-    username: cleanUsername,
-    passwordHash: hashPassword(password),
-    isPremium: activeTrial ? true : false
-  };
   writeUsersDb(users);
 
+  const token = jwt.sign({
+    userId: user.id,
+    username: cleanUsername,
+    role: 'host',
+    isPremium: !!user.isPremium,
+    premiumStatus: user.premiumStatus || 'STANDARD'
+  }, JWT_SECRET, { expiresIn: '7d' });
 
-  if (activeTrial) {
-    activeTrial.userId = userId;
-    writeTrialDb(db);
-  }
+  res.json({ token, isPremium: !!user.isPremium, username: cleanUsername });
+});
 
-  console.log(`[AUTH] Nuovo Host registrato: ${cleanUsername} (${userId}) | Trial Attivo: ${!!activeTrial}`);
+// 2. Registrazione Host (retrocompatibilità)
+app.post('/api/auth/register', (req, res) => {
   res.json({ success: true });
 });
 
-// 2. Login Host
+// 3. Login Host (retrocompatibilità frictionless)
 app.post('/api/auth/login', (req, res) => {
-  const { username, password, deviceUuid, fingerprint } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username e password obbligatori' });
+  const { username, deviceUuid, sessionId } = req.body;
+  if (!username) {
+    return res.status(400).json({ error: 'Username obbligatorio' });
   }
-  const cleanUsername = username.trim().toLowerCase();
+  const cleanUsername = username.trim();
+  const idKey = deviceUuid || sessionId || 'host_' + cleanUsername.toLowerCase();
 
-  const user = Object.values(users).find(u => u.username === cleanUsername);
-  if (!user || user.passwordHash !== hashPassword(password)) {
-    return res.status(401).json({ error: 'Credenziali non valide' });
-  }
-
-  const db = readTrialDb();
-  const activeTrial = db.find(r => 
-    ((deviceUuid && r.deviceUuid === deviceUuid) || 
-     (fingerprint && r.fingerprint === fingerprint) ||
-     (r.userId === user.id)) &&
-    Date.now() <= r.trial_end_date
-  );
-
-  let isPremium = user.isPremium;
-  let trial_active = false;
-  let trial_end_date = null;
-
-  if (activeTrial) {
-    user.isPremium = true;
+  let user = users[idKey] || Object.values(users).find(u => u.username === cleanUsername.toLowerCase());
+  if (!user) {
+    user = {
+      id: idKey,
+      username: cleanUsername.toLowerCase(),
+      displayName: cleanUsername,
+      isPremium: false
+    };
+    users[idKey] = user;
     writeUsersDb(users);
-    isPremium = true;
-    trial_active = true;
-    trial_end_date = activeTrial.trial_end_date;
-    if (!activeTrial.userId) {
-      activeTrial.userId = user.id;
-      writeTrialDb(db);
-    }
   }
 
-  // Genera JWT con claim trial
   const token = jwt.sign({
     userId: user.id,
-    username: user.username,
+    username: cleanUsername,
     role: 'host',
-    isPremium: isPremium,
-    trial_active: trial_active,
-    trial_end_date: trial_end_date
+    isPremium: !!user.isPremium,
+    premiumStatus: user.premiumStatus || 'STANDARD'
   }, JWT_SECRET, { expiresIn: '7d' });
 
-  res.json({ token, isPremium: isPremium, username: user.username });
+  res.json({ token, isPremium: !!user.isPremium, username: cleanUsername });
 });
 
 // 3. Autenticazione Guest (Zero registrazioni)
