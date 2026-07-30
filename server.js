@@ -524,6 +524,7 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
             product_data: {
               name: 'OverUnder - Modalità "Judgement Day"',
               description: 'Sblocco permanente per creare mazzi con foto e didascalie personalizzate.',
+              tax_code: 'txcd_10000000',
             },
             unit_amount: 1699, // 16,99 €
           },
