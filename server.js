@@ -771,9 +771,35 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Auto-pulizia preventiva stanze obsolete o senza giocatori attivi
+    const now = Date.now();
+    Object.keys(rooms).forEach(rCode => {
+      const r = rooms[rCode];
+      if (!r || !r.players || r.players.length === 0 || (r.createdAt && (now - r.createdAt > 7200000))) {
+        if (r && r.roundTimeout) clearTimeout(r.roundTimeout);
+        if (r) {
+          cleanupRoomAssets(r);
+          cleanupRoomFiles(r);
+        }
+        delete rooms[rCode];
+      }
+    });
+
     if (rooms[code]) {
-      socket.emit('room_error', "Questo codice stanza è già in uso! Scegline un altro.");
-      return;
+      const existingRoom = rooms[code];
+      const isSameHost = existingRoom.hostSessionId === sessionId || existingRoom.hostName === hostName;
+      const isRoomEmpty = !existingRoom.players || existingRoom.players.length === 0;
+
+      if (!isSameHost && !isRoomEmpty) {
+        socket.emit('room_error', "Questo codice stanza è attualmente occupato da un'altra partita! Scegline un altro.");
+        return;
+      }
+
+      // Se la stanza appartiene allo stesso Host o è vuota, puliscila e ricreala
+      if (existingRoom.roundTimeout) clearTimeout(existingRoom.roundTimeout);
+      cleanupRoomAssets(existingRoom);
+      cleanupRoomFiles(existingRoom);
+      delete rooms[code];
     }
 
     currentRoomCode = code;
