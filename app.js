@@ -545,27 +545,25 @@ const el = {
 // INIZIALIZZAZIONE & EVENTI DOM
 // ==========================================================================
 window.addEventListener('DOMContentLoaded', () => {
-  initClock();
-  setupOnboardingTabs();
-  setupEventListeners();
-  setupSocketListeners();
-  setupPremiumCreatorEvents();
-  setupAvatarEvents();
-  checkUrlParams();
-  updateAudioButtonUI();
-  runSplashScreen();
-  
-  // Controlla lo stato del regalo di benvenuto all'avvio
-  checkTrialStatus();
-  updatePremiumUI();
+  try { initClock(); } catch (e) { console.warn("initClock error:", e); }
+  try { setupOnboardingTabs(); } catch (e) { console.warn("setupOnboardingTabs error:", e); }
+  try { setupEventListeners(); } catch (e) { console.warn("setupEventListeners error:", e); }
+  try { setupSocketListeners(); } catch (e) { console.warn("setupSocketListeners error:", e); }
+  try { setupPremiumCreatorEvents(); } catch (e) { console.warn("setupPremiumCreatorEvents error:", e); }
+  try { setupAvatarEvents(); } catch (e) { console.warn("setupAvatarEvents error:", e); }
+  try { checkUrlParams(); } catch (e) { console.warn("checkUrlParams error:", e); }
+  try { updateAudioButtonUI(); } catch (e) { console.warn("updateAudioButtonUI error:", e); }
+  try { runSplashScreen(); } catch (e) { console.warn("runSplashScreen error:", e); }
+  try { updatePremiumUI(); } catch (e) { console.warn("updatePremiumUI error:", e); }
 });
 
 function initClock() {
+  if (!el || !el.statusClock) return;
   const updateClock = () => {
     const now = new Date();
     const hrs = String(now.getHours()).padStart(2, '0');
     const mins = String(now.getMinutes()).padStart(2, '0');
-    el.statusClock.textContent = `${hrs}:${mins}`;
+    if (el.statusClock) el.statusClock.textContent = `${hrs}:${mins}`;
   };
   updateClock();
   setInterval(updateClock, 30000);
