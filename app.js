@@ -2193,9 +2193,9 @@ function setupSocketListeners() {
         reason = 'not_found';
       }
       handleConnectionError(reason);
-    } else {
-      showError(message);
     }
+    showError(message);
+    showToast(message, 5000);
   });
 
   // 4. Aggiornamento lista partecipanti lobby e stato host dinamico
