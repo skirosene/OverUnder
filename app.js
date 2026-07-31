@@ -603,16 +603,17 @@ const el = {
 // ==========================================================================
 // INIZIALIZZAZIONE & EVENTI DOM
 // ==========================================================================
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   try { initClock(); } catch (e) { console.warn("initClock error:", e); }
   try { setupOnboardingTabs(); } catch (e) { console.warn("setupOnboardingTabs error:", e); }
   try { setupEventListeners(); } catch (e) { console.warn("setupEventListeners error:", e); }
   try { setupSocketListeners(); } catch (e) { console.warn("setupSocketListeners error:", e); }
   try { setupPremiumCreatorEvents(); } catch (e) { console.warn("setupPremiumCreatorEvents error:", e); }
   try { setupAvatarEvents(); } catch (e) { console.warn("setupAvatarEvents error:", e); }
-  try { checkUrlParams(); } catch (e) { console.warn("checkUrlParams error:", e); }
+  let hasRoomParam = false;
+  try { hasRoomParam = await checkUrlParams(); } catch (e) { console.warn("checkUrlParams error:", e); }
   try { updateAudioButtonUI(); } catch (e) { console.warn("updateAudioButtonUI error:", e); }
-  try { runSplashScreen(); } catch (e) { console.warn("runSplashScreen error:", e); }
+  try { runSplashScreen(hasRoomParam); } catch (e) { console.warn("runSplashScreen error:", e); }
   try { updatePremiumUI(); } catch (e) { console.warn("updatePremiumUI error:", e); }
 });
 
@@ -628,7 +629,17 @@ function initClock() {
   setInterval(updateClock, 30000);
 }
 
-function runSplashScreen() {
+function runSplashScreen(skipSplash = false) {
+  // Se l'utente sta entrando via invite link, salta lo splash e mostra subito il form
+  if (skipSplash) {
+    console.log('[INVITE] Splash screen saltato per invite link');
+    if (el.screenSplash) {
+      el.screenSplash.style.display = 'none';
+      el.screenSplash.classList.remove('active', 'fade-out');
+    }
+    return;
+  }
+
   // Avvia il fade-out dello splash screen a 4.6s (4600ms)
   setTimeout(() => {
     if (el.screenSplash) {
@@ -1792,13 +1803,16 @@ function setupEventListeners() {
   const handleJoinRoomLinkSubmit = async () => {
     const name = el.joinNameInput ? el.joinNameInput.value.trim() : '';
     const displayCode = el.joinRoomCodeDisplay ? el.joinRoomCodeDisplay.textContent.trim() : '';
-    const code = (state.pendingRoomToJoin || sessionStorage.getItem('overunder_pendingRoom') || (displayCode !== '-' ? displayCode : '') || sessionStorage.getItem('overunder_roomCode') || '').toUpperCase().trim();
+    const code = (state.pendingRoomToJoin || safeSessionStorage.getItem('overunder_pendingRoom') || (displayCode !== '-' ? displayCode : '') || safeSessionStorage.getItem('overunder_roomCode') || '').toUpperCase().trim();
+    
+    console.log('[INVITE] handleJoinRoomLinkSubmit - name:', name, 'code:', code, 'pendingRoom:', state.pendingRoomToJoin, 'displayCode:', displayCode);
     
     if (!name) {
       showError("Inserisci il tuo nome!");
       return;
     }
     if (!code || code === '-') {
+      console.error('[INVITE] Codice stanza non valido! code:', code);
       showError("Codice stanza non valido!");
       return;
     }
@@ -1809,9 +1823,9 @@ function setupEventListeners() {
       console.warn("AudioSynth init non riuscito:", e);
     }
     
-    sessionStorage.setItem('overunder_playerName', name);
-    sessionStorage.setItem('overunder_roomCode', code);
-    sessionStorage.setItem('overunder_isHost', 'false');
+    safeSessionStorage.setItem('overunder_playerName', name);
+    safeSessionStorage.setItem('overunder_roomCode', code);
+    safeSessionStorage.setItem('overunder_isHost', 'false');
     
     startConnectionLoading('join');
 
@@ -1821,15 +1835,20 @@ function setupEventListeners() {
     };
 
     try {
+      console.log('[INVITE] Chiamata authenticateGuest per room:', code, 'player:', name);
       const token = await authenticateGuest(code, name);
-      sessionStorage.setItem('overunder_token', token);
-      localStorage.setItem('overunder_token', token);
+      console.log('[INVITE] authenticateGuest OK, token ricevuto');
+      safeSessionStorage.setItem('overunder_token', token);
+      safeStorage.setItem('overunder_token', token);
       if (socket.connected) {
+        console.log('[INVITE] Socket già connesso, invio AUTH');
         socket.emit('AUTH', { token });
       } else {
+        console.log('[INVITE] Socket non connesso, avvio connessione...');
         socket.connect();
       }
     } catch (err) {
+      console.error('[INVITE] Errore join:', err.message, err);
       if (state.connectionTimeout) {
         clearTimeout(state.connectionTimeout);
         state.connectionTimeout = null;
@@ -1935,9 +1954,12 @@ function setupSocketListeners() {
     console.log("Connesso al server. ID Socket:", socket.id);
     state.socketAuthenticated = false;
 
-    const savedToken = sessionStorage.getItem('overunder_token');
+    const savedToken = safeSessionStorage.getItem('overunder_token');
     if (savedToken) {
+      console.log('[SOCKET] connect: invio AUTH con token salvato');
       socket.emit('AUTH', { token: savedToken });
+    } else {
+      console.log('[SOCKET] connect: nessun token salvato in sessionStorage');
     }
   });
 
@@ -1965,9 +1987,9 @@ function setupSocketListeners() {
       return;
     }
 
-    const savedRoom = sessionStorage.getItem('overunder_roomCode');
-    const savedName = sessionStorage.getItem('overunder_playerName');
-    const savedHost = sessionStorage.getItem('overunder_isHost') === 'true';
+    const savedRoom = safeSessionStorage.getItem('overunder_roomCode');
+    const savedName = safeSessionStorage.getItem('overunder_playerName');
+    const savedHost = safeSessionStorage.getItem('overunder_isHost') === 'true';
 
     if (savedRoom && savedName) {
       console.log("Tentativo di ripristino sessione:", savedRoom, savedName);
@@ -2013,15 +2035,15 @@ function setupSocketListeners() {
     state.isHost = isHost;
     state.roomCode = roomCode;
     state.players = players;
-    state.playerName = assignedName || sessionStorage.getItem('overunder_playerName');
+    state.playerName = assignedName || safeSessionStorage.getItem('overunder_playerName');
     state.roomIsPremium = !!isPremium;
     state.roomIsLocked = !!isLocked;
     state.currentRoundId = gameData.roundId || 0;
     state.gameplayStarted = (roomState === 'playing' || roomState === 'results' || roomState === 'summary');
     updateLockIcon();
     
-    sessionStorage.setItem('overunder_playerName', state.playerName);
-    sessionStorage.setItem('overunder_isHost', state.isHost ? 'true' : 'false');
+    safeSessionStorage.setItem('overunder_playerName', state.playerName);
+    safeSessionStorage.setItem('overunder_isHost', state.isHost ? 'true' : 'false');
     
     const myPlayer = players.find(p => p.name === state.playerName);
     state.hasSubmittedPremiumCards = myPlayer ? !!myPlayer.premiumReady : false;
@@ -2120,9 +2142,9 @@ function setupSocketListeners() {
     state.hasSubmittedPremiumCards = false;
     state.localPremiumCards = [];
 
-    sessionStorage.setItem('overunder_roomCode', roomCode);
-    sessionStorage.setItem('overunder_playerName', state.playerName);
-    sessionStorage.setItem('overunder_isHost', 'true');
+    safeSessionStorage.setItem('overunder_roomCode', roomCode);
+    safeSessionStorage.setItem('overunder_playerName', state.playerName);
+    safeSessionStorage.setItem('overunder_isHost', 'true');
 
     setupLobbyUI();
     updateLockIcon();
@@ -2139,16 +2161,16 @@ function setupSocketListeners() {
     state.isHost = false;
     state.roomCode = roomCode;
     state.players = players;
-    state.playerName = assignedName || sessionStorage.getItem('overunder_playerName') || 'Giocatore';
+    state.playerName = assignedName || safeSessionStorage.getItem('overunder_playerName') || 'Giocatore';
     state.roomIsPremium = !!isPremium;
     state.roomIsLocked = !!isLocked;
     state.gameplayStarted = false;
     state.hasSubmittedPremiumCards = false;
     state.localPremiumCards = [];
 
-    sessionStorage.setItem('overunder_roomCode', roomCode);
-    sessionStorage.setItem('overunder_playerName', state.playerName);
-    sessionStorage.setItem('overunder_isHost', 'false');
+    safeSessionStorage.setItem('overunder_roomCode', roomCode);
+    safeSessionStorage.setItem('overunder_playerName', state.playerName);
+    safeSessionStorage.setItem('overunder_isHost', 'false');
 
     setupLobbyUI();
     updateLockIcon();
@@ -2207,7 +2229,7 @@ function setupSocketListeners() {
     if (me) {
       const wasHost = state.isHost;
       state.isHost = !!me.isHost;
-      sessionStorage.setItem('overunder_isHost', state.isHost ? 'true' : 'false');
+      safeSessionStorage.setItem('overunder_isHost', state.isHost ? 'true' : 'false');
       
       if (state.isHost && !wasHost) {
         showToast("Sei diventato l'Host della stanza!");
@@ -3018,10 +3040,11 @@ function resetToMenu() {
 }
 
 function clearSession() {
-  sessionStorage.removeItem('overunder_roomCode');
-  sessionStorage.removeItem('overunder_playerName');
-  sessionStorage.removeItem('overunder_isHost');
-  sessionStorage.removeItem('overunder_token');
+  safeSessionStorage.removeItem('overunder_roomCode');
+  safeSessionStorage.removeItem('overunder_playerName');
+  safeSessionStorage.removeItem('overunder_isHost');
+  safeSessionStorage.removeItem('overunder_token');
+  safeSessionStorage.removeItem('overunder_pendingRoom');
 }
 
 // ==========================================================================
@@ -3650,26 +3673,26 @@ function openKickContextMenu(e, player) {
 async function checkUrlParams() {
   const params = new URLSearchParams(window.location.search);
   const payment = params.get('payment');
-  const sessionId = params.get('session_id');
+  const sessionIdParam = params.get('session_id');
 
-  if (payment === 'success' && sessionId) {
+  if (payment === 'success' && sessionIdParam) {
     const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
     window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
 
     try {
-      let token = sessionStorage.getItem('overunder_token');
+      let token = safeSessionStorage.getItem('overunder_token');
       if (!token) {
         token = await authenticateHost("host_player");
-        sessionStorage.setItem('overunder_token', token);
+        safeSessionStorage.setItem('overunder_token', token);
       }
 
-      const res = await fetch(`/api/stripe/verify-session?session_id=${sessionId}`, {
+      const res = await fetch(`/api/stripe/verify-session?session_id=${sessionIdParam}`, {
         headers: { 'Authorization': 'Bearer ' + token }
       });
       if (res.ok) {
         const data = await res.json();
         if (data.token) {
-          sessionStorage.setItem('overunder_token', data.token);
+          safeSessionStorage.setItem('overunder_token', data.token);
         }
         state.roomIsPremium = true;
         showError("Pagamento confermato! Modalità \"Judgement Day\" sbloccata per sempre! 👑");
@@ -3682,19 +3705,24 @@ async function checkUrlParams() {
 
   const room = params.get('room');
   if (room) {
+    console.log('[INVITE] Rilevato parametro ?room=' + room);
     // Pulisci le sessioni residue di vecchie stanze per evitare che restore_session le sovrascriva
     clearSession();
     const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
     window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
     const decodedRoom = decodeURIComponent(room.replace(/\+/g, ' ')).trim().toUpperCase();
+    console.log('[INVITE] Room decodificata:', decodedRoom);
     showJoinFromLink(decodedRoom);
+    return true; // Segnala che c'è un invite link attivo
   }
+  return false;
 }
 
 function showJoinFromLink(roomCode) {
   const cleanCode = (roomCode || '').trim().toUpperCase();
+  console.log('[INVITE] showJoinFromLink - codice:', cleanCode);
   state.pendingRoomToJoin = cleanCode;
-  sessionStorage.setItem('overunder_pendingRoom', cleanCode);
+  safeSessionStorage.setItem('overunder_pendingRoom', cleanCode);
   
   // Nascondi le schede standard
   if (el.modeTabs) el.modeTabs.style.display = 'none';
@@ -3703,14 +3731,24 @@ function showJoinFromLink(roomCode) {
   
   // Mostra il form dedicato
   if (el.joinRoomCodeDisplay) el.joinRoomCodeDisplay.textContent = cleanCode;
-  if (el.formJoinRoomLink) el.formJoinRoomLink.style.display = 'block';
+  if (el.formJoinRoomLink) {
+    el.formJoinRoomLink.style.display = 'block';
+    console.log('[INVITE] Form join-room-link mostrato');
+  } else {
+    console.error('[INVITE] ERRORE: el.formJoinRoomLink non trovato nel DOM!');
+  }
   
   // Resetta input ed errori
-  if (el.joinNameInput) el.joinNameInput.value = '';
+  if (el.joinNameInput) {
+    el.joinNameInput.value = '';
+    // Focus automatico sul campo nome per migliorare l'UX mobile
+    setTimeout(() => { try { el.joinNameInput.focus(); } catch(e) {} }, 300);
+  }
   if (el.nameErrorMsg) el.nameErrorMsg.style.display = 'none';
   
   // Mostra la schermata di onboarding con il modulo di ingresso attivo
   showScreen(el.screenOnboarding);
+  console.log('[INVITE] screenOnboarding attivato con form join');
 }
 
 function resetFromJoinLink() {
