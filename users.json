@@ -100,5 +100,13 @@
     "displayName": "TestHost",
     "isPremium": false,
     "premiumStatus": "STANDARD"
+  },
+  "sess_4p2net2ismqf6rnj6": {
+    "id": "sess_4p2net2ismqf6rnj6",
+    "deviceUuid": "sess_4p2net2ismqf6rnj6",
+    "username": "testhost",
+    "displayName": "Mario",
+    "isPremium": false,
+    "premiumStatus": "STANDARD"
   }
 }

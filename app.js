@@ -1506,24 +1506,28 @@ function setupEventListeners() {
   });
 
   // Voto pulsanti
-  el.btnUnderrated.addEventListener('click', () => submitVote('underrated'));
-  el.btnOverrated.addEventListener('click', () => submitVote('overrated'));
+  if (el.btnUnderrated) el.btnUnderrated.addEventListener('click', () => submitVote('underrated'));
+  if (el.btnOverrated) el.btnOverrated.addEventListener('click', () => submitVote('overrated'));
 
   // Host: Aggiunta Bot
-  el.btnAddBots.addEventListener('click', () => {
-    if (!state.isHost) return;
-    socket.emit('add_bots');
-  });
+  if (el.btnAddBots) {
+    el.btnAddBots.addEventListener('click', () => {
+      if (!state.isHost) return;
+      socket.emit('add_bots');
+    });
+  }
 
   // Host: click per avanzare (PROSSIMA CARTA dall'overlay)
-  el.btnNextOverlay.addEventListener('click', () => {
-    if (!state.isHost) return;
-    socket.emit('next_card');
-  });
+  if (el.btnNextOverlay) {
+    el.btnNextOverlay.addEventListener('click', () => {
+      if (!state.isHost) return;
+      socket.emit('next_card');
+    });
+  }
 
   // Voto tardivo dall'overlay
-  el.btnNextUnder.addEventListener('click', () => submitLateVote('underrated'));
-  el.btnNextOver.addEventListener('click', () => submitLateVote('overrated'));
+  if (el.btnNextUnder) el.btnNextUnder.addEventListener('click', () => submitLateVote('underrated'));
+  if (el.btnNextOver) el.btnNextOver.addEventListener('click', () => submitLateVote('overrated'));
 
   // Filtri dei voti nei risultati e overlay
   document.querySelectorAll('#results-votes-detail-card .votes-filter-container .filter-btn').forEach(btn => {
@@ -1545,45 +1549,51 @@ function setupEventListeners() {
   });
 
   // Toggle Statistiche Mondiali (Toggle Bridge)
-  el.btnToggleWorldStats.addEventListener('click', () => {
-    state.isWorldStatsVisible = !state.isWorldStatsVisible;
-    if (state.isWorldStatsVisible) {
-      el.btnToggleWorldStats.classList.add('active');
-      el.globalStatsCard.classList.add('active');
-      AudioSynth.playConfirm(true);
-      setTimeout(() => {
-        el.globalStatsCard.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }, 100);
-    } else {
-      el.btnToggleWorldStats.classList.remove('active');
-      el.globalStatsCard.classList.remove('active');
-      AudioSynth.playConfirm(false);
-    }
-  });
+  if (el.btnToggleWorldStats) {
+    el.btnToggleWorldStats.addEventListener('click', () => {
+      state.isWorldStatsVisible = !state.isWorldStatsVisible;
+      if (state.isWorldStatsVisible) {
+        el.btnToggleWorldStats.classList.add('active');
+        if (el.globalStatsCard) el.globalStatsCard.classList.add('active');
+        AudioSynth.playConfirm(true);
+        setTimeout(() => {
+          if (el.globalStatsCard) el.globalStatsCard.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 100);
+      } else {
+        el.btnToggleWorldStats.classList.remove('active');
+        if (el.globalStatsCard) el.globalStatsCard.classList.remove('active');
+        AudioSynth.playConfirm(false);
+      }
+    });
+  }
 
   // Host o Solo: Passa alla prossima carta
-  el.btnNextCardConfluent.addEventListener('click', () => {
-    if (state.isSoloMode) {
-      if (state.soloTimeoutId) {
-        clearTimeout(state.soloTimeoutId);
-        state.soloTimeoutId = null;
+  if (el.btnNextCardConfluent) {
+    el.btnNextCardConfluent.addEventListener('click', () => {
+      if (state.isSoloMode) {
+        if (state.soloTimeoutId) {
+          clearTimeout(state.soloTimeoutId);
+          state.soloTimeoutId = null;
+        }
+        advanceSoloGame();
+      } else if (state.isHost) {
+        socket.emit('next_card');
       }
-      advanceSoloGame();
-    } else if (state.isHost) {
-      socket.emit('next_card');
-    }
-  });
+    });
+  }
 
   // Host: Torna al Menu / Reset Lobby
-  el.btnRestart.addEventListener('click', () => {
-    if (state.isSoloMode) {
-      resetToMenu();
-      return;
-    }
-    if (state.isHost) {
-      socket.emit('restart_game');
-    }
-  });
+  if (el.btnRestart) {
+    el.btnRestart.addEventListener('click', () => {
+      if (state.isSoloMode) {
+        resetToMenu();
+        return;
+      }
+      if (state.isHost) {
+        socket.emit('restart_game');
+      }
+    });
+  }
 
   // Tasto Segnala (Bandierina Silente)
   if (el.btnReportCard) {
@@ -1610,14 +1620,16 @@ function setupEventListeners() {
   }
 
   // Pulsante indietro nella lobby
-  el.btnBackLobby.addEventListener('click', () => {
-    AudioSynth.playConfirm(false);
-    if (!state.isSoloMode) {
-      socket.disconnect();
-      socket.connect();
-    }
-    resetToMenu();
-  });
+  if (el.btnBackLobby) {
+    el.btnBackLobby.addEventListener('click', () => {
+      AudioSynth.playConfirm(false);
+      if (!state.isSoloMode) {
+        socket.disconnect();
+        socket.connect();
+      }
+      resetToMenu();
+    });
+  }
 
   // Modal Custom Exit Actions
   const openExitModal = () => {
@@ -1653,34 +1665,44 @@ function setupEventListeners() {
     }
   };
 
-  el.btnExitCancel.addEventListener('click', () => {
-    AudioSynth.playConfirm(true);
-    closeExitModal();
-  });
+  if (el.btnExitCancel) {
+    el.btnExitCancel.addEventListener('click', () => {
+      AudioSynth.playConfirm(true);
+      closeExitModal();
+    });
+  }
 
-  el.btnExitConfirm.addEventListener('click', () => {
-    AudioSynth.playConfirm(false);
-    state.isExitModalOpen = false;
-    el.exitModal.classList.remove('active');
-    el.exitModal.style.display = 'none';
-    if (!state.isSoloMode) {
-      socket.disconnect();
-      socket.connect();
-    }
-    resetToMenu();
-  });
+  if (el.btnExitConfirm) {
+    el.btnExitConfirm.addEventListener('click', () => {
+      AudioSynth.playConfirm(false);
+      state.isExitModalOpen = false;
+      if (el.exitModal) {
+        el.exitModal.classList.remove('active');
+        el.exitModal.style.display = 'none';
+      }
+      if (!state.isSoloMode) {
+        socket.disconnect();
+        socket.connect();
+      }
+      resetToMenu();
+    });
+  }
 
   // Pulsante esci (X) durante gameplay
-  el.btnQuitGameplay.addEventListener('click', () => {
-    AudioSynth.playConfirm(false);
-    openExitModal();
-  });
+  if (el.btnQuitGameplay) {
+    el.btnQuitGameplay.addEventListener('click', () => {
+      AudioSynth.playConfirm(false);
+      openExitModal();
+    });
+  }
 
   // Pulsante esci (X) durante i risultati del round
-  el.btnQuitResults.addEventListener('click', () => {
-    AudioSynth.playConfirm(false);
-    openExitModal();
-  });
+  if (el.btnQuitResults) {
+    el.btnQuitResults.addEventListener('click', () => {
+      AudioSynth.playConfirm(false);
+      openExitModal();
+    });
+  }
 
   // Modal Come Funziona (Modalità Gogna Info)
   const setIsInfoOpen = (isOpen) => {
@@ -1882,10 +1904,12 @@ function setupEventListeners() {
   }
 
   // Torna a Benvenuto da Onboarding
-  el.btnBackOnboarding.addEventListener('click', () => {
-    AudioSynth.playConfirm(false);
-    showScreen(el.screenWelcome);
-  });
+  if (el.btnBackOnboarding) {
+    el.btnBackOnboarding.addEventListener('click', () => {
+      AudioSynth.playConfirm(false);
+      showScreen(el.screenWelcome);
+    });
+  }
 
   // Home buttons per schermate kicked/room full/loading
   if (el.btnKickedHome) {
