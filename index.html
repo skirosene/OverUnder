@@ -429,36 +429,38 @@
           </div>
         </div>
 
-        <!-- Stato dei voti del gruppo (Pressione sociale in tempo reale) -->
-        <div id="gameplay-status-panel" class="gameplay-status-panel glass-panel">
-          <div class="status-panel-title">Stato Votazioni:</div>
-          <div id="gameplay-players-status" class="gameplay-players-status">
-            <!-- Matteo: ✔️ Votato, Giulia: 🤔 Decisione... -->
+        <!-- Footer Votazioni (Sticky Bottom) -->
+        <div id="gameplay-footer" class="gameplay-footer">
+          <!-- Stato dei voti del gruppo (Pressione sociale in tempo reale) -->
+          <div id="gameplay-status-panel" class="gameplay-status-panel glass-panel">
+            <div class="status-panel-title">Stato Votazioni:</div>
+            <div id="gameplay-players-status" class="gameplay-players-status">
+              <!-- Matteo: ✔️ Votato, Giulia: 🤔 Decisione... -->
+            </div>
           </div>
-        </div>
 
+          <!-- Pulsanti di Voto -->
+          <div class="voter-actions">
+            <button id="btn-overrated" class="btn-vote btn-overrated">
+              <div class="btn-vote-content">
+                <span class="btn-vote-label">SOPRAVVALUTATO</span>
+                <span class="btn-vote-sub">OVER</span>
+              </div>
+              <svg class="vote-icon" viewBox="0 0 24 24">
+                <path d="M4 12h16l-8-8z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
 
-        <!-- Pulsanti di Voto -->
-        <div class="voter-actions">
-          <button id="btn-overrated" class="btn-vote btn-overrated">
-            <div class="btn-vote-content">
-              <span class="btn-vote-label">SOPRAVVALUTATO</span>
-              <span class="btn-vote-sub">OVER</span>
-            </div>
-            <svg class="vote-icon" viewBox="0 0 24 24">
-              <path d="M4 12h16l-8-8z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-
-          <button id="btn-underrated" class="btn-vote btn-underrated">
-            <div class="btn-vote-content">
-              <span class="btn-vote-label">SOTTOVALUTATO</span>
-              <span class="btn-vote-sub">UNDER</span>
-            </div>
-            <svg class="vote-icon" viewBox="0 0 24 24">
-              <path d="M20 12H4l8 8z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
+            <button id="btn-underrated" class="btn-vote btn-underrated">
+              <div class="btn-vote-content">
+                <span class="btn-vote-label">SOTTOVALUTATO</span>
+                <span class="btn-vote-sub">UNDER</span>
+              </div>
+              <svg class="vote-icon" viewBox="0 0 24 24">
+                <path d="M20 12H4l8 8z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <!-- Overlay fine round: PROSSIMA CARTA... -->
