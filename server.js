@@ -40,12 +40,28 @@ const transporterOptions = {
 
 const transporter = nodemailer.createTransport(transporterOptions);
 
-// Helper per recuperare variabili d'ambiente pulite da spazi o virgolette residue
+// Helper per recuperare variabili d'ambiente pulite con ricerca flessibile
 function getCleanEnvVar(...keys) {
+  // 1. Controllo diretto delle chiavi indicate
   for (const k of keys) {
     const val = process.env[k];
     if (val && typeof val === 'string' && val.trim().length > 0) {
       return val.replace(/^["']|["']$/g, '').trim();
+    }
+  }
+  // 2. Ricerca fuzzy senza distinzione tra maiuscole/minuscole e spazi per Render
+  const envKeys = Object.keys(process.env);
+  for (const targetKey of keys) {
+    const cleanTarget = targetKey.toLowerCase().trim();
+    const foundKey = envKeys.find(ek => {
+      const cleanEk = ek.toLowerCase().trim();
+      return cleanEk === cleanTarget || cleanEk.includes('resend');
+    });
+    if (foundKey) {
+      const val = process.env[foundKey];
+      if (val && typeof val === 'string' && val.trim().length > 0) {
+        return val.replace(/^["']|["']$/g, '').trim();
+      }
     }
   }
   return '';
