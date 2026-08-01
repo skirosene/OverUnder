@@ -708,14 +708,14 @@ function runSplashScreen(skipSplash = false) {
     return;
   }
 
-  // Avvia il fade-out dello splash screen a 4.6s (4600ms)
+  // Avvia il fade-out dello splash screen a 300ms
   setTimeout(() => {
     if (el.screenSplash) {
       el.screenSplash.classList.add('fade-out');
     }
-  }, 4600);
+  }, 300);
 
-  // Nascondi lo splash screen a 5.0s (5000ms) e mostra la schermata iniziale
+  // Nascondi lo splash screen a 500ms e mostra la schermata iniziale
   setTimeout(() => {
     if (el.screenSplash) {
       el.screenSplash.style.display = 'none';
@@ -735,7 +735,7 @@ function runSplashScreen(skipSplash = false) {
     if (!anyActive) {
       showScreen(el.screenWelcome);
     }
-  }, 5000);
+  }, 500);
 }
 
 function showScreen(targetScreen) {
@@ -3375,8 +3375,8 @@ async function startSoloMode(playerName) {
     }];
   }
 
-  // Mostra la lobby per giocatore singolo
-  setupSoloLobbyUI();
+  // Avvia immediatamente la partita in singolo (30 carte)
+  startSoloGame(30);
 }
 
 function setupSoloLobbyUI() {
