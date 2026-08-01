@@ -671,19 +671,52 @@ const el = {
 // ==========================================================================
 // INIZIALIZZAZIONE & EVENTI DOM
 // ==========================================================================
-window.addEventListener('DOMContentLoaded', async () => {
+function forceHideSplash() {
+  const splash = document.getElementById('screen-splash') || (el && el.screenSplash);
+  if (splash) {
+    splash.style.display = 'none';
+    splash.classList.remove('active', 'fade-out');
+  }
+}
+
+async function startApp() {
   try { initClock(); } catch (e) { console.warn("initClock error:", e); }
   try { setupOnboardingTabs(); } catch (e) { console.warn("setupOnboardingTabs error:", e); }
   try { setupEventListeners(); } catch (e) { console.warn("setupEventListeners error:", e); }
   try { setupSocketListeners(); } catch (e) { console.warn("setupSocketListeners error:", e); }
   try { setupPremiumCreatorEvents(); } catch (e) { console.warn("setupPremiumCreatorEvents error:", e); }
   try { setupAvatarEvents(); } catch (e) { console.warn("setupAvatarEvents error:", e); }
+  
   let hasRoomParam = false;
-  try { hasRoomParam = await checkUrlParams(); } catch (e) { console.warn("checkUrlParams error:", e); }
+  try {
+    hasRoomParam = await checkUrlParams();
+  } catch (e) {
+    console.warn("checkUrlParams error:", e);
+  }
+  
   try { updateAudioButtonUI(); } catch (e) { console.warn("updateAudioButtonUI error:", e); }
   try { runSplashScreen(hasRoomParam); } catch (e) { console.warn("runSplashScreen error:", e); }
   try { updatePremiumUI(); } catch (e) { console.warn("updatePremiumUI error:", e); }
-});
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', startApp);
+} else {
+  startApp();
+}
+
+// Safety net: Garantisce che lo splash screen venga sempre rimosso entro 800ms
+setTimeout(() => {
+  const splash = document.getElementById('screen-splash');
+  if (splash && (splash.style.display !== 'none' || splash.classList.contains('active'))) {
+    console.warn('[SAFETY] Force hiding splash screen due to timeout');
+    forceHideSplash();
+    const welcome = document.getElementById('screen-welcome');
+    if (welcome && !document.querySelector('.screen.active')) {
+      welcome.classList.add('active');
+    }
+  }
+}, 800);
 
 function initClock() {
   if (!el || !el.statusClock) return;
@@ -701,10 +734,7 @@ function runSplashScreen(skipSplash = false) {
   // Se l'utente sta entrando via invite link, salta lo splash e mostra subito il form
   if (skipSplash) {
     console.log('[INVITE] Splash screen saltato per invite link');
-    if (el.screenSplash) {
-      el.screenSplash.style.display = 'none';
-      el.screenSplash.classList.remove('active', 'fade-out');
-    }
+    forceHideSplash();
     return;
   }
 
@@ -717,10 +747,7 @@ function runSplashScreen(skipSplash = false) {
 
   // Nascondi lo splash screen a 500ms e mostra la schermata iniziale
   setTimeout(() => {
-    if (el.screenSplash) {
-      el.screenSplash.style.display = 'none';
-      el.screenSplash.classList.remove('active');
-    }
+    forceHideSplash();
     
     const screens = [
       el.screenWelcome,
@@ -739,10 +766,7 @@ function runSplashScreen(skipSplash = false) {
 }
 
 function showScreen(targetScreen) {
-  if (el.screenSplash) {
-    el.screenSplash.style.display = 'none';
-    el.screenSplash.classList.remove('active', 'fade-out');
-  }
+  forceHideSplash();
   [el.screenWelcome, el.screenOnboarding, el.screenLobby, el.screenGameplay, el.screenResults, el.screenSummary, el.screenKicked, el.screenRoomFull, el.screenLoading].forEach(screen => {
     if (screen) screen.classList.remove('active');
   });
