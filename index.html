@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="description" content="OverUnder - Il party game dove decidi se qualcosa è sopravvalutato o sottovalutato. Gioca online con i tuoi amici!">
   <meta name="theme-color" content="#111111">
   <meta property="og:title" content="OverUnder - Party Game">
@@ -357,9 +357,9 @@
       <!-- SCHERMATA 3: GAMEPLAY -->
       <section id="screen-gameplay" class="screen">
         <!-- Header con pulsante Audio ed Esci -->
-        <div class="gameplay-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 8px; flex: 0 0 auto;">
+        <div class="gameplay-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 6px; flex: 0 0 auto;">
           <button id="btn-toggle-audio" class="nav-btn-audio" title="Disattiva Audio">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px;">
               <path d="M11 5L6 9H2v6h4l5 4V5z"/>
               <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
               <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
@@ -367,12 +367,12 @@
           </button>
 
           <!-- Lista orizzontale avatar partecipanti -->
-          <div id="gameplay-avatars-wrapper" style="position: relative; max-width: 60%; display: flex; align-items: center;">
-            <div id="gameplay-avatars-list" class="gameplay-avatars-list" style="display: flex; align-items: center; gap: 4px; width: 100%; overflow-x: auto; cursor: pointer; padding: 4px 8px; border-radius: 20px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); scrollbar-width: none;">
+          <div id="gameplay-avatars-wrapper" style="position: relative; max-width: 65%; display: flex; align-items: center;">
+            <div id="gameplay-avatars-list" class="gameplay-avatars-list" style="display: flex; align-items: center; gap: 4px; width: 100%; overflow-x: auto; cursor: pointer; padding: 2px 6px; border-radius: 16px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); scrollbar-width: none;">
               <!-- Popolato via JS -->
             </div>
             <!-- Badge numeretto partecipanti -->
-            <div id="gameplay-player-count-badge" style="position: absolute; top: -6px; right: -6px; background: var(--color-underrated); color: white; font-family: var(--font-title); font-size: 0.65rem; font-weight: 800; border-radius: 50%; width: 16px; height: 16px; display: flex; justify-content: center; align-items: center; border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 2px 6px rgba(6, 182, 212, 0.4); pointer-events: none;">0</div>
+            <div id="gameplay-player-count-badge" style="position: absolute; top: -5px; right: -5px; background: var(--color-underrated); color: white; font-family: var(--font-title); font-size: 0.6rem; font-weight: 800; border-radius: 50%; width: 15px; height: 15px; display: flex; justify-content: center; align-items: center; border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 2px 6px rgba(6, 182, 212, 0.4); pointer-events: none;">0</div>
           </div>
           
           <button id="btn-quit-gameplay" class="nav-btn-close" title="Esci">&times;</button>
@@ -945,30 +945,55 @@
     </div>
   </div>
 
-  <!-- Modal Ripristina Acquisto (Email) -->
+  <!-- Modal Ripristina Acquisto / Trasferimento Licenza (Email + OTP 2FA) -->
   <div id="restore-purchase-modal" class="custom-modal-overlay" style="display: none; justify-content: center; align-items: center; z-index: 17000;">
     <div class="trial-expired-modal-box" style="max-width: 320px; border-color: rgba(52, 152, 219, 0.4); display: flex; flex-direction: column; align-items: center; gap: 12px;">
       <h2 class="title-floating" style="font-size: 1.2rem; color: var(--color-accent-blue); line-height: 1.3;">
-        <span style="display: block; font-size: 2rem; margin-bottom: 4px;">📲</span>RIPRISTINA ACQUISTO
+        <span style="display: block; font-size: 2rem; margin-bottom: 4px;">📲</span>TRASFERISCI LICENZA
       </h2>
 
       <!-- Descrizione -->
       <div class="paywall-desc-box" style="width: 100%; text-align: center; padding: 12px 14px; display: block;">
-        <p style="font-size: 0.74rem; color: #e0e0e0; line-height: 1.4; margin: 0;">
-          Inserisci l'email usata durante il pagamento su Stripe (oppure il tuo nome utente) per attivare il pass Premium A Vita su questo dispositivo.
+        <p id="transfer-modal-desc" style="font-size: 0.74rem; color: #e0e0e0; line-height: 1.4; margin: 0;">
+          Inserisci l'email usata per l'acquisto su Stripe per ricevere il codice OTP temporaneo a 6 cifre.
         </p>
       </div>
 
-      <!-- Sezione Input Email/Username (In basso alla descrizione) -->
-      <div style="width: 100%; display: flex; flex-direction: column; gap: 6px; align-items: center;">
-        <input type="text" id="restore-email-input" class="text-input" placeholder="Email o Nome Utente (es. matteo)" autocomplete="email" style="width: 100%; max-width: 100%; box-sizing: border-box; border-radius: 10px; font-size: 0.82rem; text-align: center; padding: 10px 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(52, 152, 219, 0.35); color: white;">
+      <!-- Fase 1: Inserimento Email -->
+      <div id="transfer-step-email" style="width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: center;">
+        <input type="email" id="input-transfer-email" class="text-input" placeholder="La tua email Stripe (es. mario@gmail.com)" autocomplete="email" style="width: 100%; max-width: 100%; box-sizing: border-box; border-radius: 10px; font-size: 0.82rem; text-align: center; padding: 10px 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(52, 152, 219, 0.35); color: white;">
+        <button id="btn-request-transfer-otp" class="btn-sblocca-fucsia" style="background: linear-gradient(135deg, #3498db, #8e44ad); box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4); width: 100%;">
+          INVIA CODICE
+        </button>
       </div>
+
+      <!-- Fase 2: Inserimento OTP + Timer 60s (Inizialmente Nascosta) -->
+      <div id="transfer-step-otp" style="display: none; width: 100%; flex-direction: column; gap: 8px; align-items: center;">
+        <div style="font-size: 0.7rem; color: #a0a0a0; text-align: center;">
+          Codice inviato a: <strong id="transfer-email-display" style="color: white;">-</strong>
+        </div>
+
+        <input type="text" id="input-transfer-otp" class="text-input" placeholder="Codice OTP a 6 cifre" maxlength="6" autocomplete="one-time-code" style="width: 100%; max-width: 100%; box-sizing: border-box; border-radius: 10px; font-size: 1.1rem; text-align: center; padding: 10px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--color-underrated); color: white; letter-spacing: 4px; font-weight: 800;">
+
+        <!-- Timer visuale 60 secondi -->
+        <div id="transfer-otp-timer-box" style="font-size: 0.75rem; color: #06b6d4; font-weight: 700; display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+          ⏱️ Codice valido per: <span id="transfer-otp-timer">60</span>s
+        </div>
+
+        <button id="btn-verify-transfer-otp" class="btn-sblocca-fucsia" style="background: linear-gradient(135deg, #06b6d4, #8e44ad); box-shadow: 0 4px 15px rgba(6, 182, 212, 0.4); width: 100%;">
+          CONFERMA
+        </button>
+
+        <button id="btn-resend-transfer-otp" type="button" style="display: none; background: none; border: none; color: #3498db; font-size: 0.72rem; text-decoration: underline; cursor: pointer; padding: 4px; margin-top: 2px;">
+          Non hai ricevuto il codice? Reinvia OTP
+        </button>
+      </div>
+
+      <!-- Errore o Messaggio di Stato -->
+      <span class="error-msg" id="transfer-error-msg" style="display: none; font-size: 0.72rem; margin-top: 4px; text-align: center; width: 100%;"></span>
 
       <!-- Azioni -->
       <div style="width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-        <button id="btn-submit-restore" class="btn-sblocca-fucsia" style="background: linear-gradient(135deg, #3498db, #8e44ad); box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);">
-          RIPRISTINA SU QUESTO DISPOSITIVO
-        </button>
         <button id="btn-restore-close" class="btn-paywall-close-styled">
           ANNULLA
         </button>

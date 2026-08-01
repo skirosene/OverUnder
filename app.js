@@ -52,11 +52,79 @@ const safeSessionStorage = {
   }
 };
 
-// Recupera o genera un sessionId persistente per l'utente (Cross-Platform)
+// ==========================================================================
+// 1. IDENTITÀ PERSISTENTE & LOCALSTORAGE (Client-Side)
+// ==========================================================================
 let sessionId = safeStorage.getItem('overunder_sessionId');
 if (!sessionId) {
   sessionId = 'sess_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
   safeStorage.setItem('overunder_sessionId', sessionId);
+}
+
+// Genera o recupera un playerId univoco e persistente per il browser del giocatore
+let playerId = safeStorage.getItem('overunder_playerId');
+if (!playerId) {
+  playerId = 'player_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now().toString(36);
+  safeStorage.setItem('overunder_playerId', playerId);
+}
+
+// Salva la sessione di gioco attiva in localStorage per la riconnessione automatica
+function saveRoomSession(roomCode, playerName, isHost, avatar) {
+  const sessionData = {
+    roomCode: (roomCode || '').toUpperCase().trim(),
+    playerId,
+    playerName,
+    isHost: !!isHost,
+    avatar: avatar || null,
+    timestamp: Date.now()
+  };
+  safeStorage.setItem('overunder_saved_session', JSON.stringify(sessionData));
+  safeSessionStorage.setItem('overunder_roomCode', roomCode);
+  safeSessionStorage.setItem('overunder_playerName', playerName);
+  safeSessionStorage.setItem('overunder_isHost', isHost ? 'true' : 'false');
+}
+
+function clearRoomSession() {
+  safeStorage.removeItem('overunder_saved_session');
+  safeSessionStorage.removeItem('overunder_roomCode');
+  safeSessionStorage.removeItem('overunder_playerName');
+  safeSessionStorage.removeItem('overunder_isHost');
+}
+
+function clearSession() {
+  clearRoomSession();
+  safeSessionStorage.removeItem('overunder_token');
+  safeSessionStorage.removeItem('overunder_pendingRoom');
+  state.roomCode = '';
+  state.isHost = false;
+  state.players = [];
+  state.gameplayStarted = false;
+}
+
+function resetToMenu() {
+  clearSession();
+  if (state.timerRequestId) {
+    cancelAnimationFrame(state.timerRequestId);
+    state.timerRequestId = null;
+  }
+  showScreen(el.screenWelcome);
+}
+
+function getSavedRoomSession() {
+  try {
+    const raw = safeStorage.getItem('overunder_saved_session');
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || !data.roomCode || !data.playerId) return null;
+    // La sessione salvata scade dopo 12 ore di inattività
+    if (Date.now() - data.timestamp > 12 * 60 * 60 * 1000) {
+      clearRoomSession();
+      return null;
+    }
+    return data;
+  } catch (e) {
+    return null;
+  }
 }
 
 // ==========================================================================
@@ -1299,11 +1367,85 @@ function setupEventListeners() {
     });
   }
 
-  // === RIPRISTINO ACQUISTO (CROSS-DEVICE EMAIL RESTORE) ===
+  // === TRASFERIMENTO LICENZA PREMIUM (2FA OTP) ===
+  const inputTransferEmail = document.getElementById('input-transfer-email');
+  const inputTransferOtp = document.getElementById('input-transfer-otp');
+  const btnRequestTransferOtp = document.getElementById('btn-request-transfer-otp');
+  const btnVerifyTransferOtp = document.getElementById('btn-verify-transfer-otp');
+  const btnResendTransferOtp = document.getElementById('btn-resend-transfer-otp');
+  const transferStepEmail = document.getElementById('transfer-step-email');
+  const transferStepOtp = document.getElementById('transfer-step-otp');
+  const transferEmailDisplay = document.getElementById('transfer-email-display');
+  const transferOtpTimer = document.getElementById('transfer-otp-timer');
+  const transferOtpTimerBox = document.getElementById('transfer-otp-timer-box');
+  const transferErrorMsg = document.getElementById('transfer-error-msg');
+  const restoreModal = document.getElementById('restore-purchase-modal');
+
+  let otpTimerInterval = null;
+  let otpCountdownSeconds = 60;
+
+  function showTransferError(msg) {
+    if (!transferErrorMsg) return;
+    transferErrorMsg.textContent = msg;
+    transferErrorMsg.style.display = 'block';
+  }
+
+  function hideTransferError() {
+    if (!transferErrorMsg) return;
+    transferErrorMsg.textContent = '';
+    transferErrorMsg.style.display = 'none';
+  }
+
+  function resetTransferModalState() {
+    if (otpTimerInterval) {
+      clearInterval(otpTimerInterval);
+      otpTimerInterval = null;
+    }
+    hideTransferError();
+    if (transferStepEmail) transferStepEmail.style.display = 'flex';
+    if (transferStepOtp) transferStepOtp.style.display = 'none';
+    if (inputTransferEmail) {
+      inputTransferEmail.disabled = false;
+      inputTransferEmail.readOnly = false;
+    }
+    if (inputTransferOtp) inputTransferOtp.value = '';
+    if (btnRequestTransferOtp) {
+      btnRequestTransferOtp.disabled = false;
+      btnRequestTransferOtp.innerText = "INVIA CODICE";
+    }
+    if (btnVerifyTransferOtp) {
+      btnVerifyTransferOtp.disabled = false;
+      btnVerifyTransferOtp.innerText = "CONFERMA";
+    }
+    if (btnResendTransferOtp) btnResendTransferOtp.style.display = 'none';
+  }
+
+  function startOtpCountdown() {
+    if (otpTimerInterval) clearInterval(otpTimerInterval);
+    otpCountdownSeconds = 60;
+    if (transferOtpTimer) transferOtpTimer.textContent = '60';
+    if (transferOtpTimerBox) transferOtpTimerBox.style.display = 'flex';
+    if (btnResendTransferOtp) btnResendTransferOtp.style.display = 'none';
+
+    otpTimerInterval = setInterval(() => {
+      otpCountdownSeconds--;
+      if (transferOtpTimer) transferOtpTimer.textContent = String(otpCountdownSeconds);
+
+      if (otpCountdownSeconds <= 0) {
+        clearInterval(otpTimerInterval);
+        otpTimerInterval = null;
+        if (transferOtpTimerBox) transferOtpTimerBox.style.display = 'none';
+        showTransferError("Codice scaduto. Richiedi un nuovo codice.");
+        if (btnResendTransferOtp) btnResendTransferOtp.style.display = 'inline-block';
+      }
+    }, 1000);
+  }
+
+  // Apri Modal Trasferimento
   const btnOpenRestoreModal = el.btnOpenRestoreModal || document.getElementById('btn-open-restore-modal');
   if (btnOpenRestoreModal) {
     btnOpenRestoreModal.addEventListener('click', () => {
-      const restoreModal = el.restorePurchaseModal || document.getElementById('restore-purchase-modal');
+      resetTransferModalState();
       if (restoreModal) {
         restoreModal.style.display = 'flex';
         restoreModal.classList.add('active');
@@ -1311,10 +1453,11 @@ function setupEventListeners() {
     });
   }
 
+  // Chiudi Modal Trasferimento
   const btnRestoreClose = el.btnRestoreClose || document.getElementById('btn-restore-close');
   if (btnRestoreClose) {
     btnRestoreClose.addEventListener('click', () => {
-      const restoreModal = el.restorePurchaseModal || document.getElementById('restore-purchase-modal');
+      resetTransferModalState();
       if (restoreModal) {
         restoreModal.style.display = 'none';
         restoreModal.classList.remove('active');
@@ -1322,58 +1465,142 @@ function setupEventListeners() {
     });
   }
 
-  const btnSubmitRestore = el.btnSubmitRestore || document.getElementById('btn-submit-restore');
-  if (btnSubmitRestore) {
-    btnSubmitRestore.addEventListener('click', async () => {
-      const emailInput = el.restoreEmailInput || document.getElementById('restore-email-input');
-      const email = emailInput ? emailInput.value.trim() : '';
-      if (!email) {
-        showError("Inserisci l'email usata per l'acquisto su Stripe!");
-        return;
+  // FASE 1: Richiesta OTP (POST /api/premium/request-transfer)
+  const handleRequestOTP = async () => {
+    hideTransferError();
+    const email = inputTransferEmail ? inputTransferEmail.value.trim().toLowerCase() : '';
+    if (!email) {
+      showTransferError("Inserisci l'email usata per l'acquisto su Stripe!");
+      return;
+    }
+
+    try {
+      if (btnRequestTransferOtp) {
+        btnRequestTransferOtp.disabled = true;
+        btnRequestTransferOtp.innerText = "INVIO IN CORSO...";
       }
 
-      try {
-        btnSubmitRestore.disabled = true;
-        btnSubmitRestore.innerText = "VERIFICA IN CORSO...";
+      const res = await fetch('/api/premium/request-transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
 
-        const res = await fetch('/api/auth/restore-purchase', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email, deviceUuid: sessionId })
-        });
+      const data = await res.json().catch(() => ({}));
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "Impossibile trovare acquisti per questa email.");
-        }
+      if (!res.ok) {
+        throw new Error(data.error || "Nessun acquisto trovato per questa email.");
+      }
 
-        const data = await res.json();
-        if (data.token) {
-          sessionStorage.setItem('overunder_token', data.token);
-          localStorage.setItem('overunder_token', data.token);
-          localStorage.setItem('overunder_premium_unlocked', 'true');
-        }
-        state.roomIsPremium = true;
-        showError("Acquisto ripristinato con successo! Modalità \"Judgement Day\" sbloccata su questo dispositivo! 👑");
-        updatePremiumUI();
+      // Transizione alla Fase 2
+      if (inputTransferEmail) inputTransferEmail.disabled = true;
+      if (transferEmailDisplay) transferEmailDisplay.textContent = email;
+      if (transferStepEmail) transferStepEmail.style.display = 'none';
+      if (transferStepOtp) transferStepOtp.style.display = 'flex';
+      if (inputTransferOtp) {
+        inputTransferOtp.value = '';
+        setTimeout(() => { try { inputTransferOtp.focus(); } catch (e) {} }, 200);
+      }
 
-        const restoreModal = el.restorePurchaseModal || document.getElementById('restore-purchase-modal');
-        if (restoreModal) {
-          restoreModal.style.display = 'none';
-          restoreModal.classList.remove('active');
+      startOtpCountdown();
+      showToast("Codice OTP generato ed inviato alla mail! ⏱️", 4000);
+
+    } catch (err) {
+      showTransferError(err.message || "Impossibile inviare il codice OTP.");
+    } finally {
+      if (btnRequestTransferOtp) {
+        btnRequestTransferOtp.disabled = false;
+        btnRequestTransferOtp.innerText = "INVIA CODICE";
+      }
+    }
+  };
+
+  if (btnRequestTransferOtp) {
+    btnRequestTransferOtp.addEventListener('click', handleRequestOTP);
+  }
+  if (btnResendTransferOtp) {
+    btnResendTransferOtp.addEventListener('click', handleRequestOTP);
+  }
+  if (inputTransferEmail) {
+    inputTransferEmail.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleRequestOTP();
+      }
+    });
+  }
+
+  // FASE 3: Verifica OTP (POST /api/premium/verify-transfer)
+  const handleVerifyOTP = async () => {
+    hideTransferError();
+    const email = inputTransferEmail ? inputTransferEmail.value.trim().toLowerCase() : '';
+    const otpCode = inputTransferOtp ? inputTransferOtp.value.trim() : '';
+
+    if (!otpCode) {
+      showTransferError("Inserisci il codice OTP di 6 cifre.");
+      return;
+    }
+
+    try {
+      if (btnVerifyTransferOtp) {
+        btnVerifyTransferOtp.disabled = true;
+        btnVerifyTransferOtp.innerText = "VERIFICA IN CORSO...";
+      }
+
+      const res = await fetch('/api/premium/verify-transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otpCode, deviceUuid: sessionId })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        if (data.error && data.error.includes("scaduto")) {
+          if (btnResendTransferOtp) btnResendTransferOtp.style.display = 'inline-block';
         }
-        const standardModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
-        if (standardModal) {
-          standardModal.style.display = 'none';
-          standardModal.classList.remove('active');
-        }
-      } catch (err) {
-        showError(err.message || "Errore durante il ripristino dell'acquisto.");
-      } finally {
-        if (btnSubmitRestore) {
-          btnSubmitRestore.disabled = false;
-          btnSubmitRestore.innerText = "RIPRISTINA SU QUESTO DISPOSITIVO";
-        }
+        throw new Error(data.error || "Codice errato, riprova.");
+      }
+
+      if (data.token) {
+        sessionStorage.setItem('overunder_token', data.token);
+        localStorage.setItem('overunder_token', data.token);
+        localStorage.setItem('overunder_premium_unlocked', 'true');
+      }
+
+      state.roomIsPremium = true;
+      showToast("Trasferimento completato! Modalità \"Judgement Day\" sbloccata! 👑", 5000);
+      updatePremiumUI();
+
+      resetTransferModalState();
+      if (restoreModal) {
+        restoreModal.style.display = 'none';
+        restoreModal.classList.remove('active');
+      }
+      const standardModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
+      if (standardModal) {
+        standardModal.style.display = 'none';
+        standardModal.classList.remove('active');
+      }
+
+    } catch (err) {
+      showTransferError(err.message || "Errore durante la verifica del codice.");
+    } finally {
+      if (btnVerifyTransferOtp) {
+        btnVerifyTransferOtp.disabled = false;
+        btnVerifyTransferOtp.innerText = "CONFERMA";
+      }
+    }
+  };
+
+  if (btnVerifyTransferOtp) {
+    btnVerifyTransferOtp.addEventListener('click', handleVerifyOTP);
+  }
+  if (inputTransferOtp) {
+    inputTransferOtp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleVerifyOTP();
       }
     });
   }
@@ -1485,15 +1712,26 @@ function setupEventListeners() {
   });
 
   // Host: Avvio del Gioco (Avvia direttamente con la durata selezionata)
-  el.btnHostStartGame.addEventListener('click', () => {
-    if (!state.isHost) return;
-    
-    if (state.isSoloMode) {
-      startSoloGame(state.gameLength);
-    } else {
-      socket.emit('start_game', { gameLength: state.gameLength });
-    }
-  });
+  if (el.btnHostStartGame) {
+    el.btnHostStartGame.addEventListener('click', () => {
+      if (!state.isHost) return;
+      
+      if (state.isSoloMode) {
+        startSoloGame(state.gameLength);
+      } else if (state.roomIsPremium) {
+        // Se è Premium e non ci sono carte custom inviate né salvate locale, avvisa l'host
+        const hasCards = (state.players && state.players.some(p => p.premiumReady)) || 
+                         (state.localPremiumCards && state.localPremiumCards.length > 0);
+        if (!hasCards) {
+          showToast("Aggiungi almeno una carta prima di avviare la modalità Judgement Day! 👑", 4000);
+          return;
+        }
+        socket.emit('start_game', { gameLength: state.gameLength });
+      } else {
+        socket.emit('start_game', { gameLength: state.gameLength });
+      }
+    });
+  }
 
   // Selettore della durata partita nella lobby
   document.querySelectorAll('.btn-round-select').forEach(btn => {
@@ -2011,19 +2249,28 @@ function setupSocketListeners() {
       return;
     }
 
-    const savedRoom = safeSessionStorage.getItem('overunder_roomCode');
-    const savedName = safeSessionStorage.getItem('overunder_playerName');
-    const savedHost = safeSessionStorage.getItem('overunder_isHost') === 'true';
+    // 1. Identità Persistente (Client-Side): Controlla localStorage per la riconnessione automatica prima di chiedere nome o PIN
+    const savedSession = getSavedRoomSession();
+    const savedRoom = savedSession ? savedSession.roomCode : safeSessionStorage.getItem('overunder_roomCode');
+    const savedName = savedSession ? savedSession.playerName : safeSessionStorage.getItem('overunder_playerName');
+    const savedHost = savedSession ? savedSession.isHost : (safeSessionStorage.getItem('overunder_isHost') === 'true');
 
-    if (savedRoom && savedName) {
-      console.log("Tentativo di ripristino sessione:", savedRoom, savedName);
+    if (savedRoom && (savedSession || savedName)) {
+      console.log("[RECONNECT] Trovata sessione recente nel localStorage, invio payload di riconnessione:", { savedRoom, savedName });
       const isInActiveGame = el.screenLobby.classList.contains('active') || 
                              el.screenGameplay.classList.contains('active') || 
                              el.screenResults.classList.contains('active');
       if (!isInActiveGame) {
         startConnectionLoading('restore');
       }
-      socket.emit('restore_session', { roomCode: savedRoom, playerName: savedName, isHost: savedHost, sessionId: sessionId });
+      socket.emit('reconnect_room', {
+        type: 'reconnect',
+        roomCode: savedRoom,
+        playerId: (savedSession && savedSession.playerId) || playerId,
+        playerName: savedName,
+        isHost: savedHost,
+        sessionId: sessionId
+      });
     }
   });
 
@@ -2034,6 +2281,18 @@ function setupSocketListeners() {
     clearSession();
     resetToMenu();
     showError("Errore di sessione: " + error);
+  });
+
+  // Evento di riconnessione fallita
+  socket.on('reconnect_failed', ({ message }) => {
+    console.warn("Riconnessione fallita:", message);
+    if (state.connectionTimeout) {
+      clearTimeout(state.connectionTimeout);
+      state.connectionTimeout = null;
+    }
+    state.connectionLoadingActive = false;
+    clearSession();
+    resetToMenu();
   });
 
   // Sessione non ripristinabile (stanza chiusa o server riavviato)
@@ -2048,73 +2307,89 @@ function setupSocketListeners() {
     resetToMenu();
   });
 
-  socket.on('session_restored', ({ state: roomState, roomCode, players, isHost, isPremium, isLocked, currentScreen, gameData, assignedName }) => {
+  // ==========================================================================
+  // 3. STATE RECOVERY (Sincronizzazione dello Stato Client-Side)
+  // ==========================================================================
+  const handleStateSyncPayload = (payload) => {
     if (state.connectionTimeout) {
       clearTimeout(state.connectionTimeout);
       state.connectionTimeout = null;
     }
     state.connectionLoadingActive = false;
 
-    console.log("Sessione ripristinata con successo!");
-    state.isHost = isHost;
+    // Se lo splash screen è ancora visibile, nascondilo subito
+    if (el.screenSplash && el.screenSplash.style.display !== 'none') {
+      el.screenSplash.style.display = 'none';
+      el.screenSplash.classList.remove('active', 'fade-out');
+    }
+
+    const roomState = payload.status || payload.state || payload.currentScreen;
+    const roomCode = payload.roomCode;
+    const players = payload.players || [];
+    const isHost = payload.isHost;
+    const isPremium = payload.isPremium;
+    const isLocked = payload.isLocked;
+    const gameData = payload.gameData || {};
+    const assignedName = payload.assignedName || safeSessionStorage.getItem('overunder_playerName');
+
+    console.log("[STATE RECOVERY] Sincronizzazione stato della stanza:", { roomState, roomCode, assignedName });
+
+    state.isHost = !!isHost;
     state.roomCode = roomCode;
     state.players = players;
-    state.playerName = assignedName || safeSessionStorage.getItem('overunder_playerName');
+    state.playerName = assignedName || state.playerName;
     state.roomIsPremium = !!isPremium;
     state.roomIsLocked = !!isLocked;
     state.currentRoundId = gameData.roundId || 0;
     state.gameplayStarted = (roomState === 'playing' || roomState === 'results' || roomState === 'summary');
+    
+    // Aggiorna sessione persistente nel localStorage
+    saveRoomSession(roomCode, state.playerName, state.isHost, state.playerAvatarUrl);
     updateLockIcon();
-    
-    safeSessionStorage.setItem('overunder_playerName', state.playerName);
-    safeSessionStorage.setItem('overunder_isHost', state.isHost ? 'true' : 'false');
-    
+
     const myPlayer = players.find(p => p.name === state.playerName);
     state.hasSubmittedPremiumCards = myPlayer ? !!myPlayer.premiumReady : false;
     state.localPremiumCards = [];
-    
-    if (currentScreen === 'lobby') {
-      setupLobbyUI();
-    } else if (currentScreen === 'playing') {
-      state.currentDeckName = gameData.deckName;
-      state.totalCards = gameData.totalCards;
-      state.currentPromptText = gameData.prompt;
-      state.currentCardIndex = gameData.cardIndex;
-      state.userHasVoted = gameData.userHasVoted;
 
-      // Sincronizza UI gameplay ed eventuale immagine
-      el.currentDeckName.textContent = state.currentDeckName;
-      el.currentPromptText.textContent = state.currentPromptText;
+    // Forzatura rendering della schermata corretta in base al tipo di stato
+    if (roomState === 'lobby' || roomState === 'card_submission') {
+      setupLobbyUI();
+    } else if (roomState === 'playing') {
+      state.currentDeckName = gameData.deckName || 'OVER / UNDER';
+      state.totalCards = gameData.totalCards || 0;
+      state.currentPromptText = gameData.prompt || '';
+      state.currentCardIndex = gameData.cardIndex || 0;
+      state.userHasVoted = !!gameData.userHasVoted;
+
+      if (el.currentDeckName) el.currentDeckName.textContent = state.currentDeckName;
+      if (el.currentPromptText) el.currentPromptText.textContent = state.currentPromptText;
       
       if (gameData.image) {
-        el.gameplayPromptImage.src = gameData.image;
-        el.gameplayPromptImageContainer.style.display = 'block';
+        if (el.gameplayPromptImage) el.gameplayPromptImage.src = gameData.image;
+        if (el.gameplayPromptImageContainer) el.gameplayPromptImageContainer.style.display = 'block';
       } else {
-        el.gameplayPromptImageContainer.style.display = 'none';
-        el.gameplayPromptImage.src = '';
+        if (el.gameplayPromptImageContainer) el.gameplayPromptImageContainer.style.display = 'none';
+        if (el.gameplayPromptImage) el.gameplayPromptImage.src = '';
       }
       
       const totalDisplay = (state.totalCards == 9999 || state.totalCards === '∞') ? '∞' : state.totalCards;
-      el.deckProgress.textContent = `Carta ${state.currentCardIndex + 1} / ${totalDisplay}`;
+      if (el.deckProgress) el.deckProgress.textContent = `Carta ${state.currentCardIndex + 1} / ${totalDisplay}`;
       
-      // Aggiorna badge di stato votazioni dei giocatori
-      renderGameplayPlayersStatus(gameData.votedPlayers);
+      renderGameplayPlayersStatus(gameData.votedPlayers || []);
       
       if (state.userHasVoted) {
-        el.btnUnderrated.classList.add('disabled');
-        el.btnOverrated.classList.add('disabled');
+        if (el.btnUnderrated) el.btnUnderrated.classList.add('disabled');
+        if (el.btnOverrated) el.btnOverrated.classList.add('disabled');
       } else {
-        el.btnUnderrated.classList.remove('disabled');
-        el.btnOverrated.classList.remove('disabled');
+        if (el.btnUnderrated) el.btnUnderrated.classList.remove('disabled');
+        if (el.btnOverrated) el.btnOverrated.classList.remove('disabled');
       }
 
       // Sincronizza timer locale
-      const elapsed = Date.now() - gameData.roundStartTime;
-      const remainingMs = Math.max(0, gameData.timerDurationMs - elapsed);
-      
+      const elapsed = Date.now() - (gameData.roundStartTime || Date.now());
       state.lastTickElapsed = elapsed;
       state.timerStartTime = Date.now() - elapsed;
-      state.timerDurationMs = gameData.timerDurationMs;
+      state.timerDurationMs = gameData.timerDurationMs || 10000;
       
       if (state.timerRequestId) {
         cancelAnimationFrame(state.timerRequestId);
@@ -2122,30 +2397,22 @@ function setupSocketListeners() {
       state.timerRequestId = requestAnimationFrame(gameLoop);
       
       showScreen(el.screenGameplay);
-    } else if (currentScreen === 'results') {
-      renderRoundResults(gameData.results);
-    } else if (currentScreen === 'summary') {
-      renderGameOver(gameData.summary);
+    } else if (roomState === 'results') {
+      if (gameData.results) renderRoundResults(gameData.results);
+      else showScreen(el.screenResults);
+    } else if (roomState === 'summary') {
+      if (gameData.summary) renderGameOver(gameData.summary);
+      else showScreen(el.screenSummary);
     }
-  });
+  };
+
+  socket.on('sync_state', handleStateSyncPayload);
+  socket.on('session_restored', handleStateSyncPayload);
 
   socket.on('room_lock_status', ({ isLocked }) => {
     state.roomIsLocked = !!isLocked;
     updateLockIcon();
     showToast(isLocked ? "Stanza bloccata dall'Host 🔒" : "Stanza sbloccata 🔓");
-  });
-
-  socket.on('session_failed', (message) => {
-    if (state.connectionLoadingActive) {
-      clearTimeout(state.connectionTimeout);
-      state.connectionLoadingActive = false;
-      handleConnectionError('not_found');
-    } else {
-      console.warn("Ripristino sessione fallito:", message);
-      clearSession();
-      resetToMenu();
-      alert("La sessione di gioco è scaduta o il server è stato riavviato.");
-    }
   });
 
   // 1. Stanza creata con successo (Host)
@@ -2166,9 +2433,7 @@ function setupSocketListeners() {
     state.hasSubmittedPremiumCards = false;
     state.localPremiumCards = [];
 
-    safeSessionStorage.setItem('overunder_roomCode', roomCode);
-    safeSessionStorage.setItem('overunder_playerName', state.playerName);
-    safeSessionStorage.setItem('overunder_isHost', 'true');
+    saveRoomSession(roomCode, state.playerName, true, state.playerAvatarUrl);
 
     setupLobbyUI();
     updateLockIcon();
@@ -2192,9 +2457,7 @@ function setupSocketListeners() {
     state.hasSubmittedPremiumCards = false;
     state.localPremiumCards = [];
 
-    safeSessionStorage.setItem('overunder_roomCode', roomCode);
-    safeSessionStorage.setItem('overunder_playerName', state.playerName);
-    safeSessionStorage.setItem('overunder_isHost', 'false');
+    saveRoomSession(roomCode, state.playerName, false, state.playerAvatarUrl);
 
     setupLobbyUI();
     updateLockIcon();
@@ -2687,41 +2950,28 @@ function renderLobbyPlayers() {
     el.lobbyPlayersList.appendChild(card);
   });
 
-  // Gestione pulsante di avvio, stili per Host solitario (spento e disabilitato) e animazioni glow quando entra gente
-  if (state.isHost) {
-    const hasOtherPlayers = state.players.length > 1;
-
+  // Gestione pulsante di avvio per l'Host
+  if (state.isHost && el.btnHostStartGame) {
     // Ripristina stili default
     el.btnHostStartGame.style.background = '';
     el.btnHostStartGame.style.color = '';
     el.btnHostStartGame.style.boxShadow = '';
+    // L'Host può sempre avviare la partita sia in modalità Normale che Premium
+    el.btnHostStartGame.disabled = false;
 
-    if (state.isSoloMode) {
-      // Abilitato e pulsante attivo in modalità Solo
-      el.btnHostStartGame.disabled = false;
-      el.btnHostStartGame.classList.remove('btn-pulse-premium', 'full-glow');
-      el.btnHostStartGame.classList.add('btn-pulse-blue');
-    } else if (!hasOtherPlayers) {
-      // Disabilitato e spento (nessun effetto glow) se l'Host è da solo nella stanza
-      el.btnHostStartGame.disabled = true;
-      el.btnHostStartGame.classList.remove('btn-pulse-blue', 'btn-pulse-premium', 'full-glow');
-    } else {
-      // C'è almeno un altro partecipante
-      if (state.roomIsPremium) {
-        const allReady = state.players.every(p => p.premiumReady);
-        el.btnHostStartGame.disabled = !allReady;
-
-        if (allReady) {
-          el.btnHostStartGame.classList.remove('btn-pulse-blue');
-          el.btnHostStartGame.classList.add('btn-pulse-premium');
-        } else {
-          el.btnHostStartGame.classList.remove('btn-pulse-blue', 'btn-pulse-premium', 'full-glow');
-        }
+    if (state.roomIsPremium) {
+      const hasCards = (state.players && state.players.some(p => p.premiumReady)) || 
+                       (state.localPremiumCards && state.localPremiumCards.length > 0);
+      if (hasCards) {
+        el.btnHostStartGame.classList.remove('btn-pulse-blue');
+        el.btnHostStartGame.classList.add('btn-pulse-premium');
       } else {
-        el.btnHostStartGame.disabled = false;
         el.btnHostStartGame.classList.remove('btn-pulse-premium', 'full-glow');
         el.btnHostStartGame.classList.add('btn-pulse-blue');
       }
+    } else {
+      el.btnHostStartGame.classList.remove('btn-pulse-premium', 'full-glow');
+      el.btnHostStartGame.classList.add('btn-pulse-blue');
     }
   }
 }

@@ -609,16 +609,19 @@ app.get('/api/stripe/verify-session', async (req, res) => {
   }
 });
 
-// Endpoint per Ripristinare l'Acquisto da qualsiasi dispositivo usando l'Email di Stripe o il Nome Utente
-app.post('/api/auth/restore-purchase', async (req, res) => {
+// Store in memoria per i codici OTP di trasferimento (email => { code: string, createdAt: number })
+const otpStore = {};
+
+// Endpoint 1: Richiesta Codice OTP per Trasferimento Licenza Premium
+app.post('/api/premium/request-transfer', async (req, res) => {
   try {
-    const { email, deviceUuid } = req.body;
+    const { email } = req.body;
     if (!email || !email.trim()) {
-      return res.status(400).json({ error: 'Inserisci l\'email usata per l\'acquisto su Stripe (o il tuo nome utente).' });
+      return res.status(400).json({ error: 'Inserisci l\'email usata per l\'acquisto su Stripe.' });
     }
     const query = email.trim().toLowerCase();
 
-    // 1. Cerca in users.json per email o per username con isPremium = true
+    // 1. Controlla se quell'email ha effettivamente acquistato il Premium
     let matchingUser = Object.values(users).find(u => 
       u.isPremium && (
         (u.email && u.email.toLowerCase() === query) ||
@@ -627,7 +630,185 @@ app.post('/api/auth/restore-purchase', async (req, res) => {
       )
     );
 
-    // 2. Se non ancora trovato e Stripe è configurato, interroga direttamente l'API Stripe
+    if (!matchingUser && stripe) {
+      try {
+        const sessions = await stripe.checkout.sessions.list({ limit: 50 });
+        const paidSession = sessions.data.find(s => 
+          s.payment_status === 'paid' && 
+          s.customer_details && 
+          s.customer_details.email && 
+          s.customer_details.email.toLowerCase() === query
+        );
+
+        if (paidSession) {
+          const userId = 'host_' + crypto.randomBytes(4).toString('hex');
+          matchingUser = {
+            id: userId,
+            username: query.split('@')[0] || 'host_premium',
+            email: query,
+            isPremium: true,
+            premiumStatus: 'PREMIUM_A_VITA'
+          };
+          users[userId] = matchingUser;
+          writeUsersDb(users);
+        }
+      } catch (stripeErr) {
+        console.warn("[OTP TRANSFER] Avviso ricerca Stripe API:", stripeErr.message);
+      }
+    }
+
+    if (!matchingUser) {
+      const anyPremium = Object.values(users).find(u => u.isPremium);
+      if (anyPremium) {
+        matchingUser = anyPremium;
+        matchingUser.email = query;
+        writeUsersDb(users);
+      }
+    }
+
+    if (!matchingUser) {
+      return res.status(404).json({ error: 'Nessun acquisto trovato per questa email.' });
+    }
+
+    // 2. Genera un codice numerico casuale di 6 cifre (OTP)
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 3. Salva sul server il codice associato alla mail con timestamp di creazione
+    otpStore[query] = {
+      code: otpCode,
+      createdAt: Date.now()
+    };
+
+    // 4. In ambiente di sviluppo: console.log del codice e simulazione invio mail
+    console.log(`\n==================================================`);
+    console.log(`[OTP TRANSFER] 📧 CODICE OTP GENERATO PER ${query}: ${otpCode}`);
+    console.log(`[OTP TRANSFER] Scadenza codice: 60 secondi`);
+    console.log(`==================================================\n`);
+
+    /*
+     * INTEGRATION NODEMAILER (Predisposizione per Ambiente di Produzione):
+     * 
+     * const nodemailer = require('nodemailer');
+     * const transporter = nodemailer.createTransport({
+     *   host: process.env.SMTP_HOST || 'smtp.gmail.com',
+     *   port: parseInt(process.env.SMTP_PORT || '587'),
+     *   secure: false,
+     *   auth: {
+     *     user: process.env.SMTP_USER,
+     *     pass: process.env.SMTP_PASS
+     *   }
+     * });
+     * 
+     * await transporter.sendMail({
+     *   from: '"OverUnder Premium" <noreply@overunder.app>',
+     *   to: query,
+     *   subject: 'Il tuo codice OTP per il Trasferimento Licenza OverUnder',
+     *   html: `
+     *     <div style="font-family: sans-serif; padding: 20px;">
+     *       <h2>Trasferimento Licenza Premium OverUnder</h2>
+     *       <p>Usa il seguente codice OTP per completare il trasferimento sul tuo dispositivo:</p>
+     *       <h1 style="color: #df33ff; letter-spacing: 4px;">${otpCode}</h1>
+     *       <p>Il codice è valido per <strong>60 secondi</strong>.</p>
+     *     </div>
+     *   `
+     * });
+     */
+
+    res.json({ success: true, message: 'Codice OTP inviato con successo alla tua email.' });
+  } catch (err) {
+    console.error("[OTP TRANSFER] Errore request-transfer:", err);
+    res.status(500).json({ error: 'Errore durante la generazione del codice OTP.' });
+  }
+});
+
+// Endpoint 2: Verifica Codice OTP e Trasferimento Licenza Premium
+app.post('/api/premium/verify-transfer', async (req, res) => {
+  try {
+    const { email, otpCode, deviceUuid } = req.body;
+    if (!email || !email.trim() || !otpCode || !otpCode.trim()) {
+      return res.status(400).json({ error: 'Email e codice OTP sono obbligatori.' });
+    }
+    const query = email.trim().toLowerCase();
+    const codeSubmitted = otpCode.trim();
+
+    const record = otpStore[query];
+    if (!record) {
+      return res.status(400).json({ error: 'Nessun codice richiesto per questa email o codice già utilizzato.' });
+    }
+
+    // 1. Controllo Scadenza (1 Minuto / 60 Secondi): Date.now() - createdAt > 60000
+    if (Date.now() - record.createdAt > 60000) {
+      delete otpStore[query];
+      return res.status(400).json({ error: 'Codice scaduto.' });
+    }
+
+    // 2. Controllo Validità del codice
+    if (codeSubmitted !== record.code) {
+      return res.status(400).json({ error: 'Codice errato, riprova.' });
+    }
+
+    // 3. Codice valido: cancella il codice dal server per impedire il riutilizzo
+    delete otpStore[query];
+
+    // Promuove il dispositivo a PREMIUM_A_VITA e salva il nuovo JWT
+    let user = Object.values(users).find(u => 
+      (u.email && u.email.toLowerCase() === query) ||
+      (u.username && u.username.toLowerCase() === query)
+    );
+
+    if (!user) {
+      const userId = 'host_' + crypto.randomBytes(4).toString('hex');
+      user = {
+        id: userId,
+        username: query.split('@')[0] || 'host_premium',
+        email: query,
+        isPremium: true,
+        premiumStatus: 'PREMIUM_A_VITA',
+        deviceUuid: deviceUuid || userId
+      };
+      users[userId] = user;
+    } else {
+      user.isPremium = true;
+      user.premiumStatus = 'PREMIUM_A_VITA';
+      if (deviceUuid) user.deviceUuid = deviceUuid;
+    }
+    writeUsersDb(users);
+
+    const token = jwt.sign({
+      userId: user.id,
+      deviceUuid: deviceUuid || user.deviceUuid || user.id,
+      username: user.username,
+      role: 'host',
+      isPremium: true,
+      premiumStatus: 'PREMIUM_A_VITA'
+    }, JWT_SECRET, { expiresIn: '365d' });
+
+    console.log(`[OTP TRANSFER] ✅ Licenza trasferita con successo a ${query} (dispositivo ${deviceUuid || user.id})`);
+    res.json({ success: true, token, isPremium: true, message: 'Dispositivo promosso a PREMIUM_A_VITA con successo!' });
+
+  } catch (err) {
+    console.error("[OTP TRANSFER] Errore verify-transfer:", err);
+    res.status(500).json({ error: 'Errore durante la verifica del codice OTP.' });
+  }
+});
+
+// Endpoint retrocompatibilità per Ripristinare l'Acquisto
+app.post('/api/auth/restore-purchase', async (req, res) => {
+  try {
+    const { email, deviceUuid } = req.body;
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Inserisci l\'email usata per l\'acquisto su Stripe (o il tuo nome utente).' });
+    }
+    const query = email.trim().toLowerCase();
+
+    let matchingUser = Object.values(users).find(u => 
+      u.isPremium && (
+        (u.email && u.email.toLowerCase() === query) ||
+        (u.username && u.username.toLowerCase() === query) ||
+        (u.id && u.id.toLowerCase() === query)
+      )
+    );
+
     if (!matchingUser && stripe) {
       try {
         const sessions = await stripe.checkout.sessions.list({ limit: 50 });
@@ -656,7 +837,6 @@ app.post('/api/auth/restore-purchase', async (req, res) => {
       }
     }
 
-    // 3. Fallback: Se c'è un utente Premium nel DB (per acquisti fatti prima del salvataggio email)
     if (!matchingUser) {
       const anyPremiumUser = Object.values(users).find(u => u.isPremium);
       if (anyPremiumUser) {
@@ -671,7 +851,6 @@ app.post('/api/auth/restore-purchase', async (req, res) => {
       return res.status(404).json({ error: 'Nessun acquisto trovato per l\'email o nome utente inserito. Verifica l\'email usata su Stripe.' });
     }
 
-    // Associa il nuovo dispositivo all'acquisto Premium A Vita
     if (!matchingUser.email) matchingUser.email = query;
     if (deviceUuid) matchingUser.deviceUuid = deviceUuid;
     writeUsersDb(users);
@@ -932,13 +1111,14 @@ io.on('connection', (socket) => {
       }
     }
 
+    const hostPlayerId = socket.userData.playerId || sessionId;
     rooms[code] = {
       roomCode: code,
       hostId: socket.id,
       hostSessionId: sessionId,
       hostName: hostName,
       createdAt: Date.now(),
-      players: [{ id: socket.id, name: hostName, isHost: true, connected: true, premiumReady: false, avatar: avatar || null, sessionId: sessionId }],
+      players: [{ id: socket.id, playerId: hostPlayerId, name: hostName, isHost: true, connected: true, isOnline: true, premiumReady: false, avatar: avatar || null, sessionId: sessionId }],
       state: 'lobby', // lobby, playing, freeze, results, summary
       deck: null,
       currentCardIndex: 0,
@@ -972,7 +1152,7 @@ io.on('connection', (socket) => {
       socket.emit('room_error', "Non sei autenticato.");
       return;
     }
-    const { roomCode, playerName, sessionId } = socket.userData;
+    const { roomCode, playerName, sessionId, playerId: reqPlayerId } = socket.userData;
     
     const code = cleanRoomCode(roomCode);
     const room = rooms[code];
@@ -988,13 +1168,15 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // B. Controlla se è una riconnessione per lo stesso nome utente
-    let player = room.players.find(p => p.name.toLowerCase() === playerName.toLowerCase().trim() && !p.isBot);
+    // B. Controlla se è una riconnessione per lo stesso nome utente o playerId
+    let player = room.players.find(p => !p.isBot && ((p.playerId && p.playerId === (reqPlayerId || sessionId)) || p.name.toLowerCase() === playerName.toLowerCase().trim()));
     if (player) {
       player.id = socket.id;
       player.connected = true;
+      player.isOnline = true;
       if (avatar) player.avatar = avatar;
       if (sessionId) player.sessionId = sessionId;
+      if (reqPlayerId) player.playerId = reqPlayerId;
 
       currentRoomCode = code;
       currentPlayerName = player.name;
@@ -1044,7 +1226,8 @@ io.on('connection', (socket) => {
     currentPlayerName = playerName;
 
     // Aggiungi giocatore
-    room.players.push({ id: socket.id, name: playerName, isHost: false, connected: true, premiumReady: false, avatar: avatar || null, sessionId: sessionId });
+    const newPlayerId = reqPlayerId || sessionId || ('p_' + Math.random().toString(36).substring(2, 9));
+    room.players.push({ id: socket.id, playerId: newPlayerId, name: playerName, isHost: false, connected: true, isOnline: true, premiumReady: false, avatar: avatar || null, sessionId: sessionId });
     socket.join(code);
 
     socket.emit('room_joined', {
@@ -1082,7 +1265,7 @@ io.on('connection', (socket) => {
 
     if (room.isPremium) {
       // Costruisci il mazzo personalizzato con le carte inviate dai partecipanti
-      const customCards = room.customCards.map((cardObj, index) => {
+      let customCards = (room.customCards || []).map((cardObj, index) => {
         const und = Math.floor(Math.random() * 41) + 30; // Percentuale casuale realistica 30-70%
         const promptText = typeof cardObj === 'string' ? cardObj : (cardObj.text || '');
         const image = typeof cardObj === 'string' ? null : (cardObj.image || null);
@@ -1097,6 +1280,12 @@ io.on('connection', (socket) => {
         };
       });
 
+      // Se non ci sono carte custom, usa un fallback dal mazzo predefinito per evitare crash
+      if (customCards.length === 0 && DECK_DATA && DECK_DATA.decks && DECK_DATA.decks[0]) {
+        console.warn(`[ROOM ${currentRoomCode}] Avvio premium senza carte custom. Uso fallback dal mazzo base.`);
+        customCards = DECK_DATA.decks[0].cards.slice(0, 10);
+      }
+
       // Mescola le carte personalizzate
       const shuffledCustom = customCards.sort(() => 0.5 - Math.random());
 
@@ -1107,17 +1296,23 @@ io.on('connection', (socket) => {
       };
       room.gameLength = shuffledCustom.length;
     } else {
-      const deck = DECK_DATA.decks[0];
-      if (!deck) return;
+      const deck = DECK_DATA && DECK_DATA.decks ? DECK_DATA.decks[0] : null;
+      if (!deck) {
+        socket.emit('room_error', "Mazzo di gioco non disponibile.");
+        return;
+      }
 
       // Clona il mazzo unico e seleziona la quantità desiderata di carte casuali
       const clonedDeck = JSON.parse(JSON.stringify(deck));
       const shuffledCards = clonedDeck.cards.sort(() => 0.5 - Math.random());
       const limit = parseInt(gameLength, 10) || 30;
-      clonedDeck.cards = shuffledCards.slice(0, limit);
+      const selectedCards = shuffledCards.slice(0, limit);
 
-      room.deck = clonedDeck;
-      room.gameLength = limit;
+      room.deck = {
+        ...clonedDeck,
+        cards: selectedCards
+      };
+      room.gameLength = selectedCards.length;
     }
 
     room.currentCardIndex = 0;
@@ -1443,12 +1638,15 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Evento 8: Ripristino Sessione (Gestione re-connect e riavvio)
-  socket.on('restore_session', ({ roomCode, playerName, isHost, sessionId }) => {
+  // ==========================================================================
+  // 2. RE-BINDING DELLA CONNESSIONE & 3. STATE RECOVERY (Server-Side)
+  // ==========================================================================
+  const handlePlayerReconnection = ({ roomCode, playerId, playerName, isHost, sessionId }) => {
     const code = cleanRoomCode(roomCode);
     const room = rooms[code];
     if (!room) {
-      socket.emit('session_failed', "Stanza non trovata.");
+      socket.emit('session_failed', "Stanza non trovata o terminata.");
+      socket.emit('reconnect_failed', { message: "Stanza non trovata." });
       return;
     }
     
@@ -1460,100 +1658,56 @@ io.on('connection', (socket) => {
 
     socket.emit('auth_completed');
     
-    // Trova il giocatore corrispondente nella stanza
-    let player = room.players.find(p => (p.sessionId && p.sessionId === sessionId) || p.name === playerName);
+    // Trova il giocatore corrispondente nella stanza per playerId, sessionId o nome
+    let player = room.players.find(p => 
+      !p.isBot && (
+        (playerId && p.playerId === playerId) || 
+        (sessionId && p.sessionId === sessionId) || 
+        (playerName && p.name.toLowerCase() === playerName.trim().toLowerCase())
+      )
+    );
+
     if (!player) {
       socket.emit('session_failed', "Giocatore non registrato in questa stanza.");
+      socket.emit('reconnect_failed', { message: "Giocatore non registrato." });
       return;
     }
     
-    // Aggiorna l'ID socket del giocatore, stato connessione e sessionId
+    // RE-BINDING: Aggiorna l'oggetto del giocatore sostituendo il vecchio socket con quello nuovo
     player.id = socket.id;
     player.connected = true;
+    player.isOnline = true;
+    if (playerId) player.playerId = playerId;
     if (sessionId) player.sessionId = sessionId;
     
-    // Annulla eventuale timeout disconnessione Host
+    // Annulla eventuale grace period di disconnessione Host
     if (player.isHost || isHost) {
       if (room.hostDisconnectTimeout) {
         clearTimeout(room.hostDisconnectTimeout);
         room.hostDisconnectTimeout = null;
-        console.log(`Host si è riconnesso alla stanza ${roomCode}. Grace period annullato.`);
+        console.log(`[RE-BIND] Host riconnesso alla stanza ${code}. Grace period annullato.`);
       }
       room.hostId = socket.id;
       player.isHost = true;
     }
     
-    currentRoomCode = roomCode;
-    currentPlayerName = playerName;
+    currentRoomCode = code;
+    currentPlayerName = player.name;
     
-    socket.join(roomCode);
+    socket.join(code);
     
-    // Costruisci il pacchetto dati del gioco
-    const gameData = {
-      deckName: room.deck ? room.deck.deck_name : '',
-      totalCards: room.gameLength || (room.deck ? room.deck.cards.length : 0),
-      cardIndex: room.currentCardIndex,
-      prompt: room.deck ? room.deck.cards[room.currentCardIndex].prompt : '',
-      image: room.deck ? (room.deck.cards[room.currentCardIndex].image || null) : null,
-      userHasVoted: !!room.votes[socket.id],
-      votedPlayers: room.players.filter(p => room.votes[p.id] && room.votes[p.id] !== 'timeout').map(p => p.name),
-      roundStartTime: room.roundStartTime || Date.now(),
-      timerDurationMs: room.timerDurationMs || 10000,
-      freezeMessage: room.freezeMessage || ''
-    };
-    
-    if (room.state === 'results') {
-      const card = room.deck.cards[room.currentCardIndex];
-      const voteDetails = room.players.map(p => ({
-        player: p.name,
-        vote: room.votes[p.id] || 'timeout'
-      }));
-      
-      let countUnder = 0;
-      let countOver = 0;
-      voteDetails.forEach(v => {
-        if (v.vote === 'underrated') countUnder++;
-        if (v.vote === 'overrated') countOver++;
-      });
-      const totalValid = countUnder + countOver;
-      let groupUnderPct = 50;
-      let groupOverPct = 50;
-      if (totalValid > 0) {
-        groupUnderPct = Math.round((countUnder / totalValid) * 100);
-        groupOverPct = 100 - groupUnderPct;
-      }
-      
-      gameData.results = {
-        votes: voteDetails,
-        groupStats: { underrated: groupUnderPct, overrated: groupOverPct },
-        globalStats: card.global_stats,
-        prompt: card.prompt,
-        image: card.image || null,
-        cardIndex: room.currentCardIndex,
-        totalCards: room.gameLength || room.deck.cards.length
-      };
-    } else if (room.state === 'summary') {
-      gameData.summary = {
-        awards: calculateAwards(room),
-        summary: room.playerResponses
-      };
-    }
-    
-    socket.emit('session_restored', {
-      state: room.state,
-      roomCode: room.roomCode,
-      players: room.players,
-      isHost: player.isHost,
-      isPremium: room.isPremium,
-      isLocked: room.isLocked,
-      currentScreen: room.state,
-      gameData: gameData
-    });
-    
-    // Notifica tutti gli altri player che la lista è aggiornata (connesso di nuovo)
-    io.to(roomCode).emit('player_list_update', { players: room.players });
-    console.log(`Sessione ripristinata con successo per ${playerName} (${socket.id}) nella stanza ${roomCode}`);
-  });
+    // Informa gli altri giocatori della stanza (rimozione eventuale badge/icona grigia "offline")
+    io.to(code).emit('player_list_update', { players: room.players });
+    console.log(`[RE-BIND] Giocatore ${player.name} (${player.playerId || socket.id}) ricollegato alla stanza ${code}`);
+
+    // STATE RECOVERY: invia lo stato esatto della stanza al client ricollegato
+    sendStateSync(socket, room, player);
+  };
+
+  // Evento di riconnessione automatica e ripristino sessione
+  socket.on('reconnect_room', handlePlayerReconnection);
+  socket.on('reconnect', handlePlayerReconnection);
+  socket.on('restore_session', handlePlayerReconnection);
 
   // Evento 8b: Toggle blocco stanza (Solo Host, Solo in Lobby)
   socket.on('toggle_room_lock', () => {
@@ -1619,7 +1773,9 @@ io.on('connection', (socket) => {
     console.log(`Giocatore/Bot ${player.name} rimosso dalla stanza ${room.roomCode}`);
   });
 
-  // Disconnessione
+  // ==========================================================================
+  // 4. GESTIONE DELLA DISCONNESSIONE PASSIVA
+  // ==========================================================================
   socket.on('disconnect', () => {
     console.log(`Client disconnesso: ${socket.id}`);
     if (!currentRoomCode) return;
@@ -1627,47 +1783,131 @@ io.on('connection', (socket) => {
     const room = rooms[currentRoomCode];
     if (!room) return;
 
-    // Troviamo il player ed impostiamo lo stato connected = false
+    // Quando il server rileva la disconnessione (ws.on('close')), non cancella il giocatore.
+    // Lo contrassegna solo come connected = false e isOnline = false.
     const player = room.players.find(p => p.id === socket.id);
     if (player) {
       player.connected = false;
-      console.log(`Giocatore ${player.name} segnato come disconnesso temporaneamente.`);
+      player.isOnline = false;
+      console.log(`[DISCONNECT] Giocatore ${player.name} contrassegnato come offline (isOnline = false).`);
     }
 
-    // Notifichiamo gli altri client che il player è offline temporaneamente
+    // Notifica gli altri client dell'aggiornamento (UI con indicatore offline)
     io.to(currentRoomCode).emit('player_list_update', { players: room.players });
 
-    // Se tutti i player sono disconnessi, o se l'host si disconnette, impostiamo un grace period di 15 secondi prima di chiudere la stanza.
+    // Se l'host si disconnette, imposta un grace period di 15s prima di distruggere la stanza
     if (room.hostId === socket.id) {
-      console.log(`Host si è disconnesso da stanza ${currentRoomCode}. Avvio grace period di 15s.`);
+      console.log(`[DISCONNECT] Host disconnesso dalla stanza ${currentRoomCode}. Grace period di 15s avviato.`);
       
       if (room.hostDisconnectTimeout) clearTimeout(room.hostDisconnectTimeout);
       
       room.hostDisconnectTimeout = setTimeout(() => {
         const checkRoom = rooms[currentRoomCode];
-        // Se l'host non si è riconnesso entro 15s (l'hostId della stanza corrisponde ancora a questo socket disconnesso)
         if (checkRoom && checkRoom.hostId === socket.id) {
-          if (checkRoom.roundTimeout) clearTimeout(checkRoom.roundTimeout);
-          io.to(currentRoomCode).emit('room_closed', "L'Host si è disconnesso permanentemente. Partita terminata.");
-          cleanupRoomFiles(checkRoom);
-          cleanupRoomAssets(checkRoom);
-          delete rooms[currentRoomCode];
-          console.log(`Stanza ${currentRoomCode} chiusa definitivamente per inattività Host.`);
+          const isHostOffline = checkRoom.players.some(p => p.isHost && (!p.connected || !p.isOnline));
+          if (isHostOffline) {
+            if (checkRoom.roundTimeout) clearTimeout(checkRoom.roundTimeout);
+            io.to(currentRoomCode).emit('room_closed', "L'Host si è disconnesso permanentemente. Partita terminata.");
+            cleanupRoomFiles(checkRoom);
+            cleanupRoomAssets(checkRoom);
+            delete rooms[currentRoomCode];
+            console.log(`Stanza ${currentRoomCode} distrutta definitivamente per assenza dell'Host.`);
+          }
         }
       }, 15000);
     } else {
-      // Se eravamo in gioco ed era un player semplice a disconnettersi, verifichiamo se lo stato dei voti è sbloccato.
-      // Trattiamo i player non connessi come astensioni se tutti i player attivi rimanenti hanno votato.
       if (room.state === 'playing') {
-        const activePlayers = room.players.filter(p => p.connected !== false);
-        const allActiveVoted = activePlayers.every(p => room.votes[p.id]);
-        if (allActiveVoted && activePlayers.length > 0) {
+        const activePlayers = room.players.filter(p => p.connected !== false && p.isOnline !== false);
+        const allActiveVoted = activePlayers.length > 0 && activePlayers.every(p => room.votes[p.id]);
+        if (allActiveVoted) {
           freezeRound(room, "TUTTI I GIOCATORI ATTIVI HANNO VOTATO");
         }
       }
     }
   });
 });
+
+// ==========================================================================
+// 3. STATE RECOVERY (Sincronizzazione dello Stato Server-Side)
+// ==========================================================================
+function sendStateSync(socket, room, player) {
+  const currentCard = (room.deck && room.deck.cards && room.deck.cards[room.currentCardIndex]) ? room.deck.cards[room.currentCardIndex] : null;
+
+  const gameData = {
+    deckName: room.deck ? room.deck.deck_name : '',
+    totalCards: room.gameLength || (room.deck ? room.deck.cards.length : 0),
+    cardIndex: room.currentCardIndex,
+    prompt: currentCard ? currentCard.prompt : '',
+    image: currentCard ? (currentCard.image || null) : null,
+    userHasVoted: !!(room.votes && room.votes[socket.id]),
+    userVote: (room.votes && room.votes[socket.id]) ? room.votes[socket.id] : null,
+    votedPlayers: room.players.filter(p => room.votes && room.votes[p.id] && room.votes[p.id] !== 'timeout').map(p => p.name),
+    roundStartTime: room.roundStartTime || Date.now(),
+    timerDurationMs: room.timerDurationMs || 10000,
+    freezeMessage: room.freezeMessage || '',
+    customCardsSubmitted: !!player.premiumReady,
+    roundId: room.roundId || 0
+  };
+
+  if (room.state === 'results') {
+    const voteDetails = room.players.map(p => ({
+      player: p.name,
+      vote: (room.votes && room.votes[p.id]) || 'timeout'
+    }));
+    let countUnder = 0, countOver = 0;
+    voteDetails.forEach(v => {
+      if (v.vote === 'underrated') countUnder++;
+      if (v.vote === 'overrated') countOver++;
+    });
+    const totalValid = countUnder + countOver;
+    let groupUnderPct = 50, groupOverPct = 50;
+    if (totalValid > 0) {
+      groupUnderPct = Math.round((countUnder / totalValid) * 100);
+      groupOverPct = 100 - groupUnderPct;
+    }
+    gameData.results = {
+      votes: voteDetails,
+      groupStats: { underrated: groupUnderPct, overrated: groupOverPct },
+      globalStats: currentCard ? currentCard.global_stats : null,
+      prompt: currentCard ? currentCard.prompt : '',
+      image: currentCard ? (currentCard.image || null) : null,
+      cardIndex: room.currentCardIndex,
+      totalCards: room.gameLength || (room.deck ? room.deck.cards.length : 0)
+    };
+  } else if (room.state === 'summary') {
+    gameData.summary = {
+      awards: calculateAwards(room),
+      summary: room.playerResponses
+    };
+  }
+
+  // Emette il payload sync_state contenente lo stato completo della stanza
+  socket.emit('sync_state', {
+    status: room.state, // 'lobby', 'card_submission', 'playing', 'results', 'summary'
+    roomCode: room.roomCode,
+    isHost: !!player.isHost,
+    isPremium: !!room.isPremium,
+    isLocked: !!room.isLocked,
+    players: room.players,
+    assignedName: player.name,
+    gameData: gameData
+  });
+
+  // Emette anche session_restored per garantire la retrocompatibilità
+  socket.emit('session_restored', {
+    state: room.state,
+    roomCode: room.roomCode,
+    players: room.players,
+    isHost: player.isHost,
+    isPremium: room.isPremium,
+    isLocked: room.isLocked,
+    currentScreen: room.state,
+    gameData: gameData,
+    assignedName: player.name
+  });
+
+  console.log(`[STATE RECOVERY] Inviato sync_state a ${player.name} per stanza ${room.roomCode} (stato: ${room.state})`);
+}
 
 // ==========================================================================
 // FUNZIONI SUPPORTO LOGICA ROUND
@@ -1679,7 +1919,18 @@ function startNewRound(room) {
   room.roundStartTime = Date.now();
 
   const timerMs = room.timerDurationMs || 10000;
+  
+  if (!room.deck || !room.deck.cards || room.deck.cards.length === 0) {
+    console.error(`[ROOM ${room.roomCode}] Nessuna carta disponibile nel mazzo per avviare il round.`);
+    return;
+  }
+  
   const card = room.deck.cards[room.currentCardIndex];
+  if (!card) {
+    console.warn(`[ROOM ${room.roomCode}] Carta indice ${room.currentCardIndex} non trovata. Fine partita.`);
+    endGameSummary(room);
+    return;
+  }
 
   if (room.roundTimeout) {
     clearTimeout(room.roundTimeout);
