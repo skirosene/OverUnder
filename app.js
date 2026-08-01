@@ -1471,7 +1471,7 @@ function setupEventListeners() {
     hideTransferError();
     const email = inputTransferEmail ? inputTransferEmail.value.trim().toLowerCase() : '';
     if (!email) {
-      showTransferError("Inserisci l'email usata per l'acquisto su Stripe!");
+      showTransferError("Inserisci la tua email!");
       return;
     }
 

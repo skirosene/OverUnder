@@ -17,15 +17,28 @@ const nodemailer = require('nodemailer');
 const JWT_SECRET = process.env.JWT_SECRET || 'overunder_super_secret_key_12345_mvp';
 
 // Setup Nodemailer Transporter (Resend / SMTP)
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 465,
-  secure: true,
+const smtpPort = Number(process.env.SMTP_PORT) || 587;
+const smtpSecure = process.env.SMTP_SECURE !== undefined 
+  ? (process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === '1') 
+  : (smtpPort === 465);
+
+const transporterOptions = {
+  host: process.env.SMTP_HOST || 'smtp.resend.com',
+  port: smtpPort,
+  secure: smtpSecure,
   auth: {
-    user: process.env.SMTP_USER,
+    user: process.env.SMTP_USER || 'resend',
     pass: process.env.SMTP_PASS
+  },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
+  tls: {
+    rejectUnauthorized: false
   }
-});
+};
+
+const transporter = nodemailer.createTransport(transporterOptions);
 
 // Memoria temporanea per le sessioni OTP di trasferimento licenza (email -> { otp, expiresAt })
 const otpSessions = new Map();
@@ -389,8 +402,10 @@ app.post('/api/premium/request-transfer', async (req, res) => {
     expiresAt: Date.now() + 60000
   });
 
+  const fromEmail = process.env.EMAIL_FROM || 'OverUnder <onboarding@resend.dev>';
+
   const mailOptions = {
-    from: process.env.EMAIL_FROM,
+    from: fromEmail,
     to: normalizedEmail,
     subject: 'Codice di verifica OverUnder 👑',
     html: `
@@ -404,19 +419,23 @@ app.post('/api/premium/request-transfer', async (req, res) => {
   };
 
   try {
+    console.log(`[OTP PREMIUM] Tentativo invio mail a ${normalizedEmail} tramite ${transporterOptions.host}:${transporterOptions.port} (secure: ${smtpSecure})...`);
     await transporter.sendMail(mailOptions);
     console.log(`[OTP PREMIUM] Email con OTP inviata a: ${normalizedEmail}`);
     return res.status(200).json({ success: true, message: 'Codice OTP inviato con successo.' });
   } catch (err) {
-    console.error('[OTP PREMIUM] Errore durante l\'invio dell\'email:', err);
+    console.error('[OTP PREMIUM] Errore durante l\'invio dell\'email:', err.message || err);
+    console.log(`[OTP PREMIUM FALLBACK LOG] Codice OTP generato per ${normalizedEmail}: ${otp}`);
     return res.status(500).json({ error: "Impossibile inviare l'email. Riprova più tardi." });
   }
 });
 
 // 2. Verifica OTP e Promozione a Premium
 app.post('/api/premium/verify-transfer', (req, res) => {
-  const { email, otp } = req.body;
-  if (!email || !otp) {
+  const { email } = req.body;
+  const otpSubmitted = req.body.otp || req.body.otpCode;
+
+  if (!email || !otpSubmitted) {
     return res.status(400).json({ error: 'Email e OTP obbligatori' });
   }
 
@@ -428,7 +447,7 @@ app.post('/api/premium/verify-transfer', (req, res) => {
     return res.status(400).json({ error: "Codice OTP scaduto. Richiedine uno nuovo." });
   }
 
-  if (session.otp !== String(otp).trim()) {
+  if (session.otp !== String(otpSubmitted).trim()) {
     return res.status(400).json({ error: "Codice OTP errato." });
   }
 
@@ -438,7 +457,7 @@ app.post('/api/premium/verify-transfer', (req, res) => {
   // Promuovi il client a PREMIUM e imposta isPremium = true
   let userId = null;
   let username = 'Host';
-  let deviceUuid = null;
+  let deviceUuid = req.body.deviceUuid || null;
 
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -446,7 +465,7 @@ app.post('/api/premium/verify-transfer', (req, res) => {
       const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
       userId = decoded.userId;
       username = decoded.username || username;
-      deviceUuid = decoded.deviceUuid;
+      deviceUuid = decoded.deviceUuid || deviceUuid;
     } catch (e) {}
   }
 
@@ -498,7 +517,8 @@ app.post('/api/premium/verify-transfer', (req, res) => {
 
   return res.status(200).json({
     success: true,
-    token: token
+    token: token,
+    isPremium: true
   });
 });
 
@@ -757,195 +777,12 @@ app.get('/api/stripe/verify-session', async (req, res) => {
   }
 });
 
-// Store in memoria per i codici OTP di trasferimento (email => { code: string, createdAt: number })
-const otpStore = {};
-
-// Endpoint 1: Richiesta Codice OTP per Trasferimento Licenza Premium
-app.post('/api/premium/request-transfer', async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email || !email.trim()) {
-      return res.status(400).json({ error: 'Inserisci l\'email usata per l\'acquisto su Stripe.' });
-    }
-    const query = email.trim().toLowerCase();
-
-    // 1. Controlla se quell'email ha effettivamente acquistato il Premium
-    let matchingUser = Object.values(users).find(u => 
-      u.isPremium && (
-        (u.email && u.email.toLowerCase() === query) ||
-        (u.username && u.username.toLowerCase() === query) ||
-        (u.id && u.id.toLowerCase() === query)
-      )
-    );
-
-    if (!matchingUser && stripe) {
-      try {
-        const sessions = await stripe.checkout.sessions.list({ limit: 50 });
-        const paidSession = sessions.data.find(s => 
-          s.payment_status === 'paid' && 
-          s.customer_details && 
-          s.customer_details.email && 
-          s.customer_details.email.toLowerCase() === query
-        );
-
-        if (paidSession) {
-          const userId = 'host_' + crypto.randomBytes(4).toString('hex');
-          matchingUser = {
-            id: userId,
-            username: query.split('@')[0] || 'host_premium',
-            email: query,
-            isPremium: true,
-            premiumStatus: 'PREMIUM_A_VITA'
-          };
-          users[userId] = matchingUser;
-          writeUsersDb(users);
-        }
-      } catch (stripeErr) {
-        console.warn("[OTP TRANSFER] Avviso ricerca Stripe API:", stripeErr.message);
-      }
-    }
-
-    if (!matchingUser) {
-      const anyPremium = Object.values(users).find(u => u.isPremium);
-      if (anyPremium) {
-        matchingUser = anyPremium;
-        matchingUser.email = query;
-        writeUsersDb(users);
-      }
-    }
-
-    if (!matchingUser) {
-      return res.status(404).json({ error: 'Nessun acquisto trovato per questa email.' });
-    }
-
-    // 2. Genera un codice numerico casuale di 6 cifre (OTP)
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // 3. Salva sul server il codice associato alla mail con timestamp di creazione
-    otpStore[query] = {
-      code: otpCode,
-      createdAt: Date.now()
-    };
-
-    // 4. In ambiente di sviluppo: console.log del codice e simulazione invio mail
-    console.log(`\n==================================================`);
-    console.log(`[OTP TRANSFER] 📧 CODICE OTP GENERATO PER ${query}: ${otpCode}`);
-    console.log(`[OTP TRANSFER] Scadenza codice: 60 secondi`);
-    console.log(`==================================================\n`);
-
-    /*
-     * INTEGRATION NODEMAILER (Predisposizione per Ambiente di Produzione):
-     * 
-     * const nodemailer = require('nodemailer');
-     * const transporter = nodemailer.createTransport({
-     *   host: process.env.SMTP_HOST || 'smtp.gmail.com',
-     *   port: parseInt(process.env.SMTP_PORT || '587'),
-     *   secure: false,
-     *   auth: {
-     *     user: process.env.SMTP_USER,
-     *     pass: process.env.SMTP_PASS
-     *   }
-     * });
-     * 
-     * await transporter.sendMail({
-     *   from: '"OverUnder Premium" <noreply@overunder.app>',
-     *   to: query,
-     *   subject: 'Il tuo codice OTP per il Trasferimento Licenza OverUnder',
-     *   html: `
-     *     <div style="font-family: sans-serif; padding: 20px;">
-     *       <h2>Trasferimento Licenza Premium OverUnder</h2>
-     *       <p>Usa il seguente codice OTP per completare il trasferimento sul tuo dispositivo:</p>
-     *       <h1 style="color: #df33ff; letter-spacing: 4px;">${otpCode}</h1>
-     *       <p>Il codice è valido per <strong>60 secondi</strong>.</p>
-     *     </div>
-     *   `
-     * });
-     */
-
-    res.json({ success: true, message: 'Codice OTP inviato con successo alla tua email.' });
-  } catch (err) {
-    console.error("[OTP TRANSFER] Errore request-transfer:", err);
-    res.status(500).json({ error: 'Errore durante la generazione del codice OTP.' });
-  }
-});
-
-// Endpoint 2: Verifica Codice OTP e Trasferimento Licenza Premium
-app.post('/api/premium/verify-transfer', async (req, res) => {
-  try {
-    const { email, otpCode, deviceUuid } = req.body;
-    if (!email || !email.trim() || !otpCode || !otpCode.trim()) {
-      return res.status(400).json({ error: 'Email e codice OTP sono obbligatori.' });
-    }
-    const query = email.trim().toLowerCase();
-    const codeSubmitted = otpCode.trim();
-
-    const record = otpStore[query];
-    if (!record) {
-      return res.status(400).json({ error: 'Nessun codice richiesto per questa email o codice già utilizzato.' });
-    }
-
-    // 1. Controllo Scadenza (1 Minuto / 60 Secondi): Date.now() - createdAt > 60000
-    if (Date.now() - record.createdAt > 60000) {
-      delete otpStore[query];
-      return res.status(400).json({ error: 'Codice scaduto.' });
-    }
-
-    // 2. Controllo Validità del codice
-    if (codeSubmitted !== record.code) {
-      return res.status(400).json({ error: 'Codice errato, riprova.' });
-    }
-
-    // 3. Codice valido: cancella il codice dal server per impedire il riutilizzo
-    delete otpStore[query];
-
-    // Promuove il dispositivo a PREMIUM_A_VITA e salva il nuovo JWT
-    let user = Object.values(users).find(u => 
-      (u.email && u.email.toLowerCase() === query) ||
-      (u.username && u.username.toLowerCase() === query)
-    );
-
-    if (!user) {
-      const userId = 'host_' + crypto.randomBytes(4).toString('hex');
-      user = {
-        id: userId,
-        username: query.split('@')[0] || 'host_premium',
-        email: query,
-        isPremium: true,
-        premiumStatus: 'PREMIUM_A_VITA',
-        deviceUuid: deviceUuid || userId
-      };
-      users[userId] = user;
-    } else {
-      user.isPremium = true;
-      user.premiumStatus = 'PREMIUM_A_VITA';
-      if (deviceUuid) user.deviceUuid = deviceUuid;
-    }
-    writeUsersDb(users);
-
-    const token = jwt.sign({
-      userId: user.id,
-      deviceUuid: deviceUuid || user.deviceUuid || user.id,
-      username: user.username,
-      role: 'host',
-      isPremium: true,
-      premiumStatus: 'PREMIUM_A_VITA'
-    }, JWT_SECRET, { expiresIn: '365d' });
-
-    console.log(`[OTP TRANSFER] ✅ Licenza trasferita con successo a ${query} (dispositivo ${deviceUuid || user.id})`);
-    res.json({ success: true, token, isPremium: true, message: 'Dispositivo promosso a PREMIUM_A_VITA con successo!' });
-
-  } catch (err) {
-    console.error("[OTP TRANSFER] Errore verify-transfer:", err);
-    res.status(500).json({ error: 'Errore durante la verifica del codice OTP.' });
-  }
-});
-
 // Endpoint retrocompatibilità per Ripristinare l'Acquisto
 app.post('/api/auth/restore-purchase', async (req, res) => {
   try {
     const { email, deviceUuid } = req.body;
     if (!email || !email.trim()) {
-      return res.status(400).json({ error: 'Inserisci l\'email usata per l\'acquisto su Stripe (o il tuo nome utente).' });
+      return res.status(400).json({ error: 'Inserisci la tua email (o il tuo nome utente).' });
     }
     const query = email.trim().toLowerCase();
 
@@ -956,34 +793,6 @@ app.post('/api/auth/restore-purchase', async (req, res) => {
         (u.id && u.id.toLowerCase() === query)
       )
     );
-
-    if (!matchingUser && stripe) {
-      try {
-        const sessions = await stripe.checkout.sessions.list({ limit: 50 });
-        const paidSession = sessions.data.find(s => 
-          s.payment_status === 'paid' && 
-          s.customer_details && 
-          s.customer_details.email && 
-          s.customer_details.email.toLowerCase() === query
-        );
-
-        if (paidSession) {
-          const userId = 'host_' + crypto.randomBytes(4).toString('hex');
-          matchingUser = {
-            id: userId,
-            username: query.split('@')[0] || 'host_premium',
-            email: query,
-            isPremium: true,
-            premiumStatus: 'PREMIUM_A_VITA',
-            deviceUuid: deviceUuid || userId
-          };
-          users[userId] = matchingUser;
-          writeUsersDb(users);
-        }
-      } catch (stripeErr) {
-        console.warn("[RESTORE] Avviso ricerca Stripe API:", stripeErr.message);
-      }
-    }
 
     if (!matchingUser) {
       const anyPremiumUser = Object.values(users).find(u => u.isPremium);
@@ -996,7 +805,7 @@ app.post('/api/auth/restore-purchase', async (req, res) => {
     }
 
     if (!matchingUser) {
-      return res.status(404).json({ error: 'Nessun acquisto trovato per l\'email o nome utente inserito. Verifica l\'email usata su Stripe.' });
+      return res.status(404).json({ error: 'Nessun acquisto trovato per l\'email o nome utente inserito. Verifica l\'email.' });
     }
 
     if (!matchingUser.email) matchingUser.email = query;
