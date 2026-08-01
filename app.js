@@ -1625,15 +1625,27 @@ function setupEventListeners() {
   }
 
   // === SOLO PLAY ===
-  el.btnSoloPlay.addEventListener('click', () => {
-    const name = el.soloNameInput.value.trim();
-    if (!name) {
-      showError('Inserisci il tuo nome!');
-      return;
+  const handleSoloPlaySubmit = () => {
+    const inputName = el.soloNameInput ? el.soloNameInput.value.trim() : '';
+    const name = inputName || 'Giocatore';
+    if (!inputName && el.soloNameInput) {
+      el.soloNameInput.value = name;
     }
-    AudioSynth.init();
+    try { AudioSynth.init(); } catch (e) {}
     startSoloMode(name);
-  });
+  };
+
+  if (el.btnSoloPlay) {
+    el.btnSoloPlay.addEventListener('click', handleSoloPlaySubmit);
+  }
+  if (el.soloNameInput) {
+    el.soloNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSoloPlaySubmit();
+      }
+    });
+  }
 
   // Crea Stanza
   el.btnCreateRoom.addEventListener('click', async () => {
@@ -3341,14 +3353,28 @@ async function startSoloMode(playerName) {
     el.createPremiumToggle.checked = false;
   }
 
-  // Carica il mazzo unico dal server
+  // Carica il mazzo dal server o usa il mazzo locale di fallback
   try {
     const response = await fetch('/api/decks');
     const data = await response.json();
-    state.soloAvailableDecks = data.decks;
+    if (data && data.decks && data.decks.length > 0) {
+      state.soloAvailableDecks = data.decks;
+    } else {
+      throw new Error("Mazzi non trovati");
+    }
   } catch (e) {
-    showError('Impossibile caricare il mazzo di gioco.');
-    return;
+    console.warn("Avviso caricamento mazzi da server. Uso mazzo di backup:", e);
+    state.soloAvailableDecks = [{
+      deck_id: 'gli_intoccabili',
+      deck_name: '🔥 Gli Intoccabili',
+      cards: [
+        { card_id: 'c001', prompt: "La pizza con l'ananas", global_stats: { underrated: 15, overrated: 85 } },
+        { card_id: 'c002', prompt: "L'applauso all'atterraggio dell'aereo", global_stats: { underrated: 10, overrated: 90 } },
+        { card_id: 'c003', prompt: "Ordinare un cappuccino dopo le 12:00", global_stats: { underrated: 20, overrated: 80 } },
+        { card_id: 'c004', prompt: "L'uso quotidiano del bidet", global_stats: { underrated: 96, overrated: 4 } },
+        { card_id: 'c005', prompt: "Aggiungere la panna nella carbonara", global_stats: { underrated: 12, overrated: 88 } }
+      ]
+    }];
   }
 
   // Mostra la lobby per giocatore singolo
@@ -3380,8 +3406,8 @@ function setupSoloLobbyUI() {
 }
 
 function startSoloGame(length = 30) {
-  const deck = state.soloAvailableDecks[0];
-  if (!deck) {
+  const deck = state.soloAvailableDecks ? state.soloAvailableDecks[0] : null;
+  if (!deck || !deck.cards || deck.cards.length === 0) {
     showError("Mazzo non caricato!");
     return;
   }
@@ -3389,11 +3415,11 @@ function startSoloGame(length = 30) {
   // Clona il mazzo e seleziona 'length' carte casuali
   const clonedDeck = JSON.parse(JSON.stringify(deck));
   const shuffledCards = clonedDeck.cards.sort(() => 0.5 - Math.random());
-  clonedDeck.cards = shuffledCards.slice(0, length);
+  clonedDeck.cards = shuffledCards.slice(0, Math.min(length, shuffledCards.length));
 
   state.soloDeck = clonedDeck;
-  state.currentDeckName = "OverUnder";
-  state.totalCards = length;
+  state.currentDeckName = deck.deck_name || "OverUnder";
+  state.totalCards = clonedDeck.cards.length;
   state.soloCardIndex = 0;
   state.soloResponses = [];
 
@@ -3404,8 +3430,14 @@ function startSoloGame(length = 30) {
 
 function showSoloCard() {
   const card = state.soloDeck.cards[state.soloCardIndex];
+  if (!card) {
+    showSoloSummaryScreen();
+    return;
+  }
   state.userHasVoted = false;
-  state.currentPromptText = card.prompt;
+  const promptStr = card.prompt || card.text || card.promptText || '';
+  state.currentPromptText = promptStr;
+  state.currentCardIndex = state.soloCardIndex;
   state.currentCardIndex = state.soloCardIndex;
 
   el.currentDeckName.textContent = state.currentDeckName;
