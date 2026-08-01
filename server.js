@@ -40,7 +40,7 @@ const transporterOptions = {
 
 const transporter = nodemailer.createTransport(transporterOptions);
 
-// Helper per recuperare variabili d'ambiente pulite con ricerca flessibile
+// Helper per recuperare variabili d'ambiente pulite con ricerca flessibile ed auto-detection delle chiavi Resend (re_...)
 function getCleanEnvVar(...keys) {
   // 1. Controllo diretto delle chiavi indicate
   for (const k of keys) {
@@ -55,13 +55,21 @@ function getCleanEnvVar(...keys) {
     const cleanTarget = targetKey.toLowerCase().trim();
     const foundKey = envKeys.find(ek => {
       const cleanEk = ek.toLowerCase().trim();
-      return cleanEk === cleanTarget || cleanEk.includes('resend');
+      return cleanEk === cleanTarget || cleanEk.includes('resend') || cleanEk.includes('smtp') || cleanEk.includes('mail');
     });
     if (foundKey) {
       const val = process.env[foundKey];
       if (val && typeof val === 'string' && val.trim().length > 0) {
         return val.replace(/^["']|["']$/g, '').trim();
       }
+    }
+  }
+  // 3. Fallback d'emergenza: Auto-detection per QUALSIASI variabile in process.env il cui valore inizia con 're_' (formato ufficiale Resend)
+  for (const ek of envKeys) {
+    const val = process.env[ek];
+    if (val && typeof val === 'string' && val.trim().startsWith('re_') && val.trim().length > 10) {
+      console.log(`[ENV AUTO-DETECT] Trovata chiave Resend (valore inizia con 're_') nella variabile ${ek}!`);
+      return val.replace(/^["']|["']$/g, '').trim();
     }
   }
   return '';
