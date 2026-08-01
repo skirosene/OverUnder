@@ -1080,25 +1080,23 @@ function setupEventListeners() {
 
   // === WELCOME START ===
   if (el.btnWelcomeStart) {
-    if (process.env.NODE_ENV === 'development') {
-      if (el.btnDebugTrial) el.btnDebugTrial.style.display = 'block';
-      if (el.btnTestExpired) el.btnTestExpired.style.display = 'block';
-      if (el.btnResetNoPremium) el.btnResetNoPremium.style.display = 'block';
-    }
-
     el.btnWelcomeStart.addEventListener('click', () => {
-      AudioSynth.init();
-      AudioSynth.playConfirm(true);
+      try { AudioSynth.init(); } catch (e) {}
+      try { AudioSynth.playConfirm(true); } catch (e) {}
 
       const trialActivated = localStorage.getItem('overunder_trial_activated') === 'true';
       const trialExpired = localStorage.getItem('overunder_trial_activated') === 'expired';
       const trialShown = localStorage.getItem('overunder_trial_shown') === 'true';
 
-      if (process.env.NODE_ENV === 'production' && !trialActivated && !trialExpired && !trialShown) {
+      const isProd = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+      if (isProd && !trialActivated && !trialExpired && !trialShown) {
         if (el.trialGiftModal) {
           el.trialGiftModal.style.display = 'flex';
           el.trialGiftModal.classList.add('active');
           localStorage.setItem('overunder_trial_shown', 'true');
+        } else {
+          showScreen(el.screenOnboarding);
         }
       } else {
         showScreen(el.screenOnboarding);
