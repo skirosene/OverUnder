@@ -602,12 +602,12 @@ input[type="submit"] {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  padding: 10px 16px;
+  padding: 8px 12px;
   font-weight: 600;
   font-size: 0.85rem;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   color: white;
   animation: scale-up-chip 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
   box-sizing: border-box;

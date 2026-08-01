@@ -2937,7 +2937,7 @@ function renderLobbyPlayers() {
       : '';
 
     card.innerHTML = `
-      <div style="position: relative; display: flex; align-items: center; flex-shrink: 0; margin-right: 8px;">
+      <div style="position: relative; display: flex; align-items: center; flex-shrink: 0; margin-right: 0;">
         ${avatarHtml}
         ${hostBadge}
       </div>
