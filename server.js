@@ -94,7 +94,8 @@ async function sendOtpEmail(toEmail, otp) {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': 'OverUnderApp/1.0'
           },
           body: JSON.stringify({
             from: fromAddr,
