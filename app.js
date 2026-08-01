@@ -705,7 +705,7 @@ if (document.readyState === 'loading') {
   startApp();
 }
 
-// Safety net: Garantisce che lo splash screen venga rimosso entro 2.5s se un errore imprevisto ne blocca l'esecuzione
+// Safety net: Garantisce che lo splash screen venga rimosso entro 7s se un errore imprevisto ne blocca l'esecuzione
 setTimeout(() => {
   const splash = document.getElementById('screen-splash');
   if (splash && (splash.style.display !== 'none' || splash.classList.contains('active'))) {
@@ -716,7 +716,7 @@ setTimeout(() => {
       welcome.classList.add('active');
     }
   }
-}, 2500);
+}, 7000);
 
 function initClock() {
   if (!el || !el.statusClock) return;
@@ -745,14 +745,14 @@ function runSplashScreen(skipSplash = false) {
     el.screenSplash.classList.remove('fade-out');
   }
 
-  // Mostra il caricamento dello splash screen per 1.2 secondi e poi avvia il fade-out
+  // Mostra il caricamento dello splash screen per 5 secondi e poi avvia il fade-out
   setTimeout(() => {
     if (el.screenSplash) {
       el.screenSplash.classList.add('fade-out');
     }
-  }, 1200);
+  }, 5000);
 
-  // Nascondi lo splash screen a 1.6 secondi e mostra la schermata iniziale di benvenuto
+  // Nascondi lo splash screen a 5.5 secondi e mostra la schermata iniziale di benvenuto
   setTimeout(() => {
     forceHideSplash();
     
@@ -769,7 +769,7 @@ function runSplashScreen(skipSplash = false) {
     if (!anyActive) {
       showScreen(el.screenWelcome);
     }
-  }, 1600);
+  }, 5500);
 }
 
 function showScreen(targetScreen) {
