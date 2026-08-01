@@ -219,21 +219,25 @@
               </button>
             </div>
 
-            <!-- Form per Entrare in una Stanza via Link -->
-            <div id="form-join-room-link" class="onboarding-form" style="display: none;">
-              <div class="input-group">
-                <label class="input-label" style="text-align: center; font-size: 0.95rem; color: var(--color-accent-blue); margin-bottom: 15px; display: block; background: rgba(52, 152, 219, 0.08); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(52, 152, 219, 0.2);">
-                  Stanza: <span id="join-room-code-display" style="font-weight: 800; font-family: var(--font-title); letter-spacing: 1px; color: white;">-</span>
-                </label>
-                <label for="join-name-input" class="input-label">Il tuo Nome</label>
-                <input type="text" id="join-name-input" class="text-input" placeholder="Es. Giulia" autocomplete="off" maxlength="15">
+            <!-- Form per Entrare in una Stanza via Link (Invito Diretto) -->
+            <div id="form-join-room-link" class="onboarding-form" style="display: none; width: 100%;">
+              <div class="invite-banner-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 12px 10px; background: linear-gradient(135deg, rgba(52, 152, 219, 0.15), rgba(155, 89, 182, 0.15)); border-radius: 14px; border: 1px solid rgba(52, 152, 219, 0.35); text-align: center; margin-bottom: 12px; width: 100%;">
+                <span style="font-size: 0.68rem; font-weight: 700; color: var(--color-accent-blue); text-transform: uppercase; letter-spacing: 1px;">SEI STATO INVITATO IN STANZA</span>
+                <div id="join-room-code-display" style="font-family: var(--font-title); font-size: 1.5rem; font-weight: 800; color: white; letter-spacing: 2px; text-shadow: 0 0 10px rgba(52, 152, 219, 0.5);">-</div>
               </div>
-              <button id="btn-join-room-link" class="btn btn-primary btn-pulse-blue" style="margin-top: 15px;">
-                <span>ENTRA IN STANZA</span>
+
+              <div class="input-group" style="width: 100%;">
+                <label for="join-name-input" class="input-label" style="text-align: center; display: block; font-size: 0.8rem; font-weight: 700; color: white; margin-bottom: 6px;">SCEGLI IL TUO NICKNAME</label>
+                <input type="text" id="join-name-input" class="text-input" placeholder="Es. Giulia" autocomplete="off" maxlength="15" style="text-align: center; font-size: 0.95rem; font-weight: bold; padding: 12px;">
+              </div>
+
+              <button id="btn-join-room-link" class="btn btn-primary btn-pulse-blue" style="margin-top: 14px; width: 100%;">
+                <span>ENTRA SUBITO IN STANZA</span>
                 <svg class="btn-icon" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="currentColor"/></svg>
               </button>
-              <button id="btn-cancel-join-link" class="btn btn-secondary" style="margin-top: 10px; font-size: 0.75rem; padding: 8px 16px; width: 100%; border: 1px solid rgba(255,255,255,0.1);">
-                <span>Annulla e Torna al Menu</span>
+
+              <button id="btn-cancel-join-link" type="button" style="background: none; border: none; color: #a0a0a0; font-size: 0.72rem; text-decoration: underline; cursor: pointer; padding: 6px; margin-top: 8px; text-align: center; width: 100%;">
+                Annulla e Torna al Menu Principale
               </button>
             </div>
           </div>

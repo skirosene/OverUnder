@@ -746,7 +746,10 @@ function showScreen(targetScreen) {
   [el.screenWelcome, el.screenOnboarding, el.screenLobby, el.screenGameplay, el.screenResults, el.screenSummary, el.screenKicked, el.screenRoomFull, el.screenLoading].forEach(screen => {
     if (screen) screen.classList.remove('active');
   });
-  if (targetScreen) targetScreen.classList.add('active');
+  if (targetScreen) {
+    targetScreen.classList.add('active');
+    try { targetScreen.scrollTop = 0; } catch (e) {}
+  }
 
   // Configura il timer counter cliccabile solo in gameplay per l'host
   if (targetScreen === el.screenGameplay) {
@@ -4015,13 +4018,14 @@ function showJoinFromLink(roomCode) {
   // Resetta input ed errori
   if (el.joinNameInput) {
     el.joinNameInput.value = '';
-    // Focus automatico sul campo nome per migliorare l'UX mobile
-    setTimeout(() => { try { el.joinNameInput.focus(); } catch(e) {} }, 300);
   }
   if (el.nameErrorMsg) el.nameErrorMsg.style.display = 'none';
   
   // Mostra la schermata di onboarding con il modulo di ingresso attivo
   showScreen(el.screenOnboarding);
+  if (el.screenOnboarding) {
+    try { el.screenOnboarding.scrollTop = 0; } catch (e) {}
+  }
   console.log('[INVITE] screenOnboarding attivato con form join');
 }
 
