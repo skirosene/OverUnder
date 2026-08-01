@@ -138,7 +138,16 @@ async function sendOtpEmail(toEmail, otp) {
       }
     }
   } else {
-    console.warn(`[EMAIL OTP] Nessuna API Key Resend/SMTP valida trovata in process.env (RESEND_API_KEY o SMTP_PASS non impostati).`);
+    const presentKeys = Object.keys(process.env).filter(k => 
+      !k.startsWith('npm_') && 
+      !k.startsWith('XDG_') && 
+      !k.startsWith('COLOR') && 
+      !k.startsWith('LANG') && 
+      !k.startsWith('TERM') &&
+      !k.startsWith('PATH')
+    );
+    console.warn(`[EMAIL OTP] Nessuna API Key Resend/SMTP valida trovata in process.env. Chiavi visibili:`, presentKeys);
+    throw new Error(`Nessuna API Key trovata. Variabili d'ambiente lette da Render: [${presentKeys.join(', ')}]. Imposta RESEND_API_KEY su Render.`);
   }
 
   // 2. TENTATIVO VIA NODEMAILER SMTP
