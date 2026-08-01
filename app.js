@@ -1469,7 +1469,9 @@ function setupEventListeners() {
   // FASE 1: Richiesta OTP (POST /api/premium/request-transfer)
   const handleRequestOTP = async () => {
     hideTransferError();
-    const email = inputTransferEmail ? inputTransferEmail.value.trim().toLowerCase() : '';
+    const rawEmail = inputTransferEmail ? inputTransferEmail.value : '';
+    // pulizia profonda per tastiere mobili (spazi invisibili, NBSP, maiuscole automatiche)
+    const email = rawEmail.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').replace(/\s+/g, '').toLowerCase().trim();
     if (!email) {
       showTransferError("Inserisci la tua email!");
       return;
@@ -1534,8 +1536,9 @@ function setupEventListeners() {
   // FASE 3: Verifica OTP (POST /api/premium/verify-transfer)
   const handleVerifyOTP = async () => {
     hideTransferError();
-    const email = inputTransferEmail ? inputTransferEmail.value.trim().toLowerCase() : '';
-    const otpCode = inputTransferOtp ? inputTransferOtp.value.trim() : '';
+    const rawEmail = inputTransferEmail ? inputTransferEmail.value : '';
+    const email = rawEmail.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').replace(/\s+/g, '').toLowerCase().trim();
+    const otpCode = inputTransferOtp ? inputTransferOtp.value.replace(/\s+/g, '').trim() : '';
 
     if (!otpCode) {
       showTransferError("Inserisci il codice OTP di 6 cifre.");

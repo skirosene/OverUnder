@@ -487,7 +487,8 @@ app.post('/api/premium/request-transfer', async (req, res) => {
     return res.status(400).json({ error: 'Email obbligatoria' });
   }
 
-  const normalizedEmail = email.toLowerCase().trim();
+  // Sanificazione profonda dell'email da dispositivi mobili
+  const normalizedEmail = String(email).replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').replace(/\s+/g, '').toLowerCase().trim();
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
   // Salva in memoria per 1 minuto (60000 ms)
@@ -501,9 +502,20 @@ app.post('/api/premium/request-transfer', async (req, res) => {
     console.log(`[OTP PREMIUM] Invio completato a ${normalizedEmail} tramite ${sendResult.provider}`);
     return res.status(200).json({ success: true, message: 'Codice OTP inviato con successo.' });
   } catch (err) {
-    console.error('[OTP PREMIUM] Errore durante l\'invio dell\'email:', err.message || err);
+    const rawMsg = (err && (err.message || String(err))) || '';
+    console.error('[OTP PREMIUM] Errore durante l\'invio dell\'email:', rawMsg);
     console.log(`[OTP PREMIUM FALLBACK LOG] Codice OTP generato per ${normalizedEmail}: ${otp}`);
-    return res.status(500).json({ error: "Impossibile inviare l'email. Riprova più tardi." });
+
+    let userFacingError = "Impossibile inviare l'email. Riprova più tardi.";
+    if (rawMsg.includes('testing emails') || rawMsg.includes('only send testing') || rawMsg.includes('domain')) {
+      userFacingError = "Resend (piano gratuito): puoi inviare l'email OTP solo all'indirizzo con cui hai creato l'account Resend. Per inviare a qualunque email, inserisci un tuo dominio aziendale verificato su Resend.";
+    } else if (rawMsg.includes('API key') || rawMsg.includes('auth') || rawMsg.includes('401') || rawMsg.includes('403')) {
+      userFacingError = "Errore di autenticazione con il servizio email Resend/SMTP. Verifica le credenziali su Render.";
+    } else if (rawMsg) {
+      userFacingError = `Errore invio email: ${rawMsg}`;
+    }
+
+    return res.status(500).json({ error: userFacingError });
   }
 });
 
@@ -516,7 +528,7 @@ app.post('/api/premium/verify-transfer', (req, res) => {
     return res.status(400).json({ error: 'Email e OTP obbligatori' });
   }
 
-  const normalizedEmail = String(email).toLowerCase().trim();
+  const normalizedEmail = String(email).replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').replace(/\s+/g, '').toLowerCase().trim();
   const session = otpSessions.get(normalizedEmail);
 
   if (!session || Date.now() > session.expiresAt) {
