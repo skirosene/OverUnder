@@ -850,7 +850,7 @@ input[type="submit"] {
 /* ==========================================================================
    SCHERMATA 3: GAMEPLAY / VOTAZIONE (#screen-gameplay / #voting-screen)
    ========================================================================== */
-#screen-gameplay, #voting-screen, .voting-screen {
+#screen-gameplay.active, #voting-screen.active, .voting-screen.active {
   display: flex !important;
   flex-direction: column !important;
   height: 100% !important;
