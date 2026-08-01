@@ -3912,3 +3912,149 @@ input[type="submit"] {
   transform: scale(0.98);
   background: rgba(189, 51, 255, 0.15);
 }
+
+/* ==========================================================================
+   QR CODE LOBBY BUTTON & FULLSCREEN OVERLAY MODAL (#qr-modal)
+   ========================================================================== */
+.btn-lobby-qr {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  outline: none;
+  z-index: 10;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-lobby-qr:hover,
+.btn-lobby-qr:active {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.btn-lobby-qr svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+}
+
+.qr-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+  animation: scale-up-chip 0.2s ease forwards;
+}
+
+.qr-modal-overlay.hidden {
+  display: none !important;
+}
+
+.qr-modal-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.6rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  outline: none;
+  transition: all 0.2s ease;
+  z-index: 100000;
+}
+
+.qr-modal-close:hover,
+.qr-modal-close:active {
+  background: rgba(255, 59, 48, 0.8);
+  border-color: #ff453a;
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.qr-modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  max-width: 340px;
+  width: 100%;
+}
+
+.qr-modal-title {
+  font-family: var(--font-title);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+}
+
+.qr-code-box {
+  width: 240px;
+  height: 240px;
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.8), 0 0 25px rgba(52, 152, 219, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  box-sizing: border-box;
+}
+
+.qr-code-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.qr-modal-code {
+  font-family: var(--font-title);
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--color-accent-blue);
+  letter-spacing: 3px;
+  margin-top: 24px;
+  text-transform: uppercase;
+  text-shadow: 0 0 15px rgba(52, 152, 219, 0.4);
+}

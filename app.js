@@ -495,6 +495,11 @@ const el = {
   // Lobby
   lobbyRoomCode: document.getElementById('lobby-room-code'),
   btnLobbyInvite: document.getElementById('btn-lobby-invite'),
+  btnLobbyQr: document.getElementById('btn-lobby-qr'),
+  qrModal: document.getElementById('qr-modal'),
+  btnQrModalClose: document.getElementById('btn-qr-modal-close'),
+  qrCodeImg: document.getElementById('qr-code-img'),
+  qrModalRoomCode: document.getElementById('qr-modal-room-code'),
   btnLockRoom: document.getElementById('btn-lock-room'),
   lockRoomModal: document.getElementById('lock-room-modal'),
   lockModalTitle: document.getElementById('lock-modal-title'),
@@ -1766,6 +1771,57 @@ function setupEventListeners() {
       }
       document.body.removeChild(textArea);
     });
+  });
+
+  // === QR CODE MODAL LOBBY ===
+  const btnLobbyQr = el.btnLobbyQr || document.getElementById('btn-lobby-qr');
+  const qrModal = el.qrModal || document.getElementById('qr-modal');
+  const btnQrModalClose = el.btnQrModalClose || document.getElementById('btn-qr-modal-close');
+  const qrCodeImg = el.qrCodeImg || document.getElementById('qr-code-img');
+  const qrModalRoomCode = el.qrModalRoomCode || document.getElementById('qr-modal-room-code');
+
+  const openQrModal = () => {
+    const roomCode = state.roomCode || (el.lobbyRoomCode ? el.lobbyRoomCode.textContent.trim() : '');
+    if (!roomCode) return;
+
+    const joinUrl = `${window.location.origin}/join?room=${encodeURIComponent(roomCode)}`;
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(joinUrl)}`;
+
+    if (qrCodeImg) qrCodeImg.src = qrApiUrl;
+    if (qrModalRoomCode) qrModalRoomCode.textContent = roomCode;
+
+    if (qrModal) {
+      qrModal.style.display = 'flex';
+      qrModal.classList.remove('hidden');
+    }
+    try { AudioSynth.playConfirm(true); } catch (e) {}
+  };
+
+  const closeQrModal = () => {
+    if (qrModal) {
+      qrModal.classList.add('hidden');
+      qrModal.style.display = 'none';
+    }
+    try { AudioSynth.playConfirm(false); } catch (e) {}
+  };
+
+  if (btnLobbyQr) {
+    btnLobbyQr.addEventListener('click', openQrModal);
+  }
+  if (btnQrModalClose) {
+    btnQrModalClose.addEventListener('click', closeQrModal);
+  }
+  if (qrModal) {
+    qrModal.addEventListener('click', (e) => {
+      if (e.target === qrModal) {
+        closeQrModal();
+      }
+    });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && qrModal && (qrModal.style.display === 'flex' || !qrModal.classList.contains('hidden'))) {
+      closeQrModal();
+    }
   });
 
   // Host: Avvio del Gioco (Avvia direttamente con la durata selezionata)
