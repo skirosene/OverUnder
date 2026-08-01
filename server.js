@@ -63,11 +63,10 @@ async function sendOtpEmail(toEmail, otp) {
   const smtpPort = Number(process.env.SMTP_PORT) || 587;
 
   // Determina l'indirizzo mittente
-  const fromCandidates = [];
+  const fromCandidates = ['onboarding@resend.dev', 'OverUnder <onboarding@resend.dev>'];
   if (configuredFrom && configuredFrom.includes('@') && !configuredFrom.includes('@gmail.') && !configuredFrom.includes('@yahoo.')) {
-    fromCandidates.push(configuredFrom);
+    fromCandidates.unshift(configuredFrom);
   }
-  fromCandidates.push('OverUnder <onboarding@resend.dev>');
 
   const htmlContent = `
     <div style="font-family: sans-serif; background-color: #000; color: #fff; padding: 24px; border-radius: 12px; max-width: 500px; margin: 0 auto; text-align: center;">
@@ -84,6 +83,7 @@ async function sendOtpEmail(toEmail, otp) {
 
   // 1. TENTATIVO VIA RESEND REST API (https://api.resend.com/emails - Porta 443 HTTPS)
   if (apiKey && apiKey.length > 5) {
+    console.log(`[EMAIL OTP] Trovata API Key (${apiKey.substring(0, 5)}... lunghezza: ${apiKey.length})`);
     for (const fromAddr of fromCandidates) {
       try {
         console.log(`[EMAIL OTP] Tentativo Resend HTTP API per ${toEmail} (From: ${fromAddr})...`);
