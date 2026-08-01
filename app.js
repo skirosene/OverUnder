@@ -2900,7 +2900,7 @@ function renderLobbyPlayers() {
 
     const hostBadge = player.isHost ? `<span class="lobby-player-host-badge" style="position: absolute; top: -6px; left: -6px; font-size: 0.7rem;">👑</span>` : '';
 
-    const canKick = state.isHost && !player.isHost && player.id !== socket.id;
+    const canKick = state.isHost && !player.isHost && player.id !== socket.id && !state.gameplayStarted;
     const kickBtnHtml = canKick
       ? `<button class="btn-kick-player-subtle" title="Espelli ${player.name}"><span>✕ Espelli</span></button>`
       : '';
@@ -4827,11 +4827,6 @@ function renderPlayerListModalContent() {
       roleBadge = `<span class="modal-player-role">TE</span>`;
     }
 
-    const canKick = state.isHost && !player.isHost && !isMe;
-    const kickBtnHtml = canKick
-      ? `<button class="btn-kick-player-subtle" title="Espelli ${player.name}"><span>✕ Espelli</span></button>`
-      : '';
-
     row.innerHTML = `
       <div class="modal-player-left" style="display: flex; align-items: center; gap: 12px; flex: 1;">
         ${avatarHtml}
@@ -4839,7 +4834,6 @@ function renderPlayerListModalContent() {
       </div>
       <div style="display: flex; align-items: center; gap: 8px;">
         ${roleBadge}
-        ${kickBtnHtml}
       </div>
     `;
 
@@ -4851,20 +4845,12 @@ function renderPlayerListModalContent() {
       });
     }
 
-    const kickBtn = row.querySelector('.btn-kick-player-subtle');
-    if (kickBtn) {
-      kickBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        kickPlayerConfirm(player);
-      });
-    }
-
     el.playerListModalContent.appendChild(row);
   });
 }
 
 function kickPlayerConfirm(player) {
-  if (!player || !state.isHost) return;
+  if (!player || !state.isHost || state.gameplayStarted) return;
   socket.emit('kick_player', {
     playerId: player.id,
     sessionId: player.sessionId,

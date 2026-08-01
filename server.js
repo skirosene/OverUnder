@@ -715,11 +715,6 @@ app.post('/api/auth/guest', (req, res) => {
     return res.status(404).json({ error: 'Codice stanza non esistente o terminata!' });
   }
 
-  // Controlla blacklist
-  if (room.blacklist && room.blacklist.includes(sessionId)) {
-    return res.status(403).json({ error: 'Sei stato espulso da questa stanza.' });
-  }
-
   const cleanName = playerName.trim();
   // Riconnessione valida solo se il sessionId o il nome corrisponde alla sessione dello stesso utente
   const existingPlayer = room.players.find(p => p.name.toLowerCase() === cleanName.toLowerCase());
@@ -1208,12 +1203,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // A. Controlla Blacklist
-    if (room.blacklist && room.blacklist.includes(sessionId)) {
-      socket.emit('room_error', "Sei stato espulso da questa stanza.");
-      return;
-    }
-
     // B. Controlla se è una riconnessione per lo stesso nome utente o playerId
     let player = room.players.find(p => !p.isBot && ((p.playerId && p.playerId === (reqPlayerId || sessionId)) || p.name.toLowerCase() === playerName.toLowerCase().trim()));
     if (player) {
@@ -1695,12 +1684,6 @@ io.on('connection', (socket) => {
       socket.emit('reconnect_failed', { message: "Stanza non trovata." });
       return;
     }
-    
-    // Controlla Blacklist
-    if (room.blacklist && room.blacklist.includes(sessionId)) {
-      socket.emit('kicked_from_room');
-      return;
-    }
 
     socket.emit('auth_completed');
     
@@ -1772,10 +1755,10 @@ io.on('connection', (socket) => {
     console.log(`Lucchetto stanza ${room.roomCode} impostato a: ${room.isLocked}`);
   });
 
-  // Evento 8c: Kick manuale partecipante (Solo Host, in Lobby o Gameplay)
+  // Evento 8c: Kick manuale partecipante (Solo Host, Solo in Lobby PRIMA di avviare la partita)
   socket.on('kick_player', ({ playerId, sessionId, name }) => {
     const room = rooms[currentRoomCode];
-    if (!room || room.hostId !== socket.id) return;
+    if (!room || room.hostId !== socket.id || room.state !== 'lobby') return;
 
     const playerIndex = room.players.findIndex(p => p.id === playerId || (p.sessionId && p.sessionId === sessionId) || p.name === name);
     if (playerIndex === -1) return;
@@ -1783,13 +1766,7 @@ io.on('connection', (socket) => {
     const player = room.players[playerIndex];
 
     if (!player.isBot) {
-      if (!room.blacklist) {
-        room.blacklist = [];
-      }
-      if (player.sessionId && !room.blacklist.includes(player.sessionId)) {
-        room.blacklist.push(player.sessionId);
-      }
-
+      // NON usiamo blacklist permanente: il partecipante rimosso può rientrare dalla lobby con il link
       const kickData = { message: 'Non fai più parte della sessione' };
 
       // Chiudi il socket ed emetti evento di kick
