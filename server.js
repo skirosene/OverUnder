@@ -43,6 +43,100 @@ const transporter = nodemailer.createTransport(transporterOptions);
 // Memoria temporanea per le sessioni OTP di trasferimento licenza (email -> { otp, expiresAt })
 const otpSessions = new Map();
 
+// Helper resiliente per l'invio dell'email OTP (Resend REST API porta 443 + Nodemailer SMTP + Fallback From)
+async function sendOtpEmail(toEmail, otp) {
+  const apiKey = process.env.RESEND_API_KEY || process.env.SMTP_PASS || '';
+  const configuredFrom = process.env.EMAIL_FROM || '';
+
+  // Determina l'indirizzo mittente. Se l'utente ha configurato un dominio pubblico non verificato (es. @gmail.com),
+  // Resend la rifiuta. Usiamo 'OverUnder <onboarding@resend.dev>' se non è un dominio aziendale/verificato.
+  let primaryFrom = 'OverUnder <onboarding@resend.dev>';
+  if (configuredFrom && configuredFrom.trim()) {
+    const cleanFrom = configuredFrom.trim();
+    if (!cleanFrom.includes('@gmail.') && !cleanFrom.includes('@yahoo.') && !cleanFrom.includes('@hotmail.') && !cleanFrom.includes('@outlook.')) {
+      primaryFrom = cleanFrom;
+    }
+  }
+
+  const htmlContent = `
+    <div style="font-family: sans-serif; background-color: #000; color: #fff; padding: 20px; border-radius: 10px;">
+      <h2 style="color: #fff;">Il tuo codice per OverUnder</h2>
+      <p>Inserisci questo codice nell'app per completare il trasferimento della modalità Premium per "Judgement Day":</p>
+      <h1 style="letter-spacing: 5px; color: #ff007f; font-size: 36px;">${otp}</h1>
+      <p style="font-size: 12px; color: #888;">Questo codice è valido per 1 minuto. Se non hai richiesto tu questo trasferimento, ignora questa email.</p>
+    </div>
+  `;
+
+  let lastError = null;
+
+  // 1. TENTATIVO VIA RESEND REST API (Porta 443 - Impossibile da bloccare da firewall/SMTP)
+  if (apiKey && apiKey.trim().length > 5) {
+    const cleanKey = apiKey.trim();
+    const fromList = [primaryFrom];
+    if (primaryFrom !== 'OverUnder <onboarding@resend.dev>') {
+      fromList.push('OverUnder <onboarding@resend.dev>');
+    }
+
+    for (const fromAddr of fromList) {
+      try {
+        console.log(`[EMAIL OTP] Tentativo Resend HTTP API per ${toEmail} (From: ${fromAddr})...`);
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${cleanKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: fromAddr,
+            to: [toEmail],
+            subject: 'Codice di verifica OverUnder 👑',
+            html: htmlContent
+          })
+        });
+
+        const resData = await res.json().catch(() => ({}));
+        if (res.ok && resData.id) {
+          console.log(`[EMAIL OTP] ✅ Inviata via Resend REST API! ID: ${resData.id} (From: ${fromAddr})`);
+          return { success: true, provider: 'resend-api', id: resData.id };
+        } else {
+          console.warn(`[EMAIL OTP] Resend API risposto con errore (From: ${fromAddr}):`, resData);
+          lastError = new Error(resData.message || resData.error || (typeof resData === 'string' ? resData : 'Errore Resend API'));
+        }
+      } catch (errApi) {
+        console.error(`[EMAIL OTP] Eccezione Resend REST API:`, errApi.message || errApi);
+        lastError = errApi;
+      }
+    }
+  }
+
+  // 2. TENTATIVO VIA NODEMAILER SMTP (Porta 587 / 465)
+  if (transporter) {
+    const fromListSmtp = [primaryFrom];
+    if (primaryFrom !== 'OverUnder <onboarding@resend.dev>') {
+      fromListSmtp.push('OverUnder <onboarding@resend.dev>');
+    }
+
+    for (const fromAddr of fromListSmtp) {
+      try {
+        console.log(`[EMAIL OTP] Tentativo Nodemailer SMTP per ${toEmail} (From: ${fromAddr})...`);
+        const info = await transporter.sendMail({
+          from: fromAddr,
+          to: toEmail,
+          subject: 'Codice di verifica OverUnder 👑',
+          html: htmlContent
+        });
+        console.log(`[EMAIL OTP] ✅ Inviata via Nodemailer SMTP! MessageId: ${info.messageId}`);
+        return { success: true, provider: 'nodemailer-smtp', messageId: info.messageId };
+      } catch (errSmtp) {
+        console.error(`[EMAIL OTP] Eccezione Nodemailer SMTP (From: ${fromAddr}):`, errSmtp.message || errSmtp);
+        lastError = errSmtp;
+      }
+    }
+  }
+
+  throw lastError || new Error("Impossibile inviare l'email con i provider disponibili.");
+}
+
 // ==========================================================================
 // PERSISTENT DATA DIRECTORY (Render disk mount or local fallback)
 // ==========================================================================
@@ -402,26 +496,9 @@ app.post('/api/premium/request-transfer', async (req, res) => {
     expiresAt: Date.now() + 60000
   });
 
-  const fromEmail = process.env.EMAIL_FROM || 'OverUnder <onboarding@resend.dev>';
-
-  const mailOptions = {
-    from: fromEmail,
-    to: normalizedEmail,
-    subject: 'Codice di verifica OverUnder 👑',
-    html: `
-      <div style="font-family: sans-serif; background-color: #000; color: #fff; padding: 20px; border-radius: 10px;">
-        <h2 style="color: #fff;">Il tuo codice per OverUnder</h2>
-        <p>Inserisci questo codice nell'app per completare il trasferimento della modalità Premium per "Judgement Day":</p>
-        <h1 style="letter-spacing: 5px; color: #ff007f; font-size: 36px;">${otp}</h1>
-        <p style="font-size: 12px; color: #888;">Questo codice è valido per 1 minuto. Se non hai richiesto tu questo trasferimento, ignora questa email.</p>
-      </div>
-    `
-  };
-
   try {
-    console.log(`[OTP PREMIUM] Tentativo invio mail a ${normalizedEmail} tramite ${transporterOptions.host}:${transporterOptions.port} (secure: ${smtpSecure})...`);
-    await transporter.sendMail(mailOptions);
-    console.log(`[OTP PREMIUM] Email con OTP inviata a: ${normalizedEmail}`);
+    const sendResult = await sendOtpEmail(normalizedEmail, otp);
+    console.log(`[OTP PREMIUM] Invio completato a ${normalizedEmail} tramite ${sendResult.provider}`);
     return res.status(200).json({ success: true, message: 'Codice OTP inviato con successo.' });
   } catch (err) {
     console.error('[OTP PREMIUM] Errore durante l\'invio dell\'email:', err.message || err);
