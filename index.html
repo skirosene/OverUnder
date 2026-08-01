@@ -171,6 +171,19 @@
                 <label for="solo-name-input" class="input-label">Il tuo Nome</label>
                 <input type="text" id="solo-name-input" class="text-input" placeholder="Es. Matteo" autocomplete="off" maxlength="15">
               </div>
+
+              <div class="input-group" style="margin-top: 10px;">
+                <label class="input-label" style="text-align: center; display: block; width: 100%; font-size: 0.72rem; font-weight: 700; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">NUMERO DI CARTE</label>
+                <div id="solo-rounds-grid" class="rounds-selector-grid" style="grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; margin-bottom: 4px;">
+                  <button type="button" class="btn-round-select btn-solo-round-select active" data-length="30">30 Carte</button>
+                  <button type="button" class="btn-round-select btn-solo-round-select" data-length="50">50 Carte</button>
+                  <button type="button" class="btn-round-select btn-solo-round-select" data-length="100">100 Carte</button>
+                  <button type="button" class="btn-round-select btn-solo-round-select" data-length="300">300 Carte</button>
+                  <button type="button" class="btn-round-select btn-solo-round-select" data-length="500">500 Carte</button>
+                  <button type="button" class="btn-round-select btn-solo-round-select btn-round-infinity" data-length="9999">∞</button>
+                </div>
+              </div>
+
               <button id="btn-solo-play" class="btn btn-primary btn-glow-solo" style="margin-top: 15px;">
                 <span>INIZIA PARTITA</span>
                 <svg class="btn-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" fill="currentColor"/></svg>
@@ -1039,6 +1052,6 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=140"></script>
+  <script src="app.js?v=150"></script>
 </body>
 </html>

@@ -1633,6 +1633,16 @@ function setupEventListeners() {
     startSoloMode(name);
   };
 
+  // Selettore della durata per la modalità Solo
+  document.querySelectorAll('.btn-solo-round-select').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.btn-solo-round-select').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.soloGameLength = parseInt(btn.dataset.length) || 30;
+      try { AudioSynth.playConfirm(true); } catch (e) {}
+    });
+  });
+
   if (el.btnSoloPlay) {
     el.btnSoloPlay.addEventListener('click', handleSoloPlaySubmit);
   }
@@ -3375,8 +3385,9 @@ async function startSoloMode(playerName) {
     }];
   }
 
-  // Avvia immediatamente la partita in singolo (30 carte)
-  startSoloGame(30);
+  // Avvia immediatamente la partita in singolo con il numero di carte selezionato dall'utente
+  const length = state.soloGameLength || 30;
+  startSoloGame(length);
 }
 
 function setupSoloLobbyUI() {
