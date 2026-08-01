@@ -2795,13 +2795,21 @@ function setupSocketListeners() {
     }
   });
 
-  socket.on('kicked_from_room', () => {
+  socket.on('kicked_from_room', (data) => {
     if (state.connectionTimeout) {
       clearTimeout(state.connectionTimeout);
       state.connectionTimeout = null;
     }
     state.connectionLoadingActive = false;
     clearSession();
+
+    const kickMsg = (data && data.message) || "Non fai più parte della sessione";
+    const kickedTitleEl = document.getElementById('kicked-title-text');
+    const kickedDescEl = document.getElementById('kicked-reason-text');
+    if (kickedTitleEl) kickedTitleEl.textContent = "Non fai più parte della sessione";
+    if (kickedDescEl) kickedDescEl.textContent = kickMsg;
+
+    showToast(kickMsg, 5000);
     showScreen(el.screenKicked);
   });
 
@@ -2892,6 +2900,11 @@ function renderLobbyPlayers() {
 
     const hostBadge = player.isHost ? `<span class="lobby-player-host-badge" style="position: absolute; top: -6px; left: -6px; font-size: 0.7rem;">👑</span>` : '';
 
+    const canKick = state.isHost && !player.isHost && player.id !== socket.id;
+    const kickBtnHtml = canKick
+      ? `<button class="btn-kick-player-subtle" title="Espelli ${player.name}"><span>✕ Espelli</span></button>`
+      : '';
+
     card.innerHTML = `
       <div style="position: relative; display: flex; align-items: center; flex-shrink: 0; margin-right: 8px;">
         ${avatarHtml}
@@ -2899,79 +2912,25 @@ function renderLobbyPlayers() {
       </div>
       <span class="lobby-player-name" style="margin-left: 0;">${player.name} ${player.id === socket.id ? '(Tu)' : ''} ${isOffline ? '(Offline)' : ''}</span>
       ${statusDotHtml}
+      ${kickBtnHtml}
     `;
 
-    // Aggiungiamo i listener per interazione intenzionale (Kick o Zoom)
-    if (!state.isHost || player.name === state.playerName || state.gameplayStarted) {
-      // Normale comportamento click per non-host, se stessi o in gioco
-      card.addEventListener('click', () => {
-        openAvatarZoom(player);
+    card.addEventListener('click', () => {
+      openAvatarZoom(player);
+    });
+    card.style.cursor = 'pointer';
+
+    const kickBtn = card.querySelector('.btn-kick-player-subtle');
+    if (kickBtn) {
+      kickBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        kickPlayerConfirm(player);
       });
-      card.style.cursor = 'pointer';
-    } else {
-      // Comportamento Host: distingue click sinistro corto (zoom) da long press / click destro (kick)
-      let pressTimer = null;
-      let isLongPress = false;
-
-      const startPress = (e) => {
-        isLongPress = false;
-        pressTimer = setTimeout(() => {
-          isLongPress = true;
-          openKickContextMenu(e, player);
-        }, 1000);
-      };
-
-      const cancelPress = () => {
-        if (pressTimer) {
-          clearTimeout(pressTimer);
-          pressTimer = null;
-        }
-      };
-
-      // Eventi Touch
-      card.addEventListener('touchstart', (e) => {
-        startPress(e);
-      }, { passive: true });
-
-      card.addEventListener('touchend', (e) => {
-        cancelPress();
-        if (isLongPress) {
-          isLongPress = false;
-        } else {
-          openAvatarZoom(player);
-        }
-      });
-
-      card.addEventListener('touchmove', cancelPress, { passive: true });
-      card.addEventListener('touchcancel', cancelPress, { passive: true });
-
-      // Eventi Mouse
-      card.addEventListener('mousedown', (e) => {
-        if (e.button === 0) startPress(e);
-      });
-
-      card.addEventListener('mouseup', (e) => {
-        cancelPress();
-        if (e.button === 0) {
-          if (isLongPress) {
-            isLongPress = false;
-          } else {
-            openAvatarZoom(player);
-          }
-        }
-      });
-
-      card.addEventListener('mouseleave', cancelPress);
-
-      // Click Destro (onContextMenu)
-      card.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        cancelPress();
-        openKickContextMenu(e, player);
-      });
-      
-      card.style.cursor = 'pointer';
     }
+
+    el.lobbyPlayersList.appendChild(card);
+  });
+}
 
     el.lobbyPlayersList.appendChild(card);
   });
@@ -4868,12 +4827,20 @@ function renderPlayerListModalContent() {
       roleBadge = `<span class="modal-player-role">TE</span>`;
     }
 
+    const canKick = state.isHost && !player.isHost && !isMe;
+    const kickBtnHtml = canKick
+      ? `<button class="btn-kick-player-subtle" title="Espelli ${player.name}"><span>✕ Espelli</span></button>`
+      : '';
+
     row.innerHTML = `
-      <div class="modal-player-left">
+      <div class="modal-player-left" style="display: flex; align-items: center; gap: 12px; flex: 1;">
         ${avatarHtml}
         <span class="modal-player-name">${player.name} ${isMe ? '(Tu)' : ''}</span>
       </div>
-      ${roleBadge}
+      <div style="display: flex; align-items: center; gap: 8px;">
+        ${roleBadge}
+        ${kickBtnHtml}
+      </div>
     `;
 
     const avatarEl = row.querySelector('.modal-player-avatar, .modal-player-avatar-fallback');
@@ -4884,8 +4851,26 @@ function renderPlayerListModalContent() {
       });
     }
 
+    const kickBtn = row.querySelector('.btn-kick-player-subtle');
+    if (kickBtn) {
+      kickBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        kickPlayerConfirm(player);
+      });
+    }
+
     el.playerListModalContent.appendChild(row);
   });
+}
+
+function kickPlayerConfirm(player) {
+  if (!player || !state.isHost) return;
+  socket.emit('kick_player', {
+    playerId: player.id,
+    sessionId: player.sessionId,
+    name: player.name
+  });
+  showToast(`Giocatore ${player.name} espulso`, 3000);
 }
 
 function openAvatarZoom(player) {

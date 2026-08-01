@@ -1772,10 +1772,10 @@ io.on('connection', (socket) => {
     console.log(`Lucchetto stanza ${room.roomCode} impostato a: ${room.isLocked}`);
   });
 
-  // Evento 8c: Stealth Kick manuale (Solo Host, Solo in Lobby)
+  // Evento 8c: Kick manuale partecipante (Solo Host, in Lobby o Gameplay)
   socket.on('kick_player', ({ playerId, sessionId, name }) => {
     const room = rooms[currentRoomCode];
-    if (!room || room.hostId !== socket.id || room.state !== 'lobby') return;
+    if (!room || room.hostId !== socket.id) return;
 
     const playerIndex = room.players.findIndex(p => p.id === playerId || (p.sessionId && p.sessionId === sessionId) || p.name === name);
     if (playerIndex === -1) return;
@@ -1790,15 +1790,17 @@ io.on('connection', (socket) => {
         room.blacklist.push(player.sessionId);
       }
 
+      const kickData = { message: 'Non fai più parte della sessione' };
+
       // Chiudi il socket ed emetti evento di kick
       const targetSocket = io.sockets.sockets.get(player.id);
       if (targetSocket) {
-        targetSocket.emit('kicked_from_room');
+        targetSocket.emit('kicked_from_room', kickData);
         setTimeout(() => {
           targetSocket.disconnect(true);
         }, 100);
       } else {
-        io.to(player.id).emit('kicked_from_room');
+        io.to(player.id).emit('kicked_from_room', kickData);
       }
     }
 
