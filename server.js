@@ -56,7 +56,7 @@ const otpSessions = new Map();
 
 // Helper resiliente per l'invio dell'email OTP (Resend REST API porta 443 + Nodemailer SMTP)
 async function sendOtpEmail(toEmail, otp) {
-  const apiKey = getCleanEnvVar('RESEND_API_KEY', 'RESEND_KEY', 'RESEND_APIKEY', 'SMTP_PASS', 'SMTP_PASSWORD');
+  const apiKey = getCleanEnvVar('RESEND_API_KEY', 'RESEND_KEY', 'RESEND_APIKEY', 'RESEND_TOKEN', 'RESEND_SECRET', 'RESEND', 'SMTP_PASS', 'SMTP_PASSWORD', 'API_KEY');
   const configuredFrom = getCleanEnvVar('EMAIL_FROM', 'SMTP_FROM', 'MAIL_FROM');
   const smtpHost = getCleanEnvVar('SMTP_HOST', 'MAIL_HOST') || 'smtp.resend.com';
   const smtpUser = getCleanEnvVar('SMTP_USER', 'MAIL_USER') || 'resend';
