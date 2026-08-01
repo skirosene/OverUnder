@@ -2954,10 +2954,6 @@ function renderLobbyPlayers() {
 
     el.lobbyPlayersList.appendChild(card);
   });
-}
-
-    el.lobbyPlayersList.appendChild(card);
-  });
 
   // Gestione pulsante di avvio per l'Host
   if (state.isHost && el.btnHostStartGame) {
