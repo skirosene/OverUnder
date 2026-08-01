@@ -12,8 +12,23 @@ const multer = require('multer');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const nodemailer = require('nodemailer');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overunder_super_secret_key_12345_mvp';
+
+// Setup Nodemailer Transporter (Resend / SMTP)
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT) || 465,
+  secure: true,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
+});
+
+// Memoria temporanea per le sessioni OTP di trasferimento licenza (email -> { otp, expiresAt })
+const otpSessions = new Map();
 
 // ==========================================================================
 // PERSISTENT DATA DIRECTORY (Render disk mount or local fallback)
@@ -352,6 +367,139 @@ app.post('/api/trial/activate', (req, res) => {
   }
 
   res.json({ success: true });
+});
+
+// ==========================================================================
+// ROTTE TRASFERIMENTO LICENZA PREMIUM (EMAIL & OTP)
+// ==========================================================================
+
+// 1. Richiesta invio OTP via Email
+app.post('/api/premium/request-transfer', async (req, res) => {
+  const { email } = req.body;
+  if (!email || typeof email !== 'string' || !email.trim()) {
+    return res.status(400).json({ error: 'Email obbligatoria' });
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Salva in memoria per 1 minuto (60000 ms)
+  otpSessions.set(normalizedEmail, {
+    otp,
+    expiresAt: Date.now() + 60000
+  });
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: normalizedEmail,
+    subject: 'Codice di verifica OverUnder 👑',
+    html: `
+      <div style="font-family: sans-serif; background-color: #000; color: #fff; padding: 20px; border-radius: 10px;">
+        <h2 style="color: #fff;">Il tuo codice per OverUnder</h2>
+        <p>Inserisci questo codice nell'app per completare il trasferimento della modalità Premium per "Judgement Day":</p>
+        <h1 style="letter-spacing: 5px; color: #ff007f; font-size: 36px;">${otp}</h1>
+        <p style="font-size: 12px; color: #888;">Questo codice è valido per 1 minuto. Se non hai richiesto tu questo trasferimento, ignora questa email.</p>
+      </div>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`[OTP PREMIUM] Email con OTP inviata a: ${normalizedEmail}`);
+    return res.status(200).json({ success: true, message: 'Codice OTP inviato con successo.' });
+  } catch (err) {
+    console.error('[OTP PREMIUM] Errore durante l\'invio dell\'email:', err);
+    return res.status(500).json({ error: "Impossibile inviare l'email. Riprova più tardi." });
+  }
+});
+
+// 2. Verifica OTP e Promozione a Premium
+app.post('/api/premium/verify-transfer', (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) {
+    return res.status(400).json({ error: 'Email e OTP obbligatori' });
+  }
+
+  const normalizedEmail = String(email).toLowerCase().trim();
+  const session = otpSessions.get(normalizedEmail);
+
+  if (!session || Date.now() > session.expiresAt) {
+    if (session) otpSessions.delete(normalizedEmail);
+    return res.status(400).json({ error: "Codice OTP scaduto. Richiedine uno nuovo." });
+  }
+
+  if (session.otp !== String(otp).trim()) {
+    return res.status(400).json({ error: "Codice OTP errato." });
+  }
+
+  // OTP corretto: cancella l'OTP utilizzato dalla memoria
+  otpSessions.delete(normalizedEmail);
+
+  // Promuovi il client a PREMIUM e imposta isPremium = true
+  let userId = null;
+  let username = 'Host';
+  let deviceUuid = null;
+
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+      userId = decoded.userId;
+      username = decoded.username || username;
+      deviceUuid = decoded.deviceUuid;
+    } catch (e) {}
+  }
+
+  if (!userId && req.body.userId) {
+    userId = req.body.userId;
+  }
+  if (!userId && req.body.deviceUuid) {
+    userId = req.body.deviceUuid;
+  }
+
+  if (userId && users[userId]) {
+    users[userId].isPremium = true;
+    users[userId].premiumStatus = 'PREMIUM_A_VITA';
+    users[userId].email = normalizedEmail;
+    writeUsersDb(users);
+  } else {
+    let userByEmail = Object.values(users).find(u => u.email && u.email.toLowerCase() === normalizedEmail);
+    if (!userByEmail) {
+      const idKey = userId || 'host_' + Date.now();
+      userByEmail = {
+        id: idKey,
+        deviceUuid: deviceUuid || idKey,
+        username: username.toLowerCase(),
+        displayName: username,
+        email: normalizedEmail,
+        isPremium: true,
+        premiumStatus: 'PREMIUM_A_VITA'
+      };
+      users[idKey] = userByEmail;
+    } else {
+      userByEmail.isPremium = true;
+      userByEmail.premiumStatus = 'PREMIUM_A_VITA';
+    }
+    userId = userByEmail.id;
+    username = userByEmail.displayName || username;
+    writeUsersDb(users);
+  }
+
+  const token = jwt.sign({
+    userId: userId,
+    deviceUuid: deviceUuid || userId,
+    username: username,
+    role: 'host',
+    isPremium: true,
+    premiumStatus: 'PREMIUM_A_VITA'
+  }, JWT_SECRET, { expiresIn: '365d' });
+
+  console.log(`[OTP PREMIUM] Utente ${normalizedEmail} (ID: ${userId}) promosso a PREMIUM con successo.`);
+
+  return res.status(200).json({
+    success: true,
+    token: token
+  });
 });
 
 // Helper hashing password
