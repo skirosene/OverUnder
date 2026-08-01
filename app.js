@@ -2933,7 +2933,7 @@ function renderLobbyPlayers() {
 
     const canKick = state.isHost && !player.isHost && player.id !== socket.id && !state.gameplayStarted;
     const kickBtnHtml = canKick
-      ? `<button class="btn-kick-player-subtle" title="Espelli ${player.name}"><span>✕ Espelli</span></button>`
+      ? `<button class="btn-kick-player-subtle" title="Espelli ${player.name}">✕</button>`
       : '';
 
     card.innerHTML = `
