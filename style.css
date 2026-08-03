@@ -4405,71 +4405,87 @@ input[type="submit"] {
   justify-content: center;
   text-align: center;
   width: 100%;
-  padding: 16px 14px;
-  background: linear-gradient(135deg, rgba(52, 152, 219, 0.15), rgba(155, 89, 182, 0.15));
+  padding: 14px 12px;
+  background: linear-gradient(135deg, rgba(52, 152, 219, 0.12), rgba(155, 89, 182, 0.12));
   border-radius: 16px;
-  border: 1px solid rgba(52, 152, 219, 0.35);
-  box-shadow: 0 0 20px rgba(52, 152, 219, 0.15);
-  margin-bottom: 12px;
+  border: 1px solid rgba(52, 152, 219, 0.25);
+  box-shadow: 0 0 18px rgba(52, 152, 219, 0.12);
+  margin-bottom: 10px;
   box-sizing: border-box;
   transition: all 0.3s ease;
 }
 
 .join-banner-header-text {
-  font-family: var(--font-title);
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  opacity: 0.8;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 1.2px;
   text-transform: uppercase;
-  color: #ffffff;
   text-align: center;
+  margin-bottom: 2px;
 }
 
 .join-room-code-giant {
   font-family: var(--font-title);
-  font-size: 2.2rem;
-  font-weight: bold;
-  margin: 8px 0 16px 0;
-  color: #00f2ff;
-  letter-spacing: 3px;
-  text-shadow: 0 0 16px rgba(0, 242, 255, 0.6);
+  font-size: 2rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 2px;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
   text-align: center;
   line-height: 1;
+  margin: 6px 0 10px 0;
 }
 
-.glow-trigger {
-  font-family: var(--font-title);
-  font-size: 0.95rem;
-  color: #ffffff;
-  cursor: pointer;
-  display: inline-block;
-  margin: 16px 0;
-  font-weight: 700;
-  letter-spacing: 1px;
+/* ==========================================================================
+   TRIGGER TESTUALE "COME SI GIOCA? 📋" (GLOW GRADIENT PULSE MARCATO)
+   ========================================================================== */
+.join-rules-text-trigger {
   background: transparent;
   border: none;
-  outline: none;
   padding: 6px 14px;
+  cursor: pointer;
+  outline: none;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  animation: neonPulse 1.8s infinite alternate ease-in-out;
+  transition: transform 0.2s ease;
 }
 
-.glow-trigger:active {
+.join-rules-text-trigger:active {
   transform: scale(0.95);
 }
 
-@keyframes neonPulse {
+.glow-text-content {
+  font-family: var(--font-title);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, #a855f7, #df33ff, #00f2fe, #ff007f, #a855f7);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientShiftText 3.5s infinite linear, pulseGlowStrong 1.5s infinite alternate ease-in-out;
+  display: inline-block;
+}
+
+@keyframes gradientShiftText {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes pulseGlowStrong {
   0% {
-    text-shadow: 0 0 4px #ff007f, 0 0 8px #ff007f, 0 0 12px #ff007f;
+    filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.6)) drop-shadow(0 0 10px rgba(223, 51, 255, 0.5));
     transform: scale(1);
   }
   100% {
-    text-shadow: 0 0 8px #ff007f, 0 0 18px #ff007f, 0 0 30px #ff007f, 0 0 40px #ff007f;
-    transform: scale(1.04);
+    filter: drop-shadow(0 0 16px rgba(168, 85, 247, 1)) drop-shadow(0 0 28px rgba(223, 51, 255, 0.9)) drop-shadow(0 0 40px rgba(0, 242, 254, 0.8));
+    transform: scale(1.08);
   }
 }
 
