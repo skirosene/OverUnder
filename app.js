@@ -4066,12 +4066,21 @@ async function checkUrlParams() {
     }
   }
 
-  const room = params.get('room');
+  let room = params.get('room');
+  
+  if (!room) {
+    // Controllo se il codice stanza è passato nel path (es. /join/ABCD o /join/abcd)
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    if (pathParts.length >= 2 && pathParts[0].toLowerCase() === 'join') {
+      room = pathParts[1];
+    }
+  }
+
   if (room) {
-    console.log('[INVITE] Rilevato parametro ?room=' + room);
+    console.log('[INVITE] Rilevato codice stanza da URL:', room);
     // Pulisci le sessioni residue di vecchie stanze per evitare che restore_session le sovrascriva
     clearSession();
-    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+    const cleanUrl = window.location.protocol + "//" + window.location.host + "/";
     window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
     const decodedRoom = decodeURIComponent(room.replace(/\+/g, ' ')).trim().toUpperCase();
     console.log('[INVITE] Room decodificata:', decodedRoom);
