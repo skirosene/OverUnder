@@ -421,6 +421,7 @@ const state = {
   roomIsPremium: false,
   hasSubmittedPremiumCards: false,
   localPremiumCards: [],
+  selectedCardIndex: null,
   currentCroppedImage: null, // Base64 image
   isInfoOpen: false,
   trialActivated: false,
@@ -602,6 +603,13 @@ const el = {
   btnCropperConfirm: document.getElementById('btn-cropper-confirm'),
   infoGognaModal: document.getElementById('info-gogna-modal'),
   inputHelpModal: document.getElementById('input-help-modal'),
+  
+  // Card Actions Drawer Modal
+  cardActionsDrawer: document.getElementById('card-actions-drawer'),
+  btnEditCard: document.getElementById('btn-edit-card'),
+  btnDeleteCard: document.getElementById('btn-delete-card'),
+  drawerCloseBtn: document.querySelector('.drawer-close-btn'),
+  drawerCardTitle: document.getElementById('drawer-card-title'),
   
   // Gameplay Prompt Image elements
   gameplayPromptImageContainer: document.getElementById('gameplay-prompt-image-container'),
@@ -4220,6 +4228,35 @@ function getDeckMeta(deckId) {
   return meta[deckId] || { emoji: '🎮', desc: "Nuovo mazzo speciale! Mettiti alla prova con questa divertente categoria." };
 }
 
+// Funzioni helper per la gestione del Drawer laterale delle opzioni carta (#card-actions-drawer)
+function openCardDrawer(cardIndex) {
+  const cardObj = state.localPremiumCards[cardIndex];
+  if (!cardObj) return;
+
+  state.selectedCardIndex = cardIndex;
+
+  const drawerTitle = el.drawerCardTitle || document.getElementById('drawer-card-title');
+  if (drawerTitle) {
+    const textSnippet = cardObj.text ? (cardObj.text.length > 18 ? cardObj.text.substring(0, 18) + '...' : cardObj.text) : 'Opzioni Carta';
+    drawerTitle.textContent = cardObj.image ? '🖼️ Immagine' : `✏️ ${textSnippet}`;
+  }
+
+  const drawer = el.cardActionsDrawer || document.getElementById('card-actions-drawer');
+  if (drawer) {
+    drawer.classList.remove('hidden');
+  }
+  try { AudioSynth.playConfirm(true); } catch (e) {}
+}
+
+function closeCardDrawer() {
+  const drawer = el.cardActionsDrawer || document.getElementById('card-actions-drawer');
+  if (drawer) {
+    drawer.classList.add('hidden');
+  }
+  state.selectedCardIndex = null;
+  try { AudioSynth.playConfirm(false); } catch (e) {}
+}
+
 // Eventi e logica per l'editor delle carte Premium personalizzate
 function renderCapsules() {
   el.premiumCardsList.innerHTML = '';
@@ -4237,27 +4274,62 @@ function renderCapsules() {
         ${imgHtml}
         <span class="capsule-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${textToDisplay}</span>
       </div>
-      <div class="capsule-menu-container">
-        <button class="capsule-menu-trigger">...</button>
-        <div class="capsule-menu-dropdown">
-          <button class="capsule-menu-item edit">Modifica</button>
-          <button class="capsule-menu-item delete">Elimina</button>
-        </div>
-      </div>
+      <button class="capsule-menu-trigger" title="Opzioni carta">...</button>
     `;
 
     const trigger = capsule.querySelector('.capsule-menu-trigger');
-    const dropdown = capsule.querySelector('.capsule-menu-dropdown');
-    
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
-      document.querySelectorAll('.capsule-menu-dropdown').forEach(d => {
-        if (d !== dropdown) d.classList.remove('active');
-      });
-      dropdown.classList.toggle('active');
+      openCardDrawer(index);
     });
 
-    capsule.querySelector('.capsule-menu-item.edit').addEventListener('click', () => {
+    el.premiumCardsList.appendChild(capsule);
+  });
+
+  if (el.btnPremiumCardsSubmit) {
+    el.btnPremiumCardsSubmit.disabled = state.localPremiumCards.length === 0;
+  }
+}
+
+function setupPremiumCreatorEvents() {
+  state.localPremiumCards = [];
+  state.currentCroppedImage = null;
+  state.editingPremiumCardIndex = null;
+  state.currentUploadedFilename = '';
+
+  // Gestione interazione ed eventi per il Drawer laterale delle opzioni carta
+  const drawer = el.cardActionsDrawer || document.getElementById('card-actions-drawer');
+  const closeBtn = el.drawerCloseBtn || document.querySelector('.drawer-close-btn');
+  const editBtn = el.btnEditCard || document.getElementById('btn-edit-card');
+  const deleteBtn = el.btnDeleteCard || document.getElementById('btn-delete-card');
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeCardDrawer);
+  }
+
+  if (drawer) {
+    drawer.addEventListener('click', (e) => {
+      if (e.target === drawer) {
+        closeCardDrawer();
+      }
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && drawer && !drawer.classList.contains('hidden')) {
+      closeCardDrawer();
+    }
+  });
+
+  if (editBtn) {
+    editBtn.addEventListener('click', () => {
+      const index = state.selectedCardIndex;
+      if (index === null || index === undefined) return;
+      const cardObj = state.localPremiumCards[index];
+      if (!cardObj) return;
+
+      closeCardDrawer();
+
       if (cardObj.image) {
         // Carica l'immagine nel target e apri modal di crop
         state.cropperTarget = 'card';
@@ -4298,28 +4370,22 @@ function renderCapsules() {
         el.premiumCardInput.focus();
       }
     });
+  }
 
-    // Elimina
-    capsule.querySelector('.capsule-menu-item.delete').addEventListener('click', () => {
-      state.localPremiumCards.splice(index, 1);
-      renderCapsules();
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => {
+      const index = state.selectedCardIndex;
+      if (index !== null && index !== undefined && state.localPremiumCards[index]) {
+        state.localPremiumCards.splice(index, 1);
+        renderCapsules();
+
+        if (state.hasSubmittedPremiumCards) {
+          socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
+        }
+      }
+      closeCardDrawer();
     });
-
-    el.premiumCardsList.appendChild(capsule);
-  });
-
-  el.btnPremiumCardsSubmit.disabled = state.localPremiumCards.length === 0;
-}
-
-function setupPremiumCreatorEvents() {
-  state.localPremiumCards = [];
-  state.currentCroppedImage = null;
-  state.editingPremiumCardIndex = null;
-  state.currentUploadedFilename = '';
-
-  document.addEventListener('click', () => {
-    document.querySelectorAll('.capsule-menu-dropdown').forEach(d => d.classList.remove('active'));
-  });
+  }
 
   const addCard = () => {
     const val = el.premiumCardInput.value.trim();

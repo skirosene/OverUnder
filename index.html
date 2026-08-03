@@ -1070,6 +1070,18 @@
         CODICE: <span id="qr-modal-room-code">-</span>
       </div>
     </div>
+  <!-- Pannello Drawer a comparsa laterale per Opzioni Carta (#card-actions-drawer) -->
+  <div id="card-actions-drawer" class="drawer-overlay hidden">
+    <div class="drawer-content">
+      <div class="drawer-header">
+        <h3 id="drawer-card-title">Opzioni Carta</h3>
+        <button class="drawer-close-btn">&times;</button>
+      </div>
+      <div class="drawer-body">
+        <button id="btn-edit-card" class="drawer-action-btn edit"><span class="icon">✏️</span> Modifica Carta</button>
+        <button id="btn-delete-card" class="drawer-action-btn delete"><span class="icon">🗑️</span> Elimina Carta</button>
+      </div>
+    </div>
   </div>
 
   <button id="btn-test-expired" style="display: none; position: fixed; bottom: 10px; right: 10px; z-index: 9999; opacity: 0.3; background: #ff5722; color: white; font-weight: bold; border: none; border-radius: 5px; padding: 6px 12px; font-size: 0.75rem; cursor: pointer;">TEST SCADENZA</button>
