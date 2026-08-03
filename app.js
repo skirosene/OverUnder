@@ -4279,12 +4279,12 @@ function renderJoinRulesSlides(isPremium = false) {
     if (modeTag) {
       modeTag.style.display = 'inline-flex';
       modeTag.className = 'join-room-mode-tag tag-premium';
-      modeTag.innerHTML = `👑 MODALITÀ "JUDGEMENT DAY"`;
+      modeTag.innerHTML = `👑 JUDGEMENT DAY`;
     }
     if (modalModeTag) {
       modalModeTag.style.display = 'inline-flex';
       modalModeTag.className = 'join-modal-mode-tag tag-premium';
-      modalModeTag.innerHTML = `👑 MODALITÀ "JUDGEMENT DAY"`;
+      modalModeTag.innerHTML = `👑 JUDGEMENT DAY`;
     }
   } else {
     if (modeTag) {
