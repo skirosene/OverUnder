@@ -4331,7 +4331,7 @@ function setupPremiumCreatorEvents() {
       closeCardDrawer();
 
       if (cardObj.image) {
-        // Carica l'immagine nel target e apri modal di crop
+        // Carica l'immagine nel target e apri modal di crop per la modifica dell'immagine
         state.cropperTarget = 'card';
         el.cropperImageTarget.src = cardObj.image;
         el.cropperModal.style.display = 'flex';
@@ -4358,15 +4358,15 @@ function setupPremiumCreatorEvents() {
 
         state.editingPremiumCardIndex = index;
       } else {
-        el.premiumCardInput.value = cardObj.text;
+        // Modifica in-place della carta di testo
+        state.editingPremiumCardIndex = index;
+        el.premiumCardInput.value = cardObj.text || '';
         state.currentCroppedImage = null;
         el.premiumImagePreviewContainer.style.display = 'none';
         el.premiumImagePreview.src = '';
         el.premiumCardInput.style.paddingLeft = '42px';
         el.premiumCardInput.disabled = false;
-        el.premiumCardInput.placeholder = 'A cosa stai pensando?';
-        state.localPremiumCards.splice(index, 1);
-        renderCapsules();
+        el.premiumCardInput.placeholder = 'Modifica carta e premi + per salvare';
         el.premiumCardInput.focus();
       }
     });
@@ -4377,6 +4377,9 @@ function setupPremiumCreatorEvents() {
       const index = state.selectedCardIndex;
       if (index !== null && index !== undefined && state.localPremiumCards[index]) {
         state.localPremiumCards.splice(index, 1);
+        if (state.editingPremiumCardIndex === index) {
+          state.editingPremiumCardIndex = null;
+        }
         renderCapsules();
 
         if (state.hasSubmittedPremiumCards) {
@@ -4390,21 +4393,36 @@ function setupPremiumCreatorEvents() {
   const addCard = () => {
     const val = el.premiumCardInput.value.trim();
     if (!val && !state.currentCroppedImage) return;
-    
-    const exists = state.localPremiumCards.some(c => {
-      if (state.currentCroppedImage) {
-        return c.image === state.currentCroppedImage;
-      }
-      return c.text === val;
-    });
-    
-    if (!exists) {
-      state.localPremiumCards.push({
-        text: val || state.currentUploadedFilename || 'immagine caricata',
-        image: state.currentCroppedImage || null
+
+    const cardData = {
+      text: val || state.currentUploadedFilename || 'immagine caricata',
+      image: state.currentCroppedImage || null
+    };
+
+    if (state.editingPremiumCardIndex !== null && state.editingPremiumCardIndex !== undefined && state.localPremiumCards[state.editingPremiumCardIndex]) {
+      // Aggiorna in-place la carta esistente in modifica
+      state.localPremiumCards[state.editingPremiumCardIndex] = cardData;
+      state.editingPremiumCardIndex = null;
+    } else {
+      // Controllo duplicati solo per nuova carta
+      const exists = state.localPremiumCards.some(c => {
+        if (state.currentCroppedImage) {
+          return c.image === state.currentCroppedImage;
+        }
+        return c.text === val;
       });
-      renderCapsules();
+      
+      if (!exists) {
+        state.localPremiumCards.push(cardData);
+      }
     }
+
+    renderCapsules();
+
+    if (state.hasSubmittedPremiumCards) {
+      socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
+    }
+
     el.premiumCardInput.value = '';
     
     // Reset image preview state
@@ -4529,6 +4547,9 @@ function setupPremiumCreatorEvents() {
                 // Modifica in-place della carta esistente
                 state.localPremiumCards[state.editingPremiumCardIndex].image = uploadUrl;
                 renderCapsules();
+                if (state.hasSubmittedPremiumCards) {
+                  socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
+                }
                 state.editingPremiumCardIndex = null;
               } else {
                 // Caricamento nuova immagine
