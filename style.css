@@ -4432,14 +4432,14 @@ input[type="submit"] {
   font-weight: 800;
   color: #ffffff;
   letter-spacing: 2px;
-  text-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
+  text-shadow: none;
   text-align: center;
   line-height: 1;
   margin: 6px 0 10px 0;
 }
 
 /* ==========================================================================
-   TRIGGER TESTUALE "COME SI GIOCA? 📋" (GLOW GRADIENT PULSE MARCATO)
+   TRIGGER TESTUALE "COME SI GIOCA?" (GLOW SOFT & ELEGANT PULSE)
    ========================================================================== */
 .join-rules-text-trigger {
   background: transparent !important;
@@ -4468,7 +4468,7 @@ input[type="submit"] {
 
 .glow-text-content {
   font-family: var(--font-title);
-  font-size: 0.98rem;
+  font-size: 0.92rem;
   font-weight: 800;
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -4477,7 +4477,7 @@ input[type="submit"] {
   background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: gradientShiftText 3s infinite linear, pulseGlowStrong 1.4s infinite alternate ease-in-out;
+  animation: gradientShiftText 3.5s infinite linear, pulseGlowSoft 1.8s infinite alternate ease-in-out;
   display: inline-block;
 }
 
@@ -4487,14 +4487,14 @@ input[type="submit"] {
   100% { background-position: 0% 50%; }
 }
 
-@keyframes pulseGlowStrong {
+@keyframes pulseGlowSoft {
   0% {
-    filter: drop-shadow(0 0 6px rgba(223, 51, 255, 0.7)) drop-shadow(0 0 12px rgba(255, 0, 127, 0.6));
+    filter: drop-shadow(0 0 3px rgba(223, 51, 255, 0.4));
     transform: scale(1);
   }
   100% {
-    filter: drop-shadow(0 0 18px rgba(0, 242, 254, 1)) drop-shadow(0 0 30px rgba(223, 51, 255, 1)) drop-shadow(0 0 45px rgba(255, 0, 127, 0.95));
-    transform: scale(1.1);
+    filter: drop-shadow(0 0 8px rgba(0, 242, 254, 0.65)) drop-shadow(0 0 14px rgba(223, 51, 255, 0.5));
+    transform: scale(1.04);
   }
 }
 
