@@ -4291,26 +4291,26 @@ function renderJoinRulesSlides(isPremium = false) {
   if (isPremium) {
     track.innerHTML = `
       <div class="join-slide">
-        <div class="join-slide-icon-box">📱</div>
-        <div class="join-slide-title">1. Il Vostro Mazzo 📱</div>
+        <div class="join-slide-icon-box">📸</div>
+        <div class="join-slide-title">1. Crea le tue carte 📸</div>
         <div class="join-slide-desc">
-          In questa modalità <strong>siete voi a creare il mazzo!</strong> Tutti i partecipanti caricano foto dal rullino e didascalie piccanti anonime.
+          Tutti i partecipanti alla stanza caricano foto dal proprio telefono ed inventano didascalie personalizzate.
         </div>
       </div>
 
       <div class="join-slide">
-        <div class="join-slide-icon-box">🛑</div>
-        <div class="join-slide-title">2. Zero Filtri 🛑</div>
+        <div class="join-slide-icon-box">⚖️</div>
+        <div class="join-slide-title">2. Metti alla gogna il gruppo ⚖️</div>
         <div class="join-slide-desc">
-          Tutta la stanza andrà alla gogna! Le carte create verranno mostrate a tutti per votare chi è il protagonista o cosa ne pensa il gruppo.
+          Durante la partita le carte personalizzate compaiono a schermo per votare se l'entità o l'amico è <strong>SOPRAVVALUTATO</strong> o <strong>SOTTOVALUTATO</strong>!
         </div>
       </div>
 
       <div class="join-slide">
-        <div class="join-slide-icon-box">🕵️</div>
-        <div class="join-slide-title">3. Anonimato & Caos 🕵️</div>
+        <div class="join-slide-icon-box">💡</div>
+        <div class="join-slide-title">3. Gioca senza filtri 💡</div>
         <div class="join-slide-desc">
-          Tutti i caricamenti ed i voti sono anonimi: massimo divertimento, risate esplosive e colpi di scena assicurati tra gli amici!
+          Tutti gli amici che entrano in stanza giocano <strong>GRATIS</strong>! Risate ed ilarità senza filtri per tutta la partita.
         </div>
       </div>
     `;
@@ -4320,15 +4320,15 @@ function renderJoinRulesSlides(isPremium = false) {
         <div class="join-slide-icon-box">💡</div>
         <div class="join-slide-title">1. La Carta 💡</div>
         <div class="join-slide-desc">
-          In ogni round verrà mostrata una carta con un'affermazione o argomento di cultura pop. La tua sfida è votare se è <strong>SOPRAVVALUTATA (Over)</strong> o <strong>SOTTOVALUTATE (Under)</strong>!
+          Ti verrà mostrata una carta casuale: ogni carta nasconde un'entità diversa, dalla più iconica alla più inaspettata...
         </div>
       </div>
 
       <div class="join-slide">
-        <div class="join-slide-icon-box">🧐</div>
-        <div class="join-slide-title">2. La Scelta 🧐</div>
+        <div class="join-slide-icon-box">🤔</div>
+        <div class="join-slide-title">2. La Scelta 🤔</div>
         <div class="join-slide-desc">
-          Vota in segreto entro il tempo limite! Non conta solo la tua opinione: segnerai punti se indovinerai la scelta fatta dalla <strong>maggioranza della stanza</strong>.
+          Sputa il rospo. È sopravvalutato (OVER) o sottovalutato (UNDER)? Vota di pancia senza farti spiare.
         </div>
       </div>
 
@@ -4336,7 +4336,7 @@ function renderJoinRulesSlides(isPremium = false) {
         <div class="join-slide-icon-box">📊</div>
         <div class="join-slide-title">3. Il Verdetto 📊</div>
         <div class="join-slide-desc">
-          Scalate la classifica round dopo round! A fine partita scoprirete i vincitori ed i trofei ironici: <strong>L'Omologato 🐑</strong>, <strong>La Pecora Nera 🖤</strong> e <strong>Il Pigro 🐌</strong>!
+          Scatena il dibattito. Scopri chi la pensa come te e individua immediatamente il caso umano del gruppo.
         </div>
       </div>
     `;
