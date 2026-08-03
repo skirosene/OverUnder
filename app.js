@@ -194,6 +194,7 @@ const AudioSynth = {
   },
 
   playTick(frequency = 800) {
+    this.init();
     if (this.isMuted || !this.ctx) return;
     try {
       const osc = this.ctx.createOscillator();
@@ -216,6 +217,7 @@ const AudioSynth = {
   },
 
   playConfirm(isUnder = true) {
+    this.init();
     if (this.isMuted || !this.ctx) return;
     try {
       const now = this.ctx.currentTime;
@@ -243,6 +245,7 @@ const AudioSynth = {
   },
 
   playTimeout() {
+    this.init();
     if (this.isMuted || !this.ctx) return;
     try {
       const now = this.ctx.currentTime;
@@ -383,6 +386,18 @@ const AudioSynth = {
     }
   }
 };
+
+// Sblocco automatico di AudioContext al primissimo tocco dell'utente (iOS / Android Autoplay Policy)
+['pointerdown', 'touchstart', 'click'].forEach(evtType => {
+  window.addEventListener(evtType, () => {
+    try {
+      AudioSynth.init();
+      if (AudioSynth.ctx && AudioSynth.ctx.state === 'suspended') {
+        AudioSynth.ctx.resume();
+      }
+    } catch (e) {}
+  }, { passive: true });
+});
 
 // ==========================================================================
 // CONFIGURAZIONE STATO & ELEMENTI DOM
