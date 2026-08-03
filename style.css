@@ -546,12 +546,17 @@ input[type="submit"] {
    LOBBY E GRIGLIA MAZZI PREMIUM (3D GLASSMORPHIC)
    ========================================================================== */
 .lobby-header {
-  padding: 16px;
+  padding: 16px 14px 18px 14px;
   text-align: center;
   margin-bottom: 12px;
   max-width: 100%;
   box-sizing: border-box;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: visible;
 }
 
 .lobby-subtitle {
@@ -564,19 +569,19 @@ input[type="submit"] {
 .lobby-code-display {
   font-family: var(--font-title);
   font-weight: 800;
-  font-size: clamp(1.7rem, 7.5vw, 2.8rem);
-  letter-spacing: clamp(1px, 0.5vw, 4px);
+  font-size: clamp(1.4rem, 6.5vw, 2.4rem);
+  letter-spacing: clamp(1px, 0.4vw, 3px);
   color: var(--color-accent-blue);
   text-shadow: 0 0 15px rgba(52, 152, 219, 0.4);
   text-align: center;
-  margin-top: 4px;
+  margin: 4px 0 6px 0;
   max-width: 100%;
   padding: 0 8px;
   box-sizing: border-box;
   overflow: hidden;
-  white-space: nowrap;
+  white-space: nowrap !important;
   text-overflow: ellipsis;
-  word-break: break-word;
+  line-height: 1.1;
   display: block;
 }
 
