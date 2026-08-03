@@ -4396,51 +4396,80 @@ input[type="submit"] {
 }
 
 /* ==========================================================================
-   TRIGGER TESTUALE "COME SI GIOCA" (GLOW & GRADIENT ANIMATION)
+   REFACTORING LAYOUT SCHERMATA JOIN & ANIMAZIONE NEON
    ========================================================================== */
-.join-rules-text-trigger {
+.join-room-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  padding: 16px 14px;
+  background: linear-gradient(135deg, rgba(52, 152, 219, 0.15), rgba(155, 89, 182, 0.15));
+  border-radius: 16px;
+  border: 1px solid rgba(52, 152, 219, 0.35);
+  box-shadow: 0 0 20px rgba(52, 152, 219, 0.15);
+  margin-bottom: 12px;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+.join-banner-header-text {
+  font-family: var(--font-title);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  opacity: 0.8;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-align: center;
+}
+
+.join-room-code-giant {
+  font-family: var(--font-title);
+  font-size: 2.2rem;
+  font-weight: bold;
+  margin: 8px 0 16px 0;
+  color: #00f2ff;
+  letter-spacing: 3px;
+  text-shadow: 0 0 16px rgba(0, 242, 255, 0.6);
+  text-align: center;
+  line-height: 1;
+}
+
+.glow-trigger {
+  font-family: var(--font-title);
+  font-size: 0.95rem;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-block;
+  margin: 16px 0;
+  font-weight: 700;
+  letter-spacing: 1px;
   background: transparent;
   border: none;
-  padding: 6px 12px;
-  cursor: pointer;
   outline: none;
+  padding: 6px 14px;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.2s ease;
+  animation: neonPulse 1.8s infinite alternate ease-in-out;
 }
 
-.join-rules-text-trigger:active {
+.glow-trigger:active {
   transform: scale(0.95);
 }
 
-.glow-text-content {
-  font-family: var(--font-title);
-  font-size: 0.92rem;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  background: linear-gradient(90deg, #3498db, #df33ff, #00f2fe, #3498db);
-  background-size: 300% 100%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gradientShiftText 4s infinite linear, pulseGlowText 2.5s infinite ease-in-out;
-  display: inline-block;
-}
-
-@keyframes gradientShiftText {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-@keyframes pulseGlowText {
-  0%, 100% {
-    filter: drop-shadow(0 0 4px rgba(52, 152, 219, 0.6)) drop-shadow(0 0 10px rgba(223, 51, 255, 0.4));
+@keyframes neonPulse {
+  0% {
+    text-shadow: 0 0 4px #ff007f, 0 0 8px #ff007f, 0 0 12px #ff007f;
+    transform: scale(1);
   }
-  50% {
-    filter: drop-shadow(0 0 12px rgba(52, 152, 219, 0.9)) drop-shadow(0 0 20px rgba(223, 51, 255, 0.8));
+  100% {
+    text-shadow: 0 0 8px #ff007f, 0 0 18px #ff007f, 0 0 30px #ff007f, 0 0 40px #ff007f;
+    transform: scale(1.04);
   }
 }
 

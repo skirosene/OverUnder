@@ -234,17 +234,17 @@
 
             <!-- Form per Entrare in una Stanza via Link (Invito Diretto) -->
             <div id="form-join-room-link" class="onboarding-form" style="display: none; width: 100%;">
-              <!-- Banner di Invito & Modalità Stanza -->
+              <!-- Banner di Invito Stanza (Simmetria Perfetta e Layout Centrato) -->
               <div id="join-room-mode-banner" class="join-room-banner mode-standard">
-                <span style="font-size: 0.65rem; font-weight: 800; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 1.2px;">SEI STATO INVITATO NELLA STANZA</span>
-                <div id="join-room-code-display" style="font-family: var(--font-title); font-size: 1.6rem; font-weight: 800; color: white; letter-spacing: 3px; text-shadow: 0 0 12px rgba(255, 255, 255, 0.6);">-</div>
+                <span class="join-banner-header-text">SEI STATO INVITATO NELLA STANZA</span>
+                <div id="join-room-code-display" class="join-room-code-giant">-</div>
                 <div id="join-room-mode-tag" class="join-room-mode-tag" style="display: none;"></div>
               </div>
 
-              <!-- Trigger Testuale "Come si gioca? 📋" con effetto Glow Neon Pulsante -->
-              <div style="width: 100%; text-align: center; margin: 4px 0 14px 0;">
-                <button type="button" id="btn-trigger-join-rules-modal" class="join-rules-text-trigger">
-                  <span class="glow-text-content">Come si gioca? 📋</span>
+              <!-- Trigger Neon "COME SI GIOCA?" Senza Emoji -->
+              <div style="width: 100%; text-align: center; margin: 4px 0 12px 0;">
+                <button type="button" id="btn-trigger-join-rules-modal" class="glow-trigger">
+                  COME SI GIOCA?
                 </button>
               </div>
 
@@ -1137,6 +1137,6 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=166"></script>
+  <script src="/app.js?v=167"></script>
 </body>
 </html>
