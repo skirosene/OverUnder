@@ -1919,26 +1919,22 @@ io.on('connection', (socket) => {
     // Notifica gli altri client dell'aggiornamento (UI con indicatore offline)
     io.to(currentRoomCode).emit('player_list_update', { players: room.players });
 
-    // Se l'host si disconnette, imposta un grace period di 15s prima di distruggere la stanza
+    // Se l'host si disconnette, imposta un grace period (8s) prima di riassegnare il ruolo d'Host al primo partecipante entrato
     if (room.hostId === socket.id) {
-      console.log(`[DISCONNECT] Host disconnesso dalla stanza ${currentRoomCode}. Grace period di 15s avviato.`);
+      const disconnectedHostName = player ? player.name : 'L\'Host';
+      console.log(`[DISCONNECT] Host (${disconnectedHostName}) disconnesso dalla stanza ${currentRoomCode}. Grace period di 8s avviato.`);
       
       if (room.hostDisconnectTimeout) clearTimeout(room.hostDisconnectTimeout);
       
       room.hostDisconnectTimeout = setTimeout(() => {
         const checkRoom = rooms[currentRoomCode];
-        if (checkRoom && checkRoom.hostId === socket.id) {
-          const isHostOffline = checkRoom.players.some(p => p.isHost && (!p.connected || !p.isOnline));
-          if (isHostOffline) {
-            if (checkRoom.roundTimeout) clearTimeout(checkRoom.roundTimeout);
-            io.to(currentRoomCode).emit('room_closed', "L'Host si è disconnesso permanentemente. Partita terminata.");
-            cleanupRoomFiles(checkRoom);
-            cleanupRoomAssets(checkRoom);
-            delete rooms[currentRoomCode];
-            console.log(`Stanza ${currentRoomCode} distrutta definitivamente per assenza dell'Host.`);
+        if (checkRoom) {
+          const isHostStillOffline = checkRoom.players.some(p => p.isHost && (!p.connected || !p.isOnline));
+          if (isHostStillOffline) {
+            reassignHost(checkRoom, disconnectedHostName);
           }
         }
-      }, 15000);
+      }, 8000);
     } else {
       if (room.state === 'playing') {
         const activePlayers = room.players.filter(p => p.connected !== false && p.isOnline !== false);
@@ -1950,6 +1946,54 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+// Helper per il riassegnamento automatico del ruolo Host al primo partecipante entrato nella stanza
+function reassignHost(room, oldHostName = 'L\'Host') {
+  if (!room || !room.players) return false;
+
+  // Trova il vecchio host e rimuovi il ruolo
+  const oldHostIndex = room.players.findIndex(p => p.isHost);
+  if (oldHostIndex !== -1) {
+    room.players[oldHostIndex].isHost = false;
+  }
+
+  // Trova il primo partecipante umano online entrato per primo nella stanza (primo elemento non-bot ed online)
+  const newHost = room.players.find(p => !p.isBot && p.connected !== false && p.isOnline !== false);
+
+  if (newHost) {
+    newHost.isHost = true;
+    room.hostId = newHost.id;
+    if (newHost.sessionId) {
+      room.hostSessionId = newHost.sessionId;
+    }
+
+    console.log(`[HOST REASSIGNMENT] Stanza ${room.roomCode}: Ruolo Host riassegnato a ${newHost.name}`);
+
+    // Notifica visiva via Pop-Up / Toast a tutti i giocatori rimasti nella stanza
+    const toastMsg = `👑 ${oldHostName} si è disconnesso. ${newHost.name} è il nuovo Host della stanza!`;
+    io.to(room.roomCode).emit('global_toast', { message: toastMsg });
+
+    // Notifica l'aggiornamento della lista dei partecipanti
+    io.to(room.roomCode).emit('player_list_update', { players: room.players });
+
+    // Invia evento di assegnazione ruolo Host al client selezionato
+    const newHostSocket = io.sockets.sockets.get(newHost.id);
+    if (newHostSocket) {
+      newHostSocket.emit('host_assigned', { isHost: true });
+      sendStateSync(newHostSocket, room, newHost);
+    }
+    return true;
+  } else {
+    // Nessun altro partecipante umano presente in stanza: chiusura partita
+    console.log(`[HOST REASSIGNMENT] Stanza ${room.roomCode}: Nessun altro partecipante online. Chiusura stanza.`);
+    io.to(room.roomCode).emit('room_closed', `L'Host (${oldHostName}) si è disconnesso e non ci sono altri partecipanti in stanza. Partita terminata.`);
+    if (room.roundTimeout) clearTimeout(room.roundTimeout);
+    cleanupRoomFiles(room);
+    cleanupRoomAssets(room);
+    delete rooms[room.roomCode];
+    return false;
+  }
+}
 
 // ==========================================================================
 // 3. STATE RECOVERY (Sincronizzazione dello Stato Server-Side)

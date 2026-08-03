@@ -2864,10 +2864,22 @@ function setupSocketListeners() {
     showToast(message);
   });
 
-  // 12. Host si è scollegato, chiusura stanza
+  // 12. Host riassegnato o disconnesso
+  socket.on('host_assigned', ({ isHost }) => {
+    state.isHost = !!isHost;
+    safeSessionStorage.setItem('overunder_isHost', isHost ? 'true' : 'false');
+    showToast("👑 Ora sei tu il nuovo Host della stanza!", 5000);
+    if (!state.gameplayStarted) {
+      setupLobbyUI();
+    }
+  });
+
   socket.on('room_closed', (message) => {
-    alert(message);
-    resetToMenu();
+    showToast(message || "L'Host si è disconnesso. Partita terminata.", 6000);
+    setTimeout(() => {
+      clearSession();
+      resetToMenu();
+    }, 2000);
   });
 
   socket.on('auth_completed', () => {
