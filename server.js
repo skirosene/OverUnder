@@ -1392,8 +1392,18 @@ io.on('connection', (socket) => {
     const room = rooms[currentRoomCode];
     if (!room || room.hostId !== socket.id) return;
 
+    // Purga automatica dei partecipanti disconnessi/offline prima dell'avvio partita
+    const previousCount = room.players.length;
+    room.players = room.players.filter(p => p.isBot || (p.connected !== false && p.isOnline !== false));
+    
+    if (room.players.length < previousCount) {
+      console.log(`[START GAME] Rimosso/i ${previousCount - room.players.length} partecipante/i offline dalla stanza ${room.roomCode} prima dell'avvio.`);
+      io.to(room.roomCode).emit('player_list_update', { players: room.players });
+      io.to(room.roomCode).emit('global_toast', { message: "Partecipanti offline rimossi prima dell'avvio." });
+    }
+
     if (!room.players || room.players.length < 2) {
-      socket.emit('room_error', "Servono almeno 2 giocatori in stanza per avviare la partita!");
+      socket.emit('room_error', "Servono almeno 2 giocatori attivi in stanza per avviare la partita!");
       return;
     }
 
@@ -1476,8 +1486,9 @@ io.on('connection', (socket) => {
 
     io.to(room.roomCode).emit('player_voted_update', { votedPlayers: votedNames });
 
-    // Verifica se tutti i partecipanti hanno espresso il voto
-    const allVoted = room.players.every(p => room.votes[p.id]);
+    // Verifica se tutti i partecipanti attivi ed online hanno espresso il voto
+    const activePlayers = room.players.filter(p => p.isBot || (p.connected !== false && p.isOnline !== false));
+    const allVoted = activePlayers.length > 0 && activePlayers.every(p => room.votes[p.id]);
     if (allVoted) {
       freezeRound(room, "TUTTI I VOTI REGISTRATI!");
     }
