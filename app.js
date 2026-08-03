@@ -4274,13 +4274,27 @@ function renderJoinRulesSlides(isPremium = false) {
   const modalCard = document.querySelector('.join-rules-modal-card');
 
   if (modeBanner) modeBanner.className = `join-room-banner ${isPremium ? 'mode-premium' : 'mode-standard'}`;
-  if (modeTag) {
-    modeTag.className = `join-room-mode-tag ${isPremium ? 'tag-premium' : 'tag-standard'}`;
-    modeTag.innerHTML = isPremium ? '👑 STANZA PREMIUM: JUDGEMENT DAY' : '🎯 STANZA STANDARD: OVER / UNDER';
-  }
-  if (modalModeTag) {
-    modalModeTag.className = `join-modal-mode-tag ${isPremium ? 'tag-premium' : 'tag-standard'}`;
-    modalModeTag.innerHTML = isPremium ? '👑 MODALITÀ JUDGEMENT DAY' : '🎯 MODALITÀ STANDARD';
+  
+  if (isPremium) {
+    if (modeTag) {
+      modeTag.style.display = 'inline-flex';
+      modeTag.className = 'join-room-mode-tag tag-premium';
+      modeTag.innerHTML = `👑 MODALITÀ "JUDGEMENT DAY"`;
+    }
+    if (modalModeTag) {
+      modalModeTag.style.display = 'inline-flex';
+      modalModeTag.className = 'join-modal-mode-tag tag-premium';
+      modalModeTag.innerHTML = `👑 MODALITÀ "JUDGEMENT DAY"`;
+    }
+  } else {
+    if (modeTag) {
+      modeTag.style.display = 'none';
+      modeTag.innerHTML = '';
+    }
+    if (modalModeTag) {
+      modalModeTag.style.display = 'none';
+      modalModeTag.innerHTML = '';
+    }
   }
   if (modalCard) {
     modalCard.className = `join-rules-modal-card ${isPremium ? 'mode-premium' : 'mode-standard'}`;

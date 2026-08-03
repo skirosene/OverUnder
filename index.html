@@ -238,9 +238,7 @@
               <div id="join-room-mode-banner" class="join-room-banner mode-standard">
                 <span style="font-size: 0.65rem; font-weight: 800; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 1.2px;">SEI STATO INVITATO NELLA STANZA</span>
                 <div id="join-room-code-display" style="font-family: var(--font-title); font-size: 1.6rem; font-weight: 800; color: white; letter-spacing: 3px; text-shadow: 0 0 12px rgba(255, 255, 255, 0.6);">-</div>
-                <div id="join-room-mode-tag" class="join-room-mode-tag tag-standard">
-                  🎯 STANZA STANDARD: OVER / UNDER
-                </div>
+                <div id="join-room-mode-tag" class="join-room-mode-tag" style="display: none;"></div>
               </div>
 
               <!-- Trigger Testuale "Come si gioca? 📋" con effetto Glow Neon Pulsante -->
@@ -1070,9 +1068,7 @@
       <button type="button" id="btn-close-join-rules-modal" class="join-rules-modal-close" aria-label="Chiudi">&times;</button>
       
       <!-- Modal Header Badge -->
-      <div id="join-modal-mode-tag" class="join-modal-mode-tag tag-standard">
-        🎯 MODALITÀ STANDARD
-      </div>
+      <div id="join-modal-mode-tag" class="join-modal-mode-tag" style="display: none;"></div>
 
       <!-- Slide Carousel Viewport -->
       <div id="join-carousel-viewport" class="join-carousel-viewport">
@@ -1141,6 +1137,6 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=163"></script>
+  <script src="/app.js?v=164"></script>
 </body>
 </html>
