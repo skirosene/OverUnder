@@ -564,14 +564,14 @@ input[type="submit"] {
 .lobby-code-display {
   font-family: var(--font-title);
   font-weight: 800;
-  font-size: clamp(1.4rem, 6vw, 2.2rem);
-  letter-spacing: clamp(1px, 0.4vw, 3px);
+  font-size: clamp(1.7rem, 7.5vw, 2.8rem);
+  letter-spacing: clamp(1px, 0.5vw, 4px);
   color: var(--color-accent-blue);
   text-shadow: 0 0 15px rgba(52, 152, 219, 0.4);
   text-align: center;
   margin-top: 4px;
   max-width: 100%;
-  padding: 0 12px;
+  padding: 0 8px;
   box-sizing: border-box;
   overflow: hidden;
   white-space: nowrap;
