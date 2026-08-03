@@ -1831,17 +1831,24 @@ function setupEventListeners() {
       
       if (state.isSoloMode) {
         startSoloGame(state.gameLength);
-      } else if (state.roomIsPremium) {
-        // Se è Premium e non ci sono carte custom inviate né salvate locale, avvisa l'host
-        const hasCards = (state.players && state.players.some(p => p.premiumReady)) || 
-                         (state.localPremiumCards && state.localPremiumCards.length > 0);
-        if (!hasCards) {
-          showToast("Aggiungi almeno una carta prima di avviare la modalità Judgement Day! 👑", 4000);
+      } else {
+        if (!state.players || state.players.length < 2) {
+          showToast("Servono almeno 2 giocatori in stanza per avviare la partita! Fai scansionare il QR Code 📱", 4000);
           return;
         }
-        socket.emit('start_game', { gameLength: state.gameLength });
-      } else {
-        socket.emit('start_game', { gameLength: state.gameLength });
+
+        if (state.roomIsPremium) {
+          // Se è Premium e non ci sono carte custom inviate né salvate locale, avvisa l'host
+          const hasCards = (state.players && state.players.some(p => p.premiumReady)) || 
+                           (state.localPremiumCards && state.localPremiumCards.length > 0);
+          if (!hasCards) {
+            showToast("Aggiungi almeno una carta prima di avviare la modalità Judgement Day! 👑", 4000);
+            return;
+          }
+          socket.emit('start_game', { gameLength: state.gameLength });
+        } else {
+          socket.emit('start_game', { gameLength: state.gameLength });
+        }
       }
     });
   }
@@ -3024,13 +3031,20 @@ function renderLobbyPlayers() {
     el.btnHostStartGame.style.background = '';
     el.btnHostStartGame.style.color = '';
     el.btnHostStartGame.style.boxShadow = '';
-    // L'Host può sempre avviare la partita sia in modalità Normale che Premium
-    el.btnHostStartGame.disabled = false;
+    
+    const hasEnoughPlayers = state.players && state.players.length >= 2;
+    if (!hasEnoughPlayers) {
+      el.btnHostStartGame.style.opacity = '0.6';
+      el.btnHostStartGame.title = 'Servono almeno 2 giocatori in stanza per iniziare';
+    } else {
+      el.btnHostStartGame.style.opacity = '1';
+      el.btnHostStartGame.title = '';
+    }
 
     if (state.roomIsPremium) {
       const hasCards = (state.players && state.players.some(p => p.premiumReady)) || 
                        (state.localPremiumCards && state.localPremiumCards.length > 0);
-      if (hasCards) {
+      if (hasCards && hasEnoughPlayers) {
         el.btnHostStartGame.classList.remove('btn-pulse-blue');
         el.btnHostStartGame.classList.add('btn-pulse-premium');
       } else {

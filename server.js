@@ -1362,6 +1362,11 @@ io.on('connection', (socket) => {
     const room = rooms[currentRoomCode];
     if (!room || room.hostId !== socket.id) return;
 
+    if (!room.players || room.players.length < 2) {
+      socket.emit('room_error', "Servono almeno 2 giocatori in stanza per avviare la partita!");
+      return;
+    }
+
     if (room.isPremium) {
       // Costruisci il mazzo personalizzato con le carte inviate dai partecipanti
       let customCards = (room.customCards || []).map((cardObj, index) => {
