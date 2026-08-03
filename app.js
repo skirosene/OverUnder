@@ -4364,6 +4364,13 @@ function renderCapsules() {
       const contentClickable = capsule.querySelector('.capsule-content-clickable');
       const btnQuickEdit = capsule.querySelector('.capsule-quick-edit');
       const btnQuickDelete = capsule.querySelector('.capsule-quick-delete');
+      const textSpan = capsule.querySelector('.capsule-text');
+
+      const toggleExpandText = () => {
+        if (textSpan) {
+          textSpan.classList.toggle('expanded');
+        }
+      };
 
       const startEditing = () => {
         if (cardObj.image) {
@@ -4408,7 +4415,7 @@ function renderCapsules() {
         try { AudioSynth.playConfirm(false); } catch (e) {}
       };
 
-      bindFastClick(contentClickable, startEditing);
+      bindFastClick(contentClickable, toggleExpandText);
       bindFastClick(btnQuickEdit, startEditing);
       bindFastClick(btnQuickDelete, deleteCardDirect);
     }
