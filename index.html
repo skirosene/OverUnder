@@ -243,17 +243,11 @@
                 </div>
               </div>
 
-              <!-- Accordion High-Impact "Come si gioca?" -->
-              <div id="join-rules-accordion" class="join-rules-accordion mode-standard open">
-                <button type="button" id="btn-join-rules-toggle" class="join-rules-header">
-                  <span class="join-rules-title">📖 COME SI GIOCA IN QUESTA STANZA?</span>
-                  <span id="join-rules-chevron" class="join-rules-chevron">▼</span>
+              <!-- Trigger Testuale "Come si gioca? 📋" con effetto Glow Neon Pulsante -->
+              <div style="width: 100%; text-align: center; margin: 4px 0 14px 0;">
+                <button type="button" id="btn-trigger-join-rules-modal" class="join-rules-text-trigger">
+                  <span class="glow-text-content">Come si gioca? 📋</span>
                 </button>
-                <div id="join-rules-content" class="join-rules-content">
-                  <div id="join-rules-text" class="join-rules-text">
-                    <!-- Schede e passi dinamici inseriti da app.js -->
-                  </div>
-                </div>
               </div>
 
               <div class="input-group" style="width: 100%;">
@@ -1070,6 +1064,45 @@
     </div>
   </div>
 
+  <!-- MODAL SLIDE CAROUSEL "COME SI GIOCA" (ONBOARDING GUEST) -->
+  <div id="join-rules-modal" class="join-rules-modal-overlay hidden" style="display: none;">
+    <div class="join-rules-modal-card mode-standard">
+      <button type="button" id="btn-close-join-rules-modal" class="join-rules-modal-close" aria-label="Chiudi">&times;</button>
+      
+      <!-- Modal Header Badge -->
+      <div id="join-modal-mode-tag" class="join-modal-mode-tag tag-standard">
+        🎯 MODALITÀ STANDARD
+      </div>
+
+      <!-- Slide Carousel Viewport -->
+      <div id="join-carousel-viewport" class="join-carousel-viewport">
+        <div id="join-carousel-track" class="join-carousel-track">
+          <!-- Slide inserite dinamicamente da app.js -->
+        </div>
+      </div>
+
+      <!-- Indicatori di Avanzamento (Dots) -->
+      <div id="join-carousel-dots" class="join-carousel-dots">
+        <span class="join-dot active" data-slide="0"></span>
+        <span class="join-dot" data-slide="1"></span>
+        <span class="join-dot" data-slide="2"></span>
+      </div>
+
+      <!-- Footer Controlli Navigazione -->
+      <div class="join-carousel-footer">
+        <button type="button" id="btn-carousel-prev" class="btn-carousel-nav btn-prev" style="visibility: hidden;">
+          ← Indietro
+        </button>
+        <button type="button" id="btn-carousel-next" class="btn-carousel-nav btn-next">
+          Avanti →
+        </button>
+        <button type="button" id="btn-carousel-finish" class="btn-carousel-nav btn-finish" style="display: none;">
+          Ho capito! 🚀
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification per la copia invito -->
   <div id="toast-notification" class="toast-notification">
     <span id="toast-message">Invito copiato!</span>
@@ -1108,6 +1141,6 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=160"></script>
+  <script src="/app.js?v=161"></script>
 </body>
 </html>

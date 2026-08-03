@@ -714,7 +714,7 @@ async function startApp() {
   try { setupSocketListeners(); } catch (e) { console.warn("setupSocketListeners error:", e); }
   try { setupPremiumCreatorEvents(); } catch (e) { console.warn("setupPremiumCreatorEvents error:", e); }
   try { setupAvatarEvents(); } catch (e) { console.warn("setupAvatarEvents error:", e); }
-  try { setupJoinRulesAccordion(); } catch (e) { console.warn("setupJoinRulesAccordion error:", e); }
+  try { setupJoinRulesModalEvents(); } catch (e) { console.warn("setupJoinRulesModalEvents error:", e); }
   
   let hasRoomParam = false;
   try {
@@ -4157,8 +4157,8 @@ function showJoinFromLink(roomCode) {
   state.pendingRoomToJoin = cleanCode;
   safeSessionStorage.setItem('overunder_pendingRoom', cleanCode);
   
-  // Interroga il server per recuperare la modalità della stanza (Standard vs Premium)
-  fetchAndApplyRoomInfo(cleanCode);
+  // Interroga il server per recuperare la modalità della stanza e mostra automaticamente il Modal Onboarding per i Guest
+  fetchAndApplyRoomInfo(cleanCode, true);
 
   // Nascondi le schede standard
   if (el.modeTabs) el.modeTabs.style.display = 'none';
@@ -4260,117 +4260,251 @@ function getDeckMeta(deckId) {
 }
 
 // ==========================================================================
-// ACCORDION DINAMICO "COME SI GIOCA" PER SCHERMATA JOIN GUEST
+// MODAL SLIDE CAROUSEL ONBOARDING GUEST ("COME SI GIOCA")
 // ==========================================================================
-function updateJoinRulesAccordion(isPremium = false) {
-  const accordion = document.getElementById('join-rules-accordion');
+state.joinRulesCurrentSlide = 0;
+state.joinRulesIsPremium = false;
+state.joinRulesAutoOpened = false;
+
+function renderJoinRulesSlides(isPremium = false) {
+  const track = document.getElementById('join-carousel-track');
   const modeBanner = document.getElementById('join-room-mode-banner');
   const modeTag = document.getElementById('join-room-mode-tag');
-  const rulesTextContainer = document.getElementById('join-rules-text');
+  const modalModeTag = document.getElementById('join-modal-mode-tag');
+  const modalCard = document.querySelector('.join-rules-modal-card');
 
-  if (!accordion || !rulesTextContainer) return;
+  if (modeBanner) modeBanner.className = `join-room-banner ${isPremium ? 'mode-premium' : 'mode-standard'}`;
+  if (modeTag) {
+    modeTag.className = `join-room-mode-tag ${isPremium ? 'tag-premium' : 'tag-standard'}`;
+    modeTag.innerHTML = isPremium ? '👑 STANZA PREMIUM: JUDGEMENT DAY' : '🎯 STANZA STANDARD: OVER / UNDER';
+  }
+  if (modalModeTag) {
+    modalModeTag.className = `join-modal-mode-tag ${isPremium ? 'tag-premium' : 'tag-standard'}`;
+    modalModeTag.innerHTML = isPremium ? '👑 MODALITÀ JUDGEMENT DAY' : '🎯 MODALITÀ STANDARD';
+  }
+  if (modalCard) {
+    modalCard.className = `join-rules-modal-card ${isPremium ? 'mode-premium' : 'mode-standard'}`;
+  }
+
+  if (!track) return;
 
   if (isPremium) {
-    if (modeBanner) modeBanner.className = 'join-room-banner mode-premium';
-    if (modeTag) {
-      modeTag.className = 'join-room-mode-tag tag-premium';
-      modeTag.innerHTML = `👑 STANZA PREMIUM: JUDGEMENT DAY`;
-    }
-    accordion.className = 'join-rules-accordion mode-premium open';
-
-    rulesTextContainer.innerHTML = `
-      <div class="join-rules-steps-container">
-        <div class="join-rules-step-card">
-          <span class="join-rules-step-icon">📸</span>
-          <div class="join-rules-step-body">
-            <span class="join-rules-step-title">1. Crea Carte & Foto Personali</span>
-            <span class="join-rules-step-desc">Tutti i partecipanti caricano dal rullino foto o frasi anonime con didascalie piccanti.</span>
-          </div>
+    track.innerHTML = `
+      <div class="join-slide">
+        <div class="join-slide-icon-box">📱</div>
+        <div class="join-slide-title">1. Il Vostro Mazzo 📱</div>
+        <div class="join-slide-desc">
+          In questa modalità <strong>siete voi a creare il mazzo!</strong> Tutti i partecipanti caricano foto dal rullino e didascalie piccanti anonime.
         </div>
+      </div>
 
-        <div class="join-rules-step-card">
-          <span class="join-rules-step-icon">🔥</span>
-          <div class="join-rules-step-body">
-            <span class="join-rules-step-title">2. Metti il Gruppo alla Gogna</span>
-            <span class="join-rules-step-desc">Ogni carta viene mostrata a tutti. Votate in segreto chi è il protagonista o l'opinione del gruppo!</span>
-          </div>
+      <div class="join-slide">
+        <div class="join-slide-icon-box">🛑</div>
+        <div class="join-slide-title">2. Zero Filtri 🛑</div>
+        <div class="join-slide-desc">
+          Tutta la stanza andrà alla gogna! Le carte create verranno mostrate a tutti per votare chi è il protagonista o cosa ne pensa il gruppo.
         </div>
+      </div>
 
-        <div class="join-rules-step-card">
-          <span class="join-rules-step-icon">🏆</span>
-          <div class="join-rules-step-body">
-            <span class="join-rules-step-title">3. Resoconto & Premi Finali</span>
-            <span class="join-rules-step-desc">A fine partita scopri chi è la Pecora Nera, l'Omologato e il Pigro della stanza!</span>
-          </div>
+      <div class="join-slide">
+        <div class="join-slide-icon-box">🕵️</div>
+        <div class="join-slide-title">3. Anonimato & Caos 🕵️</div>
+        <div class="join-slide-desc">
+          Tutti i caricamenti ed i voti sono anonimi: massimo divertimento, risate esplosive e colpi di scena assicurati tra gli amici!
         </div>
       </div>
     `;
   } else {
-    if (modeBanner) modeBanner.className = 'join-room-banner mode-standard';
-    if (modeTag) {
-      modeTag.className = 'join-room-mode-tag tag-standard';
-      modeTag.innerHTML = `🎯 STANZA STANDARD: OVER / UNDER`;
-    }
-    accordion.className = 'join-rules-accordion mode-standard open';
-
-    rulesTextContainer.innerHTML = `
-      <div class="join-rules-steps-container">
-        <div class="join-rules-step-card">
-          <span class="join-rules-step-icon">⚖️</span>
-          <div class="join-rules-step-body">
-            <span class="join-rules-step-title">1. Vota Over o Under</span>
-            <span class="join-rules-step-desc">Decidi se la frase o l'affermazione è <strong>SOPRAVVALUTATA</strong> o <strong>SOTTOVALUTATE</strong>.</span>
-          </div>
+    track.innerHTML = `
+      <div class="join-slide">
+        <div class="join-slide-icon-box">💡</div>
+        <div class="join-slide-title">1. La Carta 💡</div>
+        <div class="join-slide-desc">
+          In ogni round verrà mostrata una carta con un'affermazione o argomento di cultura pop. La tua sfida è votare se è <strong>SOPRAVVALUTATA (Over)</strong> o <strong>SOTTOVALUTATE (Under)</strong>!
         </div>
+      </div>
 
-        <div class="join-rules-step-card">
-          <span class="join-rules-step-icon">🎯</span>
-          <div class="join-rules-step-body">
-            <span class="join-rules-step-title">2. Segna Punti col Gruppo</span>
-            <span class="join-rules-step-desc">Totalizza punti indovinando la scelta della maggioranza dei partecipanti in stanza.</span>
-          </div>
+      <div class="join-slide">
+        <div class="join-slide-icon-box">🧐</div>
+        <div class="join-slide-title">2. La Scelta 🧐</div>
+        <div class="join-slide-desc">
+          Vota in segreto entro il tempo limite! Non conta solo la tua opinione: segnerai punti se indovinerai la scelta fatta dalla <strong>maggioranza della stanza</strong>.
         </div>
+      </div>
 
-        <div class="join-rules-step-card">
-          <span class="join-rules-step-icon">🏆</span>
-          <div class="join-rules-step-body">
-            <span class="join-rules-step-title">3. Titoli & Premi Speciali</span>
-            <span class="join-rules-step-desc">Conquista la vetta della classifica e scopri i trofei ironici a fine partita!</span>
-          </div>
+      <div class="join-slide">
+        <div class="join-slide-icon-box">📊</div>
+        <div class="join-slide-title">3. Il Verdetto 📊</div>
+        <div class="join-slide-desc">
+          Scalate la classifica round dopo round! A fine partita scoprirete i vincitori ed i trofei ironici: <strong>L'Omologato 🐑</strong>, <strong>La Pecora Nera 🖤</strong> e <strong>Il Pigro 🐌</strong>!
         </div>
       </div>
     `;
   }
 }
 
-async function fetchAndApplyRoomInfo(roomCode) {
+function goToJoinRulesSlide(slideIndex) {
+  state.joinRulesCurrentSlide = Math.max(0, Math.min(2, slideIndex));
+  const track = document.getElementById('join-carousel-track');
+  const dots = document.querySelectorAll('#join-carousel-dots .join-dot');
+  const prevBtn = document.getElementById('btn-carousel-prev');
+  const nextBtn = document.getElementById('btn-carousel-next');
+  const finishBtn = document.getElementById('btn-carousel-finish');
+
+  if (track) {
+    track.style.transform = `translateX(-${state.joinRulesCurrentSlide * 33.33333}%)`;
+  }
+
+  dots.forEach((dot, index) => {
+    dot.classList.toggle('active', index === state.joinRulesCurrentSlide);
+  });
+
+  if (prevBtn) {
+    prevBtn.style.visibility = state.joinRulesCurrentSlide > 0 ? 'visible' : 'hidden';
+  }
+
+  if (state.joinRulesCurrentSlide === 2) {
+    if (nextBtn) nextBtn.style.display = 'none';
+    if (finishBtn) finishBtn.style.display = 'inline-block';
+  } else {
+    if (nextBtn) nextBtn.style.display = 'inline-block';
+    if (finishBtn) finishBtn.style.display = 'none';
+  }
+}
+
+function openJoinRulesModal(isPremium = false) {
+  state.joinRulesIsPremium = !!isPremium;
+  renderJoinRulesSlides(state.joinRulesIsPremium);
+  goToJoinRulesSlide(0);
+
+  const modal = document.getElementById('join-rules-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.offsetHeight; // force reflow
+    modal.classList.remove('hidden');
+    try { AudioSynth.playConfirm(true); } catch (e) {}
+  }
+}
+
+function closeJoinRulesModal() {
+  const modal = document.getElementById('join-rules-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    setTimeout(() => {
+      modal.style.display = 'none';
+    }, 300);
+    try { AudioSynth.playConfirm(false); } catch (e) {}
+  }
+}
+
+async function fetchAndApplyRoomInfo(roomCode, autoOpenModal = false) {
   if (!roomCode) return;
   try {
     const res = await fetch(`/api/room-info?code=${encodeURIComponent(roomCode)}`);
     if (res.ok) {
       const data = await res.json();
       if (data.exists) {
-        updateJoinRulesAccordion(!!data.isPremium);
+        state.joinRulesIsPremium = !!data.isPremium;
+        renderJoinRulesSlides(state.joinRulesIsPremium);
+        if (autoOpenModal && !state.joinRulesAutoOpened) {
+          state.joinRulesAutoOpened = true;
+          setTimeout(() => { openJoinRulesModal(state.joinRulesIsPremium); }, 350);
+        }
         return;
       }
     }
   } catch (e) {
     console.warn("Errore recupero info stanza:", e);
   }
-  updateJoinRulesAccordion(false);
+  renderJoinRulesSlides(false);
+  if (autoOpenModal && !state.joinRulesAutoOpened) {
+    state.joinRulesAutoOpened = true;
+    setTimeout(() => { openJoinRulesModal(false); }, 350);
+  }
 }
 
-function setupJoinRulesAccordion() {
-  const accordion = document.getElementById('join-rules-accordion');
-  const toggleBtn = document.getElementById('btn-join-rules-toggle');
+function setupJoinRulesModalEvents() {
+  const triggerBtn = document.getElementById('btn-trigger-join-rules-modal');
+  const closeBtn = document.getElementById('btn-close-join-rules-modal');
+  const prevBtn = document.getElementById('btn-carousel-prev');
+  const nextBtn = document.getElementById('btn-carousel-next');
+  const finishBtn = document.getElementById('btn-carousel-finish');
+  const modalOverlay = document.getElementById('join-rules-modal');
+  const dots = document.querySelectorAll('#join-carousel-dots .join-dot');
+  const viewport = document.getElementById('join-carousel-viewport');
 
-  if (toggleBtn && accordion) {
-    bindFastClick(toggleBtn, () => {
-      accordion.classList.toggle('open');
-      try { AudioSynth.playConfirm(accordion.classList.contains('open')); } catch (e) {}
+  if (triggerBtn) {
+    bindFastClick(triggerBtn, () => {
+      openJoinRulesModal(state.joinRulesIsPremium);
     });
   }
-  updateJoinRulesAccordion(false);
+
+  if (closeBtn) {
+    bindFastClick(closeBtn, closeJoinRulesModal);
+  }
+
+  if (modalOverlay) {
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) {
+        closeJoinRulesModal();
+      }
+    });
+  }
+
+  if (prevBtn) {
+    bindFastClick(prevBtn, () => {
+      goToJoinRulesSlide(state.joinRulesCurrentSlide - 1);
+      try { AudioSynth.playConfirm(false); } catch (e) {}
+    });
+  }
+
+  if (nextBtn) {
+    bindFastClick(nextBtn, () => {
+      goToJoinRulesSlide(state.joinRulesCurrentSlide + 1);
+      try { AudioSynth.playConfirm(true); } catch (e) {}
+    });
+  }
+
+  if (finishBtn) {
+    bindFastClick(finishBtn, () => {
+      closeJoinRulesModal();
+    });
+  }
+
+  dots.forEach(dot => {
+    bindFastClick(dot, () => {
+      const idx = parseInt(dot.getAttribute('data-slide'), 10) || 0;
+      goToJoinRulesSlide(idx);
+      try { AudioSynth.playConfirm(true); } catch (e) {}
+    });
+  });
+
+  // Touch & Swipe Support su Mobile
+  if (viewport) {
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    viewport.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches.length > 0) {
+        touchStartX = e.touches[0].clientX;
+      }
+    }, { passive: true });
+
+    viewport.addEventListener('touchend', (e) => {
+      if (e.changedTouches && e.changedTouches.length > 0) {
+        touchEndX = e.changedTouches[0].clientX;
+        const diff = touchStartX - touchEndX;
+        if (diff > 40) { // Swipe a sinistra -> Avanti
+          goToJoinRulesSlide(state.joinRulesCurrentSlide + 1);
+        } else if (diff < -40) { // Swipe a destra -> Indietro
+          goToJoinRulesSlide(state.joinRulesCurrentSlide - 1);
+        }
+      }
+    }, { passive: true });
+  }
+
+  // Pre-render di base
+  renderJoinRulesSlides(false);
 }
 
 // Helper per la gestione reattiva a 0ms dei tocchi su smartphone (evita il ritardo di 300ms dei browser mobile)
