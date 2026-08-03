@@ -4275,26 +4275,13 @@ function renderJoinRulesSlides(isPremium = false) {
 
   if (modeBanner) modeBanner.className = `join-room-banner ${isPremium ? 'mode-premium' : 'mode-standard'}`;
   
-  if (isPremium) {
-    if (modeTag) {
-      modeTag.style.display = 'inline-flex';
-      modeTag.className = 'join-room-mode-tag tag-premium';
-      modeTag.innerHTML = `👑 JUDGEMENT DAY`;
-    }
-    if (modalModeTag) {
-      modalModeTag.style.display = 'inline-flex';
-      modalModeTag.className = 'join-modal-mode-tag tag-premium';
-      modalModeTag.innerHTML = `👑 JUDGEMENT DAY`;
-    }
-  } else {
-    if (modeTag) {
-      modeTag.style.display = 'none';
-      modeTag.innerHTML = '';
-    }
-    if (modalModeTag) {
-      modalModeTag.style.display = 'none';
-      modalModeTag.innerHTML = '';
-    }
+  if (modeTag) {
+    modeTag.style.display = 'none';
+    modeTag.innerHTML = '';
+  }
+  if (modalModeTag) {
+    modalModeTag.style.display = 'none';
+    modalModeTag.innerHTML = '';
   }
   if (modalCard) {
     modalCard.className = `join-rules-modal-card ${isPremium ? 'mode-premium' : 'mode-standard'}`;
