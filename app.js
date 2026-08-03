@@ -4347,17 +4347,66 @@ function renderCapsules() {
     } else {
       capsule.className = 'premium-card-capsule';
       capsule.innerHTML = `
-        <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
+        <div class="capsule-content-clickable" style="display: flex; align-items: center; flex: 1; min-width: 0; cursor: pointer;">
           ${imgHtml}
           <span class="capsule-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${textToDisplay}</span>
         </div>
-        <button class="capsule-menu-trigger" title="Opzioni carta">...</button>
+        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+          <button class="capsule-quick-edit" title="Modifica">Modifica</button>
+          <button class="capsule-quick-delete" title="Elimina">&times;</button>
+        </div>
       `;
 
-      const trigger = capsule.querySelector('.capsule-menu-trigger');
-      bindFastClick(trigger, () => {
-        openCardDrawer(index);
-      });
+      const contentClickable = capsule.querySelector('.capsule-content-clickable');
+      const btnQuickEdit = capsule.querySelector('.capsule-quick-edit');
+      const btnQuickDelete = capsule.querySelector('.capsule-quick-delete');
+
+      const startEditing = () => {
+        if (cardObj.image) {
+          state.cropperTarget = 'card';
+          el.cropperImageTarget.src = cardObj.image;
+          el.cropperModal.style.display = 'flex';
+          el.cropperModal.offsetHeight;
+          el.cropperModal.classList.add('active');
+
+          if (activeCropper) activeCropper.destroy();
+
+          activeCropper = new Cropper(el.cropperImageTarget, {
+            aspectRatio: 1,
+            viewMode: 1,
+            dragMode: 'move',
+            autoCropArea: 1,
+            restore: false,
+            guides: true,
+            center: true,
+            highlight: false,
+            cropBoxMovable: true,
+            cropBoxResizable: false,
+            toggleDragModeOnDblclick: false
+          });
+
+          state.editingPremiumCardIndex = index;
+        } else {
+          state.editingPremiumCardIndex = index;
+          renderCapsules();
+        }
+      };
+
+      const deleteCardDirect = () => {
+        state.localPremiumCards.splice(index, 1);
+        if (state.editingPremiumCardIndex === index) {
+          state.editingPremiumCardIndex = null;
+        }
+        renderCapsules();
+        if (state.hasSubmittedPremiumCards) {
+          socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
+        }
+        try { AudioSynth.playConfirm(false); } catch (e) {}
+      };
+
+      bindFastClick(contentClickable, startEditing);
+      bindFastClick(btnQuickEdit, startEditing);
+      bindFastClick(btnQuickDelete, deleteCardDirect);
     }
 
     el.premiumCardsList.appendChild(capsule);

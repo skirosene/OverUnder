@@ -4322,3 +4322,57 @@ input[type="submit"] {
 .btn-capsule-cancel:active {
   transform: scale(0.9);
 }
+
+.capsule-quick-edit {
+  background: rgba(52, 152, 219, 0.15);
+  border: 1px solid rgba(52, 152, 219, 0.35);
+  color: #3498db;
+  font-family: var(--font-title);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  outline: none;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+
+.capsule-quick-edit:active {
+  transform: scale(0.92);
+  background: rgba(52, 152, 219, 0.35);
+  color: #ffffff;
+}
+
+.capsule-quick-delete {
+  background: rgba(255, 59, 48, 0.15);
+  border: 1px solid rgba(255, 59, 48, 0.35);
+  color: #ff453a;
+  font-size: 1.1rem;
+  font-weight: bold;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  outline: none;
+  padding: 0;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+
+.capsule-quick-delete:active {
+  transform: scale(0.92);
+  background: rgba(255, 59, 48, 0.35);
+  color: #ffffff;
+}
