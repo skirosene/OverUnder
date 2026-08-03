@@ -441,6 +441,11 @@ try {
 app.use(express.static(__dirname));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Fallback route per link d'invito / QR code (/join?room=XXX o /join/XXX)
+app.get(['/join', '/join/*'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 app.get('/api/decks', (req, res) => {
   res.json(DECK_DATA);
 });
