@@ -791,6 +791,7 @@ function showScreen(targetScreen) {
   if (targetScreen === el.screenGameplay) {
     setupTimerCounterClickable();
   } else {
+    stopTimerLoop();
     closeTimerPicker();
   }
 }
@@ -3085,11 +3086,8 @@ function renderRoundEndOverlay(votes = [], showStats = false) {
     el.roundEndStatsSummary.style.display = 'none';
   }
 
-  // Ferma il timer loop locale
-  if (state.timerRequestId) {
-    cancelAnimationFrame(state.timerRequestId);
-    state.timerRequestId = null;
-  }
+  // Ferma immediatamente il timer e l'audio del ticchettio
+  stopTimerLoop();
 
   // Controlli per l'Host o semplice Player
   if (state.isHost) {
@@ -3204,13 +3202,17 @@ function submitLateVote(voteType) {
   socket.emit('submit_vote', { voteType, roundId: state.currentRoundId });
 }
 
-function pauseTimer() {
+function stopTimerLoop() {
   if (state.timerRequestId) {
     cancelAnimationFrame(state.timerRequestId);
     state.timerRequestId = null;
-    state.timerPaused = true;
-    state.pausedElapsed = Date.now() - state.timerStartTime;
   }
+}
+
+function pauseTimer() {
+  stopTimerLoop();
+  state.timerPaused = true;
+  state.pausedElapsed = Date.now() - state.timerStartTime;
 }
 
 function resumeTimer() {
@@ -3225,6 +3227,12 @@ function resumeTimer() {
 // LOGICA LOOP TIMER (60 FPS) CON SFUMATURA HSL E VOTO
 // ==========================================================================
 function gameLoop() {
+  // Interrompi immediatamente se non siamo nella schermata di gameplay o se il round è terminato
+  if (state.roundEndActive || !el.screenGameplay || !el.screenGameplay.classList.contains('active')) {
+    stopTimerLoop();
+    return;
+  }
+
   const elapsed = Date.now() - state.timerStartTime;
   
   if (elapsed >= state.timerDurationMs) {
@@ -3244,6 +3252,7 @@ function gameLoop() {
       AudioSynth.playTimeout();
       handleSoloVote('timeout');
     }
+    stopTimerLoop();
     return;
   }
   
@@ -3636,6 +3645,8 @@ function renderSoloGameOver() {
 }
 
 function renderRoundResults({ votes, groupStats, globalStats, prompt, image, cardIndex, totalCards }) {
+  stopTimerLoop();
+  state.roundEndActive = true;
   state.currentCardIndex = cardIndex;
   state.totalCards = totalCards;
   state.currentPromptText = prompt;
