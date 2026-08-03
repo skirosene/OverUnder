@@ -4228,6 +4228,31 @@ function getDeckMeta(deckId) {
   return meta[deckId] || { emoji: '🎮', desc: "Nuovo mazzo speciale! Mettiti alla prova con questa divertente categoria." };
 }
 
+// Helper per la gestione reattiva a 0ms dei tocchi su smartphone (evita il ritardo di 300ms dei browser mobile)
+function bindFastClick(element, callback) {
+  if (!element) return;
+  let isExecuted = false;
+
+  const handleAction = (e) => {
+    if (e) {
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+    }
+    if (isExecuted) return;
+    isExecuted = true;
+    setTimeout(() => { isExecuted = false; }, 250);
+    callback(e);
+  };
+
+  element.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch' || e.pointerType === 'mouse') {
+      handleAction(e);
+    }
+  }, { passive: false });
+
+  element.addEventListener('click', handleAction, { passive: false });
+}
+
 // Funzioni helper per la gestione del Drawer laterale delle opzioni carta (#card-actions-drawer)
 function openCardDrawer(cardIndex) {
   const cardObj = state.localPremiumCards[cardIndex];
@@ -4301,8 +4326,8 @@ function renderCapsules() {
         renderCapsules();
       };
 
-      btnSave.addEventListener('click', saveInlineEdit);
-      btnCancel.addEventListener('click', cancelInlineEdit);
+      bindFastClick(btnSave, saveInlineEdit);
+      bindFastClick(btnCancel, cancelInlineEdit);
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
@@ -4330,8 +4355,7 @@ function renderCapsules() {
       `;
 
       const trigger = capsule.querySelector('.capsule-menu-trigger');
-      trigger.addEventListener('click', (e) => {
-        e.stopPropagation();
+      bindFastClick(trigger, () => {
         openCardDrawer(index);
       });
     }
@@ -4357,7 +4381,7 @@ function setupPremiumCreatorEvents() {
   const deleteBtn = el.btnDeleteCard || document.getElementById('btn-delete-card');
 
   if (closeBtn) {
-    closeBtn.addEventListener('click', closeCardDrawer);
+    bindFastClick(closeBtn, closeCardDrawer);
   }
 
   if (drawer) {
@@ -4375,7 +4399,7 @@ function setupPremiumCreatorEvents() {
   });
 
   if (editBtn) {
-    editBtn.addEventListener('click', () => {
+    bindFastClick(editBtn, () => {
       const index = state.selectedCardIndex;
       if (index === null || index === undefined) return;
       const cardObj = state.localPremiumCards[index];
@@ -4419,7 +4443,7 @@ function setupPremiumCreatorEvents() {
   }
 
   if (deleteBtn) {
-    deleteBtn.addEventListener('click', () => {
+    bindFastClick(deleteBtn, () => {
       const index = state.selectedCardIndex;
       if (index !== null && index !== undefined && state.localPremiumCards[index]) {
         state.localPremiumCards.splice(index, 1);

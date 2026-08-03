@@ -4162,59 +4162,89 @@ input[type="submit"] {
   margin-top: 8px;
 }
 
+.capsule-menu-trigger {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0 8px;
+  min-width: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  border-radius: 8px;
+  transition: transform 0.08s ease, background 0.15s ease, color 0.15s ease;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.capsule-menu-trigger:hover,
+.capsule-menu-trigger:active {
+  color: white;
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(0.92);
+}
+
 .drawer-action-btn {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 12px;
-  min-height: 52px;
+  min-height: 56px;
   width: 100%;
-  padding: 12px 18px;
-  border-radius: 14px;
+  padding: 14px 20px;
+  border-radius: 16px;
   font-family: var(--font-title);
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 800;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   cursor: pointer;
   outline: none;
   box-sizing: border-box;
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.drawer-action-btn .icon {
-  font-size: 1.2rem;
+.drawer-action-btn:active {
+  transform: scale(0.95);
 }
 
 .drawer-action-btn.edit {
-  background: rgba(52, 152, 219, 0.12);
-  border: 1px solid rgba(52, 152, 219, 0.3);
+  background: rgba(52, 152, 219, 0.15);
+  border: 1px solid rgba(52, 152, 219, 0.4);
   color: #3498db;
 }
 
 .drawer-action-btn.edit:hover,
 .drawer-action-btn.edit:active {
-  background: rgba(52, 152, 219, 0.25);
+  background: rgba(52, 152, 219, 0.3);
   border-color: #3498db;
   color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 14px rgba(52, 152, 219, 0.3);
+  box-shadow: 0 4px 16px rgba(52, 152, 219, 0.4);
 }
 
 .drawer-action-btn.delete {
-  background: rgba(255, 59, 48, 0.12);
-  border: 1px solid rgba(255, 59, 48, 0.3);
+  background: rgba(255, 59, 48, 0.15);
+  border: 1px solid rgba(255, 59, 48, 0.4);
   color: #ff453a;
 }
 
 .drawer-action-btn.delete:hover,
 .drawer-action-btn.delete:active {
-  background: rgba(255, 59, 48, 0.25);
+  background: rgba(255, 59, 48, 0.3);
   border-color: #ff453a;
   color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 14px rgba(255, 59, 48, 0.3);
+  box-shadow: 0 4px 16px rgba(255, 59, 48, 0.4);
 }
 
 /* ==========================================================================
