@@ -4291,26 +4291,26 @@ function renderJoinRulesSlides(isPremium = false) {
   if (isPremium) {
     track.innerHTML = `
       <div class="join-slide">
-        <div class="join-slide-icon-box">📸</div>
-        <div class="join-slide-title">1. Crea le tue carte 📸</div>
+        <div class="join-slide-icon-box">📱</div>
+        <div class="join-slide-title">1. Il Vostro Mazzo 📱</div>
         <div class="join-slide-desc">
-          Tutti i partecipanti alla stanza caricano foto dal proprio telefono ed inventano didascalie personalizzate.
+          Tutti i partecipanti creano il mazzo inserendo contemporaneamente immagini e didascalie personalizzate.
         </div>
       </div>
 
       <div class="join-slide">
-        <div class="join-slide-icon-box">⚖️</div>
-        <div class="join-slide-title">2. Metti alla gogna il gruppo ⚖️</div>
+        <div class="join-slide-icon-box">🛑</div>
+        <div class="join-slide-title">2. Zero Filtri 🛑</div>
         <div class="join-slide-desc">
-          Durante la partita le carte personalizzate compaiono a schermo per votare se l'entità o l'amico è <strong>SOPRAVVALUTATO</strong> o <strong>SOTTOVALUTATO</strong>!
+          Ogni giocatore deve inserire almeno una carta per poter iniziare. Non c'è alcun limite al massimo di carte inseribili. Vale tutto.
         </div>
       </div>
 
       <div class="join-slide">
-        <div class="join-slide-icon-box">💡</div>
-        <div class="join-slide-title">3. Gioca senza filtri 💡</div>
+        <div class="join-slide-icon-box">🕵️</div>
+        <div class="join-slide-title">3. Anonimato & Caos 🕵️</div>
         <div class="join-slide-desc">
-          Tutti gli amici che entrano in stanza giocano <strong>GRATIS</strong>! Risate ed ilarità senza filtri per tutta la partita.
+          Le carte vengono mostrate in modo completamente anonimo. Sparate a zero: nessuno saprà chi ha inserito la frase, ma il gruppo voterà di pancia scatenando il dibattito al tavolo. <strong>È sopravvalutato (OVER) o sottovalutato (UNDER)?</strong>
         </div>
       </div>
     `;
