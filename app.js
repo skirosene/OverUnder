@@ -699,6 +699,7 @@ async function startApp() {
   try { setupSocketListeners(); } catch (e) { console.warn("setupSocketListeners error:", e); }
   try { setupPremiumCreatorEvents(); } catch (e) { console.warn("setupPremiumCreatorEvents error:", e); }
   try { setupAvatarEvents(); } catch (e) { console.warn("setupAvatarEvents error:", e); }
+  try { setupJoinRulesAccordion(); } catch (e) { console.warn("setupJoinRulesAccordion error:", e); }
   
   let hasRoomParam = false;
   try {
@@ -4129,6 +4130,9 @@ function showJoinFromLink(roomCode) {
   state.pendingRoomToJoin = cleanCode;
   safeSessionStorage.setItem('overunder_pendingRoom', cleanCode);
   
+  // Interroga il server per recuperare la modalità della stanza (Standard vs Premium)
+  fetchAndApplyRoomInfo(cleanCode);
+
   // Nascondi le schede standard
   if (el.modeTabs) el.modeTabs.style.display = 'none';
   if (el.formSoloPlay) el.formSoloPlay.style.display = 'none';
@@ -4226,6 +4230,68 @@ function getDeckMeta(deckId) {
     }
   };
   return meta[deckId] || { emoji: '🎮', desc: "Nuovo mazzo speciale! Mettiti alla prova con questa divertente categoria." };
+}
+
+// ==========================================================================
+// ACCORDION DINAMICO "COME SI GIOCA" PER SCHERMATA JOIN GUEST
+// ==========================================================================
+function updateJoinRulesAccordion(isPremium = false) {
+  const accordion = document.getElementById('join-rules-accordion');
+  const rulesTextContainer = document.getElementById('join-rules-text');
+  if (!accordion || !rulesTextContainer) return;
+
+  if (isPremium) {
+    accordion.className = 'join-rules-accordion mode-premium';
+    rulesTextContainer.innerHTML = `
+      <div class="join-rules-badge badge-premium">👑 MODALITÀ JUDGEMENT DAY</div>
+      <p style="margin: 0 0 6px 0;">In questa stanza <strong>tutti i partecipanti creano il mazzo sul momento</strong>!</p>
+      <ul class="join-rules-list">
+        <li><strong>Carte & Foto:</strong> Inserisci affermazioni anonime o scatta/carica foto dal tuo rullino con didascalie personalizzate.</li>
+        <li><strong>Votazione del Gruppo:</strong> Ogni carta verrà mostrata a tutti per votare chi è il protagonista o cosa ne pensa la stanza.</li>
+        <li><strong>Gogna di Gruppo:</strong> Nessun filtro, massimo divertimento e risate assicurati!</li>
+      </ul>
+    `;
+  } else {
+    accordion.className = 'join-rules-accordion mode-standard';
+    rulesTextContainer.innerHTML = `
+      <div class="join-rules-badge badge-standard">🎯 MODALITÀ STANDARD</div>
+      <p style="margin: 0 0 6px 0;">Vota e scopri cosa pensa il gruppo sulle affermazioni di cultura pop ed everyday life!</p>
+      <ul class="join-rules-list">
+        <li><strong>Vota Over/Under:</strong> Decidi se la carta è <em>SOPRAVVALUTATA</em> o <em>SOTTOVALUTATE</em>.</li>
+        <li><strong>Opinione della Stanza:</strong> Totalizza punti indovinando il voto della maggioranza dei partecipanti.</li>
+      </ul>
+    `;
+  }
+}
+
+async function fetchAndApplyRoomInfo(roomCode) {
+  if (!roomCode) return;
+  try {
+    const res = await fetch(`/api/room-info?code=${encodeURIComponent(roomCode)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.exists) {
+        updateJoinRulesAccordion(!!data.isPremium);
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn("Errore recupero info stanza:", e);
+  }
+  updateJoinRulesAccordion(false);
+}
+
+function setupJoinRulesAccordion() {
+  const accordion = document.getElementById('join-rules-accordion');
+  const toggleBtn = document.getElementById('btn-join-rules-toggle');
+
+  if (toggleBtn && accordion) {
+    bindFastClick(toggleBtn, () => {
+      accordion.classList.toggle('open');
+      try { AudioSynth.playConfirm(accordion.classList.contains('open')); } catch (e) {}
+    });
+  }
+  updateJoinRulesAccordion(false);
 }
 
 // Helper per la gestione reattiva a 0ms dei tocchi su smartphone (evita il ritardo di 300ms dei browser mobile)

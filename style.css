@@ -4394,3 +4394,128 @@ input[type="submit"] {
   overflow: visible !important;
   text-overflow: clip !important;
 }
+
+/* ==========================================================================
+   ACCORDION "COME SI GIOCA" - SCHERMATA JOIN GUEST
+   ========================================================================== */
+.join-rules-accordion {
+  width: 100%;
+  margin-bottom: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.join-rules-accordion.mode-premium {
+  background: rgba(189, 51, 255, 0.06);
+  border-color: rgba(189, 51, 255, 0.35);
+  box-shadow: 0 0 15px rgba(189, 51, 255, 0.1);
+}
+
+.join-rules-accordion.mode-standard {
+  background: rgba(52, 152, 219, 0.06);
+  border-color: rgba(52, 152, 219, 0.35);
+  box-shadow: 0 0 15px rgba(52, 152, 219, 0.1);
+}
+
+.join-rules-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.join-rules-header:active {
+  opacity: 0.8;
+}
+
+.join-rules-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.join-rules-chevron {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease;
+}
+
+.join-rules-accordion.open .join-rules-chevron {
+  transform: rotate(180deg);
+  color: #ffffff;
+}
+
+.join-rules-content {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.3s ease;
+  padding: 0 14px;
+  box-sizing: border-box;
+}
+
+.join-rules-accordion.open .join-rules-content {
+  max-height: 400px;
+  opacity: 1;
+  padding: 0 14px 14px 14px;
+}
+
+.join-rules-text {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.88);
+  text-align: left;
+}
+
+.join-rules-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.join-rules-badge.badge-standard {
+  background: rgba(52, 152, 219, 0.2);
+  color: #3498db;
+  border: 1px solid rgba(52, 152, 219, 0.4);
+}
+
+.join-rules-badge.badge-premium {
+  background: rgba(223, 51, 255, 0.2);
+  color: #df33ff;
+  border: 1px solid rgba(223, 51, 255, 0.4);
+}
+
+.join-rules-list {
+  margin: 6px 0 0 0;
+  padding-left: 18px;
+}
+
+.join-rules-list li {
+  margin-bottom: 4px;
+}

@@ -239,6 +239,19 @@
                 <div id="join-room-code-display" style="font-family: var(--font-title); font-size: 1.5rem; font-weight: 800; color: white; letter-spacing: 2px; text-shadow: 0 0 10px rgba(52, 152, 219, 0.5);">-</div>
               </div>
 
+              <!-- Accordion "Come si gioca? 📋" -->
+              <div id="join-rules-accordion" class="join-rules-accordion mode-standard">
+                <button type="button" id="btn-join-rules-toggle" class="join-rules-header">
+                  <span class="join-rules-title">📋 Come si gioca?</span>
+                  <span id="join-rules-chevron" class="join-rules-chevron">▼</span>
+                </button>
+                <div id="join-rules-content" class="join-rules-content">
+                  <div id="join-rules-text" class="join-rules-text">
+                    <!-- Contenuto dinamico inserito da app.js -->
+                  </div>
+                </div>
+              </div>
+
               <div class="input-group" style="width: 100%;">
                 <label for="join-name-input" class="input-label" style="text-align: center; display: block; font-size: 0.8rem; font-weight: 700; color: white; margin-bottom: 6px;">SCEGLI IL TUO NICKNAME</label>
                 <input type="text" id="join-name-input" class="text-input" placeholder="Es. Giulia" autocomplete="off" maxlength="15" style="text-align: center; font-size: 0.95rem; font-weight: bold; padding: 12px;">
@@ -1091,6 +1104,6 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=156"></script>
+  <script src="/app.js?v=157"></script>
 </body>
 </html>

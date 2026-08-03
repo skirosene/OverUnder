@@ -551,6 +551,25 @@ app.post('/api/trial/activate', (req, res) => {
   res.json({ success: true });
 });
 
+// Endpoint pubblico per verificare modalità (Standard vs Premium) e stato di una stanza
+app.get('/api/room-info', (req, res) => {
+  const code = String(req.query.code || req.query.room || '').toUpperCase().trim();
+  if (!code) {
+    return res.status(400).json({ error: 'Codice stanza mancante' });
+  }
+  const room = rooms.get(code);
+  if (!room) {
+    return res.json({ exists: false });
+  }
+  res.json({
+    exists: true,
+    roomCode: room.roomCode,
+    isPremium: !!room.isPremium,
+    isLocked: !!room.isLocked,
+    playerCount: room.players ? room.players.length : 0
+  });
+});
+
 // ==========================================================================
 // ROTTE TRASFERIMENTO LICENZA PREMIUM (EMAIL & OTP)
 // ==========================================================================
