@@ -42,36 +42,45 @@ const transporter = nodemailer.createTransport(transporterOptions);
 
 // Helper per recuperare variabili d'ambiente pulite con ricerca flessibile ed auto-detection delle chiavi Resend (re_...)
 function getCleanEnvVar(...keys) {
-  // 1. Controllo diretto delle chiavi indicate
-  for (const k of keys) {
-    const val = process.env[k];
-    if (val && typeof val === 'string' && val.trim().length > 0) {
-      return val.replace(/^["']|["']$/g, '').trim();
-    }
-  }
-  // 2. Ricerca fuzzy senza distinzione tra maiuscole/minuscole e spazi per Render
   const envKeys = Object.keys(process.env);
-  for (const targetKey of keys) {
-    const cleanTarget = targetKey.toLowerCase().trim();
-    const foundKey = envKeys.find(ek => {
-      const cleanEk = ek.toLowerCase().trim();
-      return cleanEk === cleanTarget || cleanEk.includes('resend') || cleanEk.includes('smtp') || cleanEk.includes('mail');
-    });
-    if (foundKey) {
-      const val = process.env[foundKey];
-      if (val && typeof val === 'string' && val.trim().length > 0) {
-        return val.replace(/^["']|["']$/g, '').trim();
+  
+  // 1. Cerca per valore che inizia con 're_' (formato ufficiale Resend API Key)
+  for (const ek of envKeys) {
+    const val = process.env[ek];
+    if (val && typeof val === 'string') {
+      const clean = val.replace(/^["']|["']$/g, '').trim();
+      if (clean.startsWith('re_') && clean.length > 10) {
+        console.log(`[ENV AUTO-DETECT] Trovata chiave Resend (formato 're_...') nella variabile ${ek}!`);
+        return clean;
       }
     }
   }
-  // 3. Fallback d'emergenza: Auto-detection per QUALSIASI variabile in process.env il cui valore inizia con 're_' (formato ufficiale Resend)
-  for (const ek of envKeys) {
-    const val = process.env[ek];
-    if (val && typeof val === 'string' && val.trim().startsWith('re_') && val.trim().length > 10) {
-      console.log(`[ENV AUTO-DETECT] Trovata chiave Resend (valore inizia con 're_') nella variabile ${ek}!`);
-      return val.replace(/^["']|["']$/g, '').trim();
+
+  // 2. Cerca per il nome esatto delle chiavi richieste
+  for (const k of keys) {
+    const val = process.env[k];
+    if (val && typeof val === 'string') {
+      const clean = val.replace(/^["']|["']$/g, '').trim();
+      if (clean.length > 0 && clean !== 'sync:false' && clean !== 'undefined' && clean !== 'null') {
+        return clean;
+      }
     }
   }
+
+  // 3. Cerca fuzzy per nome della variabile (resend, smtp, mail)
+  for (const ek of envKeys) {
+    const cleanEk = ek.toLowerCase().trim();
+    if (cleanEk.includes('resend') || cleanEk.includes('smtp') || cleanEk.includes('mail')) {
+      const val = process.env[ek];
+      if (val && typeof val === 'string') {
+        const clean = val.replace(/^["']|["']$/g, '').trim();
+        if (clean.length > 0 && clean !== 'sync:false' && clean !== 'undefined' && clean !== 'null') {
+          return clean;
+        }
+      }
+    }
+  }
+
   return '';
 }
 
