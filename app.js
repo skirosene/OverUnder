@@ -4238,7 +4238,7 @@ function openCardDrawer(cardIndex) {
   const drawerTitle = el.drawerCardTitle || document.getElementById('drawer-card-title');
   if (drawerTitle) {
     const textSnippet = cardObj.text ? (cardObj.text.length > 18 ? cardObj.text.substring(0, 18) + '...' : cardObj.text) : 'Opzioni Carta';
-    drawerTitle.textContent = cardObj.image ? '🖼️ Immagine' : `✏️ ${textSnippet}`;
+    drawerTitle.textContent = textSnippet;
   }
 
   const drawer = el.cardActionsDrawer || document.getElementById('card-actions-drawer');
@@ -4263,25 +4263,78 @@ function renderCapsules() {
   
   state.localPremiumCards.forEach((cardObj, index) => {
     const capsule = document.createElement('div');
-    capsule.className = 'premium-card-capsule';
     
     const hasImage = cardObj.image ? true : false;
     const imgHtml = hasImage ? `<img src="${cardObj.image}" style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover; margin-right: 8px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15);">` : '';
     const textToDisplay = cardObj.image ? (cardObj.text || 'immagine caricata') : cardObj.text;
 
-    capsule.innerHTML = `
-      <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
-        ${imgHtml}
-        <span class="capsule-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${textToDisplay}</span>
-      </div>
-      <button class="capsule-menu-trigger" title="Opzioni carta">...</button>
-    `;
+    if (state.editingPremiumCardIndex === index) {
+      capsule.className = 'premium-card-capsule inline-editing';
+      capsule.innerHTML = `
+        <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
+          ${imgHtml}
+          <input type="text" class="capsule-inline-input" value="${cardObj.text || ''}" maxlength="100">
+        </div>
+        <button class="btn-capsule-save" title="Salva">✓</button>
+        <button class="btn-capsule-cancel" title="Annulla">&times;</button>
+      `;
 
-    const trigger = capsule.querySelector('.capsule-menu-trigger');
-    trigger.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openCardDrawer(index);
-    });
+      const input = capsule.querySelector('.capsule-inline-input');
+      const btnSave = capsule.querySelector('.btn-capsule-save');
+      const btnCancel = capsule.querySelector('.btn-capsule-cancel');
+
+      const saveInlineEdit = () => {
+        const newText = input.value.trim();
+        if (newText || cardObj.image) {
+          state.localPremiumCards[index].text = newText || 'immagine caricata';
+          if (state.hasSubmittedPremiumCards) {
+            socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
+          }
+        }
+        state.editingPremiumCardIndex = null;
+        renderCapsules();
+        try { AudioSynth.playConfirm(true); } catch (e) {}
+      };
+
+      const cancelInlineEdit = () => {
+        state.editingPremiumCardIndex = null;
+        renderCapsules();
+      };
+
+      btnSave.addEventListener('click', saveInlineEdit);
+      btnCancel.addEventListener('click', cancelInlineEdit);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          saveInlineEdit();
+        } else if (e.key === 'Escape') {
+          cancelInlineEdit();
+        }
+      });
+
+      requestAnimationFrame(() => {
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      });
+
+    } else {
+      capsule.className = 'premium-card-capsule';
+      capsule.innerHTML = `
+        <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
+          ${imgHtml}
+          <span class="capsule-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${textToDisplay}</span>
+        </div>
+        <button class="capsule-menu-trigger" title="Opzioni carta">...</button>
+      `;
+
+      const trigger = capsule.querySelector('.capsule-menu-trigger');
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openCardDrawer(index);
+      });
+    }
 
     el.premiumCardsList.appendChild(capsule);
   });
@@ -4358,16 +4411,9 @@ function setupPremiumCreatorEvents() {
 
         state.editingPremiumCardIndex = index;
       } else {
-        // Modifica in-place della carta di testo
+        // Attiva modifica inline direttamente nella stessa riga della capsule
         state.editingPremiumCardIndex = index;
-        el.premiumCardInput.value = cardObj.text || '';
-        state.currentCroppedImage = null;
-        el.premiumImagePreviewContainer.style.display = 'none';
-        el.premiumImagePreview.src = '';
-        el.premiumCardInput.style.paddingLeft = '42px';
-        el.premiumCardInput.disabled = false;
-        el.premiumCardInput.placeholder = 'Modifica carta e premi + per salvare';
-        el.premiumCardInput.focus();
+        renderCapsules();
       }
     });
   }

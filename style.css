@@ -4216,3 +4216,79 @@ input[type="submit"] {
   transform: translateY(-2px);
   box-shadow: 0 4px 14px rgba(255, 59, 48, 0.3);
 }
+
+/* ==========================================================================
+   MODIFICA INLINE CARTA NELLA STESSA RIGA
+   ========================================================================== */
+.premium-card-capsule.inline-editing {
+  padding: 6px 10px;
+  background: rgba(52, 152, 219, 0.12);
+  border-color: rgba(52, 152, 219, 0.4);
+}
+
+.capsule-inline-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(52, 152, 219, 0.6);
+  border-radius: 8px;
+  color: #ffffff;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  padding: 6px 10px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  margin-right: 8px;
+}
+
+.capsule-inline-input:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 8px rgba(52, 152, 219, 0.4);
+}
+
+.btn-capsule-save {
+  background: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  flex-shrink: 0;
+  touch-action: manipulation;
+  transition: transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-capsule-save:active {
+  transform: scale(0.9);
+}
+
+.btn-capsule-cancel {
+  background: rgba(255, 255, 255, 0.12);
+  color: #cccccc;
+  border: none;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  touch-action: manipulation;
+  transition: transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-capsule-cancel:active {
+  transform: scale(0.9);
+}
