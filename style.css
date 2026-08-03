@@ -4442,16 +4442,24 @@ input[type="submit"] {
    TRIGGER TESTUALE "COME SI GIOCA? 📋" (GLOW GRADIENT PULSE MARCATO)
    ========================================================================== */
 .join-rules-text-trigger {
-  background: transparent;
-  border: none;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
   padding: 6px 14px;
   cursor: pointer;
-  outline: none;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .join-rules-text-trigger:active {
@@ -4460,15 +4468,16 @@ input[type="submit"] {
 
 .glow-text-content {
   font-family: var(--font-title);
-  font-size: 0.95rem;
+  font-size: 0.98rem;
   font-weight: 800;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  background: linear-gradient(90deg, #a855f7, #df33ff, #00f2fe, #ff007f, #a855f7);
-  background-size: 300% 100%;
+  color: #df33ff;
+  background: linear-gradient(90deg, #ff007f, #df33ff, #00f2fe, #a855f7, #ff007f);
+  background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: gradientShiftText 3.5s infinite linear, pulseGlowStrong 1.5s infinite alternate ease-in-out;
+  animation: gradientShiftText 3s infinite linear, pulseGlowStrong 1.4s infinite alternate ease-in-out;
   display: inline-block;
 }
 
@@ -4480,12 +4489,12 @@ input[type="submit"] {
 
 @keyframes pulseGlowStrong {
   0% {
-    filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.6)) drop-shadow(0 0 10px rgba(223, 51, 255, 0.5));
+    filter: drop-shadow(0 0 6px rgba(223, 51, 255, 0.7)) drop-shadow(0 0 12px rgba(255, 0, 127, 0.6));
     transform: scale(1);
   }
   100% {
-    filter: drop-shadow(0 0 16px rgba(168, 85, 247, 1)) drop-shadow(0 0 28px rgba(223, 51, 255, 0.9)) drop-shadow(0 0 40px rgba(0, 242, 254, 0.8));
-    transform: scale(1.08);
+    filter: drop-shadow(0 0 18px rgba(0, 242, 254, 1)) drop-shadow(0 0 30px rgba(223, 51, 255, 1)) drop-shadow(0 0 45px rgba(255, 0, 127, 0.95));
+    transform: scale(1.1);
   }
 }
 
