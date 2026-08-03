@@ -4352,7 +4352,11 @@ function renderCapsules() {
           <span class="capsule-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${textToDisplay}</span>
         </div>
         <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-          <button class="capsule-quick-edit" title="Modifica">Modifica</button>
+          <button class="capsule-quick-edit" title="Modifica">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            </svg>
+          </button>
           <button class="capsule-quick-delete" title="Elimina">&times;</button>
         </div>
       `;
