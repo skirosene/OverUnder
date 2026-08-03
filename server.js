@@ -557,7 +557,7 @@ app.get('/api/room-info', (req, res) => {
   if (!code) {
     return res.status(400).json({ error: 'Codice stanza mancante' });
   }
-  const room = rooms.get(code);
+  const room = rooms[code];
   if (!room) {
     return res.json({ exists: false });
   }

@@ -4264,29 +4264,81 @@ function getDeckMeta(deckId) {
 // ==========================================================================
 function updateJoinRulesAccordion(isPremium = false) {
   const accordion = document.getElementById('join-rules-accordion');
+  const modeBanner = document.getElementById('join-room-mode-banner');
+  const modeTag = document.getElementById('join-room-mode-tag');
   const rulesTextContainer = document.getElementById('join-rules-text');
+
   if (!accordion || !rulesTextContainer) return;
 
   if (isPremium) {
-    accordion.className = 'join-rules-accordion mode-premium';
+    if (modeBanner) modeBanner.className = 'join-room-banner mode-premium';
+    if (modeTag) {
+      modeTag.className = 'join-room-mode-tag tag-premium';
+      modeTag.innerHTML = `👑 STANZA PREMIUM: JUDGEMENT DAY`;
+    }
+    accordion.className = 'join-rules-accordion mode-premium open';
+
     rulesTextContainer.innerHTML = `
-      <div class="join-rules-badge badge-premium">👑 MODALITÀ JUDGEMENT DAY</div>
-      <p style="margin: 0 0 6px 0;">In questa stanza <strong>tutti i partecipanti creano il mazzo sul momento</strong>!</p>
-      <ul class="join-rules-list">
-        <li><strong>Carte & Foto:</strong> Inserisci affermazioni anonime o scatta/carica foto dal tuo rullino con didascalie personalizzate.</li>
-        <li><strong>Votazione del Gruppo:</strong> Ogni carta verrà mostrata a tutti per votare chi è il protagonista o cosa ne pensa la stanza.</li>
-        <li><strong>Gogna di Gruppo:</strong> Nessun filtro, massimo divertimento e risate assicurati!</li>
-      </ul>
+      <div class="join-rules-steps-container">
+        <div class="join-rules-step-card">
+          <span class="join-rules-step-icon">📸</span>
+          <div class="join-rules-step-body">
+            <span class="join-rules-step-title">1. Crea Carte & Foto Personali</span>
+            <span class="join-rules-step-desc">Tutti i partecipanti caricano dal rullino foto o frasi anonime con didascalie piccanti.</span>
+          </div>
+        </div>
+
+        <div class="join-rules-step-card">
+          <span class="join-rules-step-icon">🔥</span>
+          <div class="join-rules-step-body">
+            <span class="join-rules-step-title">2. Metti il Gruppo alla Gogna</span>
+            <span class="join-rules-step-desc">Ogni carta viene mostrata a tutti. Votate in segreto chi è il protagonista o l'opinione del gruppo!</span>
+          </div>
+        </div>
+
+        <div class="join-rules-step-card">
+          <span class="join-rules-step-icon">🏆</span>
+          <div class="join-rules-step-body">
+            <span class="join-rules-step-title">3. Resoconto & Premi Finali</span>
+            <span class="join-rules-step-desc">A fine partita scopri chi è la Pecora Nera, l'Omologato e il Pigro della stanza!</span>
+          </div>
+        </div>
+      </div>
     `;
   } else {
-    accordion.className = 'join-rules-accordion mode-standard';
+    if (modeBanner) modeBanner.className = 'join-room-banner mode-standard';
+    if (modeTag) {
+      modeTag.className = 'join-room-mode-tag tag-standard';
+      modeTag.innerHTML = `🎯 STANZA STANDARD: OVER / UNDER`;
+    }
+    accordion.className = 'join-rules-accordion mode-standard open';
+
     rulesTextContainer.innerHTML = `
-      <div class="join-rules-badge badge-standard">🎯 MODALITÀ STANDARD</div>
-      <p style="margin: 0 0 6px 0;">Vota e scopri cosa pensa il gruppo sulle affermazioni di cultura pop ed everyday life!</p>
-      <ul class="join-rules-list">
-        <li><strong>Vota Over/Under:</strong> Decidi se la carta è <em>SOPRAVVALUTATA</em> o <em>SOTTOVALUTATE</em>.</li>
-        <li><strong>Opinione della Stanza:</strong> Totalizza punti indovinando il voto della maggioranza dei partecipanti.</li>
-      </ul>
+      <div class="join-rules-steps-container">
+        <div class="join-rules-step-card">
+          <span class="join-rules-step-icon">⚖️</span>
+          <div class="join-rules-step-body">
+            <span class="join-rules-step-title">1. Vota Over o Under</span>
+            <span class="join-rules-step-desc">Decidi se la frase o l'affermazione è <strong>SOPRAVVALUTATA</strong> o <strong>SOTTOVALUTATE</strong>.</span>
+          </div>
+        </div>
+
+        <div class="join-rules-step-card">
+          <span class="join-rules-step-icon">🎯</span>
+          <div class="join-rules-step-body">
+            <span class="join-rules-step-title">2. Segna Punti col Gruppo</span>
+            <span class="join-rules-step-desc">Totalizza punti indovinando la scelta della maggioranza dei partecipanti in stanza.</span>
+          </div>
+        </div>
+
+        <div class="join-rules-step-card">
+          <span class="join-rules-step-icon">🏆</span>
+          <div class="join-rules-step-body">
+            <span class="join-rules-step-title">3. Titoli & Premi Speciali</span>
+            <span class="join-rules-step-desc">Conquista la vetta della classifica e scopri i trofei ironici a fine partita!</span>
+          </div>
+        </div>
+      </div>
     `;
   }
 }
