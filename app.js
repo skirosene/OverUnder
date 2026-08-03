@@ -4280,8 +4280,9 @@ function renderJoinRulesSlides(isPremium = false) {
     modeTag.innerHTML = '';
   }
   if (modalModeTag) {
-    modalModeTag.style.display = 'none';
-    modalModeTag.innerHTML = '';
+    modalModeTag.style.display = 'inline-flex';
+    modalModeTag.className = `join-modal-mode-tag ${isPremium ? 'tag-premium' : 'tag-standard'}`;
+    modalModeTag.innerHTML = isPremium ? `👑 MODALITÀ "JUDGEMENT DAY"` : `🎯 MODALITÀ STANDARD`;
   }
   if (modalCard) {
     modalCard.className = `join-rules-modal-card ${isPremium ? 'mode-premium' : 'mode-standard'}`;
