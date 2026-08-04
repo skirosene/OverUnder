@@ -3606,7 +3606,7 @@ input[type="submit"] {
   text-shadow: 0 0 5px rgba(255, 255, 255, 0.2), 1px 1px 2px rgba(0, 0, 0, 0.9);
 }
 
-/* Contenitore Didascalia con Bordo Gradiente Neon ANIMATO */
+/* Contenitore Didascalia con Bordo Gradiente Neon ANIMATO (Pulizia Bordi Parassiti) */
 .paywall-desc-box {
   width: 100%;
   box-sizing: border-box;
@@ -3620,6 +3620,9 @@ input[type="submit"] {
   position: relative;
   z-index: 1;
   overflow: visible;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Bordo gradiente animato (rotante) */
@@ -3649,14 +3652,17 @@ input[type="submit"] {
   mask-composite: exclude;
   z-index: -1;
   animation: glow-rotate 4s linear infinite;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
-/* Bagliore esterno diffuso (outer glow) */
+/* Bagliore esterno diffuso (outer glow) - Sfumato integrato senza ombre scure */
 .paywall-desc-box::after {
   content: '';
   position: absolute;
-  inset: -8px;
-  border-radius: 24px;
+  inset: -6px;
+  border-radius: 22px;
   background: conic-gradient(
     from var(--glow-angle, 0deg),
     #ff007f 0%,
@@ -3670,10 +3676,13 @@ input[type="submit"] {
     #ff00bf 95%,
     #ff007f 100%
   );
-  filter: blur(14px);
-  opacity: 0.45;
+  filter: blur(12px);
+  opacity: 0.55;
   z-index: -2;
   animation: glow-rotate 4s linear infinite;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 @property --glow-angle {
