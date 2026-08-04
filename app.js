@@ -935,24 +935,45 @@ function initSettingsSidebar() {
 
   if (btnShare) {
     btnShare.addEventListener('click', async () => {
-      const shareUrl = 'https://wwwoverunder-game.com';
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(shareUrl);
-        } else {
-          const textArea = document.createElement("textarea");
-          textArea.value = shareUrl;
-          document.body.appendChild(textArea);
-          textArea.select();
-          document.execCommand('copy');
-          document.body.removeChild(textArea);
+      const shareData = {
+        title: 'OverUnder - Il Gioco',
+        text: 'Vieni a provare OverUnder, il gioco del momento! 🔥',
+        url: 'https://wwwoverunder-game.com'
+      };
+
+      if (navigator.share) {
+        try {
+          await navigator.share(shareData);
+          console.log('[SHARE] Condivisione nativa completata con successo');
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            console.warn('[SHARE] Web Share API fallita, eseguiamo il fallback negli appunti:', err);
+            copyToClipboardFallback(shareData.url);
+          }
         }
-        showToast("Link copiato negli appunti! 🚀");
-      } catch (err) {
-        console.error("Errore copia link:", err);
-        showToast("Impossibile copiare il link");
+      } else {
+        copyToClipboardFallback(shareData.url);
       }
     });
+  }
+
+  async function copyToClipboardFallback(textToCopy) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(textToCopy);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = textToCopy;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      showToast("Link copiato negli appunti! 🚀");
+    } catch (err) {
+      console.error("Errore copia link:", err);
+      showToast("Impossibile copiare il link");
+    }
   }
 }
 
