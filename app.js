@@ -1133,6 +1133,30 @@ function checkPremiumStatusFromToken() {
   return false;
 }
 
+// Unificazione dello Stato Accesso Premium (Acquisto o Prova 30 giorni attiva)
+function hasPremiumAccess() {
+  // 1. Licenza Premium a Vita / Acquisto reale
+  const isPurchased = checkPremiumStatusFromToken();
+  if (isPurchased) {
+    return true;
+  }
+
+  // 2. Prova Gratuita di 30 Giorni Attiva
+  const trialActivated = localStorage.getItem('overunder_trial_activated') === 'true';
+  const endDateStr = localStorage.getItem('overunder_trial_end_date');
+
+  if (trialActivated && endDateStr) {
+    const endDate = parseInt(endDateStr, 10);
+    if (!isNaN(endDate) && Date.now() < endDate) {
+      return true; // Prova attiva e nei 30 giorni!
+    } else if (!isNaN(endDate) && Date.now() >= endDate) {
+      localStorage.setItem('overunder_trial_activated', 'expired');
+    }
+  }
+
+  return false;
+}
+
 function updatePremiumUI() {
   const isPremium = checkPremiumStatusFromToken();
   const crown = document.getElementById('premium-crown-icon');
@@ -1472,26 +1496,33 @@ function setupEventListeners() {
   if (el.createPremiumToggle) {
     el.createPremiumToggle.addEventListener('change', () => {
       if (el.createPremiumToggle.checked) {
-        const isPremium = checkPremiumStatusFromToken();
-        if (isPremium) {
+        // Se ha accesso Premium (acquisto o prova 30 giorni attiva), CONSENTI AVVIO IMMEDIATO
+        if (hasPremiumAccess()) {
+          console.log('[ACCESS] Accesso alla modalità Judgement Day consentito (Acquisto o Trial 30 giorni attivo)');
           return;
         }
-        const trialActivated = localStorage.getItem('overunder_trial_activated') === 'true';
+
+        // Accesso negato -> Deseleziona lo switch e mostra modale opportuna
+        el.createPremiumToggle.checked = false;
         const trialExpired = localStorage.getItem('overunder_trial_activated') === 'expired';
 
         if (trialExpired) {
-          el.createPremiumToggle.checked = false;
           if (el.trialExpiredModal) {
             el.trialExpiredModal.style.display = 'flex';
             el.trialExpiredModal.classList.add('active');
           }
-          showError("Il tuo periodo di prova gratuito è terminato. Sblocca la modalità per continuare.");
-        } else if (!trialActivated) {
-          el.createPremiumToggle.checked = false;
-          const standardModal = document.getElementById('paywall-standard-modal');
-          if (standardModal) {
-            standardModal.style.display = 'flex';
-            standardModal.classList.add('active');
+          showError("Il tuo periodo di prova gratuito di 30 giorni è terminato. Sblocca la modalità per continuare.");
+        } else {
+          // Prova non ancora attivata -> Apri il regalo o la modale di acquisto
+          if (el.trialGiftModal) {
+            el.trialGiftModal.style.display = 'flex';
+            el.trialGiftModal.classList.add('active');
+          } else {
+            const standardModal = document.getElementById('paywall-standard-modal');
+            if (standardModal) {
+              standardModal.style.display = 'flex';
+              standardModal.classList.add('active');
+            }
           }
         }
       }
