@@ -724,6 +724,7 @@ async function startApp() {
   }
   
   try { updateAudioButtonUI(); } catch (e) { console.warn("updateAudioButtonUI error:", e); }
+  try { initSettingsSidebar(); } catch (e) { console.warn("initSettingsSidebar error:", e); }
   try { runSplashScreen(hasRoomParam); } catch (e) { console.warn("runSplashScreen error:", e); }
   try { updatePremiumUI(); } catch (e) { console.warn("updatePremiumUI error:", e); }
 }
@@ -840,6 +841,11 @@ function setupOnboardingTabs() {
 }
 
 function updateAudioButtonUI() {
+  const sidebarToggle = document.getElementById('sidebar-audio-toggle');
+  const sidebarStatusText = document.getElementById('sidebar-audio-status-text');
+  if (sidebarToggle) sidebarToggle.checked = !AudioSynth.isMuted;
+  if (sidebarStatusText) sidebarStatusText.textContent = AudioSynth.isMuted ? 'Audio disattivato' : 'Audio attivo';
+
   const btn = el.btnToggleAudio;
   if (!btn) return;
   if (AudioSynth.isMuted) {
@@ -860,6 +866,93 @@ function updateAudioButtonUI() {
       </svg>
     `;
     btn.setAttribute('title', 'Disattiva Audio');
+  }
+}
+
+/**
+ * Gestione del Pannello Laterale Impostazioni (Sidebar Menu)
+ */
+function initSettingsSidebar() {
+  const backdrop = document.getElementById('settings-sidebar-backdrop');
+  const btnClose = document.getElementById('btn-close-settings');
+  const openBtns = document.querySelectorAll('.btn-open-settings');
+  const audioToggle = document.getElementById('sidebar-audio-toggle');
+  const audioStatusText = document.getElementById('sidebar-audio-status-text');
+  const btnShare = document.getElementById('btn-sidebar-share');
+
+  function openSidebar() {
+    if (backdrop) backdrop.classList.add('active');
+    syncAudioUI();
+  }
+
+  function closeSidebar() {
+    if (backdrop) backdrop.classList.remove('active');
+  }
+
+  openBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openSidebar();
+    });
+  });
+
+  if (btnClose) {
+    btnClose.addEventListener('click', closeSidebar);
+  }
+
+  if (backdrop) {
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) {
+        closeSidebar();
+      }
+    });
+  }
+
+  function syncAudioUI() {
+    const isMuted = AudioSynth.isMuted;
+    if (audioToggle) audioToggle.checked = !isMuted;
+    if (audioStatusText) {
+      audioStatusText.textContent = isMuted ? 'Audio disattivato' : 'Audio attivo';
+    }
+  }
+
+  if (audioToggle) {
+    syncAudioUI();
+    audioToggle.addEventListener('change', (e) => {
+      const isMuted = !e.target.checked;
+      AudioSynth.isMuted = isMuted;
+      localStorage.setItem('overunder_muted', isMuted);
+      syncAudioUI();
+      updateAudioButtonUI();
+      if (!isMuted) {
+        try {
+          AudioSynth.init();
+          AudioSynth.playConfirm(true);
+        } catch (err) {}
+      }
+    });
+  }
+
+  if (btnShare) {
+    btnShare.addEventListener('click', async () => {
+      const shareUrl = 'https://wwwoverunder-game.com';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(shareUrl);
+        } else {
+          const textArea = document.createElement("textarea");
+          textArea.value = shareUrl;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+        }
+        showToast("Link copiato negli appunti! 🚀");
+      } catch (err) {
+        console.error("Errore copia link:", err);
+        showToast("Impossibile copiare il link");
+      }
+    });
   }
 }
 

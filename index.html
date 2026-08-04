@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=115">
+  <link rel="stylesheet" href="/style.css?v=116">
 </head>
 
 <body>
@@ -60,7 +60,16 @@
 
       <!-- SCHERMATA 0: BENVENUTO / INTRO -->
       <section id="screen-welcome" class="screen"
-        style="justify-content: flex-start; align-items: center; text-align: center; gap: 8px; height: 100%; padding-top: 52px; padding-bottom: 16px;">
+        style="justify-content: flex-start; align-items: center; text-align: center; gap: 8px; height: 100%; padding-top: 12px; padding-bottom: 16px; position: relative;">
+        <!-- Header per impostazioni top right -->
+        <div style="display: flex; justify-content: flex-end; width: 100%; padding-top: max(6px, env(safe-area-inset-top)); flex: 0 0 auto;">
+          <button class="nav-btn-settings btn-open-settings" title="Impostazioni">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+        </div>
         <div class="logo-area"
           style="animation: float-logo 4s ease-in-out infinite; margin-top: 10px; margin-bottom: 15px;">
           <div class="logo-title">
@@ -123,6 +132,12 @@
               stroke-linejoin="round">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+          </button>
+          <button class="nav-btn-settings btn-open-settings" title="Impostazioni">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
           </button>
         </div>
@@ -341,6 +356,12 @@
               stroke-linejoin="round">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+          </button>
+          <button class="nav-btn-settings btn-open-settings" title="Impostazioni">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
           </button>
         </div>
@@ -1348,9 +1369,90 @@
     style="display: none; position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 9999; opacity: 0.3; background: #333333; color: white; border: none; border-radius: 5px; padding: 6px 12px; font-size: 0.75rem; cursor: pointer;">RESET
     TO NO-PREMIUM</button>
 
+  <!-- PANNELLO LATERALE IMPOSTAZIONI / SIDEBAR MENU -->
+  <div id="settings-sidebar-backdrop" class="settings-sidebar-backdrop">
+    <div id="settings-sidebar" class="settings-sidebar">
+      <!-- Intestazione del Pannello -->
+      <div class="sidebar-header">
+        <h3 class="sidebar-title">
+          <svg class="sidebar-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          Impostazioni
+        </h3>
+        <button id="btn-close-settings" class="sidebar-close-btn" aria-label="Chiudi impostazioni">&times;</button>
+      </div>
+
+      <!-- Corpo del Pannello -->
+      <div class="sidebar-body">
+        <!-- Sezione 1: Suoni di Sistema (Mute Audio) -->
+        <div class="sidebar-section glass-panel">
+          <div class="sidebar-section-header">
+            <span class="sidebar-section-icon">🔊</span>
+            <div class="sidebar-section-text">
+              <div class="sidebar-item-title">Suoni di Sistema</div>
+              <div class="sidebar-item-sub" id="sidebar-audio-status-text">Audio attivo</div>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: flex-end; width: 100%; margin-top: 4px;">
+            <label class="toggle-switch">
+              <input type="checkbox" id="sidebar-audio-toggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Sezione 2: Condivisione Link -->
+        <div class="sidebar-section glass-panel">
+          <div class="sidebar-section-header">
+            <span class="sidebar-section-icon">🔗</span>
+            <div class="sidebar-section-text">
+              <div class="sidebar-item-title">Condividi il gioco</div>
+              <div class="sidebar-item-sub">Copia l'URL ufficiale di OverUnder per invitarlo ai tuoi amici</div>
+            </div>
+          </div>
+          <button id="btn-sidebar-share" class="sidebar-action-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
+            <span id="share-btn-text">Copia Link Gioco</span>
+          </button>
+        </div>
+
+        <!-- Sezione 3: Supporto via Email -->
+        <div class="sidebar-section glass-panel">
+          <div class="sidebar-section-header">
+            <span class="sidebar-section-icon">✉️</span>
+            <div class="sidebar-section-text">
+              <div class="sidebar-item-title">Supporto</div>
+              <div class="sidebar-item-sub">Contattaci se hai bisogno di aiuto o per suggerimenti</div>
+            </div>
+          </div>
+          <a href="mailto:support@wwwoverunder-game.com?subject=Supporto%20OverUnder%20Game" class="sidebar-action-btn sidebar-link-btn" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            Contatta il Supporto
+          </a>
+        </div>
+      </div>
+
+      <!-- Footer Info -->
+      <div class="sidebar-footer">
+        OverUnder Game &copy; 2026
+      </div>
+    </div>
+  </div>
+
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=176"></script>
+  <script src="/app.js?v=177"></script>
 </body>
 
 </html>
