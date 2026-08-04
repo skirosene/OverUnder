@@ -716,6 +716,7 @@ async function startApp() {
   try { setupPremiumCreatorEvents(); } catch (e) { console.warn("setupPremiumCreatorEvents error:", e); }
   try { setupAvatarEvents(); } catch (e) { console.warn("setupAvatarEvents error:", e); }
   try { setupJoinRulesModalEvents(); } catch (e) { console.warn("setupJoinRulesModalEvents error:", e); }
+  try { setupCaptionTapListeners(); } catch (e) { console.warn("setupCaptionTapListeners error:", e); }
   
   let hasRoomParam = false;
   try {
@@ -1943,13 +1944,8 @@ function showPurchaseModal() {
     });
   }
 
-  // Tap/Click toggle per espandere/contrarre frasi lunghe durante il gameplay (senza press prolungato)
-  if (el.currentPromptText) {
-    bindFastClick(el.currentPromptText, () => {
-      el.currentPromptText.classList.toggle('expanded');
-      if (el.promptCard) el.promptCard.classList.toggle('expanded');
-    });
-  }
+  // Gestione tap su didascalie/frasi lunghe delle carte (espansione al tap/click)
+  setupCaptionTapListeners();
 
   // Pulsante indietro nella lobby
   if (el.btnBackLobby) {
@@ -4468,8 +4464,6 @@ function setupJoinRulesModalEvents() {
         const diff = touchStartX - touchEndX;
         if (diff > 40) { // Swipe a sinistra -> Avanti
           goToJoinRulesSlide(state.joinRulesCurrentSlide + 1);
-        } else if (diff < -40) { // Swipe a destra -> Indietro
-          goToJoinRulesSlide(state.joinRulesCurrentSlide - 1);
         }
       }
     }, { passive: true });
@@ -4477,6 +4471,38 @@ function setupJoinRulesModalEvents() {
 
   // Pre-render di base
   renderJoinRulesSlides(false);
+}
+
+let lastCaptionTapTimestamp = 0;
+
+function setupCaptionTapListeners() {
+  const handleCaptionTap = (e) => {
+    const target = e.target ? e.target.closest('.card-caption, .prompt-text, .results-prompt-subject, .capsule-text, .summary-item-prompt') : null;
+    if (!target) return;
+
+    const now = Date.now();
+    if (now - lastCaptionTapTimestamp < 250) {
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    lastCaptionTapTimestamp = now;
+
+    // Evita che il tap venga intercettato dal drag/swipe o card flip della carta
+    e.stopPropagation();
+    target.classList.toggle('is-expanded');
+
+    const parentCard = target.closest('.prompt-card, .results-prompt-card, .premium-card-capsule');
+    if (parentCard) {
+      parentCard.classList.toggle('is-expanded');
+    }
+
+    console.log("--> TAP TESTO ESEGUITO. Espanso:", target.classList.contains('is-expanded'));
+  };
+
+  // Aggancia in fase di Capture sia per click che touchend per intercettare prima dei gestori di swipe/drag
+  document.addEventListener('click', handleCaptionTap, true);
+  document.addEventListener('touchend', handleCaptionTap, true);
 }
 
 // Helper per la gestione reattiva a 0ms dei tocchi su smartphone (evita il ritardo di 300ms dei browser mobile)
