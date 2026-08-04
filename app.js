@@ -679,16 +679,9 @@ const el = {
   loadingStatusText: document.getElementById('loading-status-text'),
   btnLoadingHome: document.getElementById('btn-loading-home'),
   
-  // Trial modals & elements
-  trialGiftModal: document.getElementById('trial-gift-modal'),
-  btnActivateTrial: document.getElementById('btn-activate-trial'),
-  btnActivateLaterModal: document.getElementById('btn-activate-later-modal'),
-  onboardingGiftBanner: document.getElementById('onboarding-gift-banner'),
-  trialExpiredModal: document.getElementById('trial-expired-modal'),
+  // Paywall & Admin Reset
   btnPaywallBuy: document.getElementById('btn-paywall-buy'),
   btnPaywallClose: document.getElementById('btn-paywall-close'),
-  btnDebugTrial: document.getElementById('btn-debug-trial'),
-  btnTestExpired: document.getElementById('btn-test-expired'),
   btnResetNoPremium: document.getElementById('btn-reset-no-premium'),
 
   // Timer picker panel (solo host, nel gameplay)
@@ -708,14 +701,14 @@ function forceHideSplash() {
 }
 
 async function startApp() {
-  console.log("--> 0. APP INITIALIZATION (STARTUP CHECK):", {
-    overunder_trial_redeemed: localStorage.getItem('overunder_trial_redeemed'),
-    overunder_has_redeemed_trial: localStorage.getItem('overunder_has_redeemed_trial'),
-    overunder_trial_start: localStorage.getItem('overunder_trial_start'),
-    overunder_trial_end: localStorage.getItem('overunder_trial_end')
-  });
+  // Pulizia dati legacy di prova/trial dal localStorage
+  localStorage.removeItem('overunder_trial_redeemed');
+  localStorage.removeItem('overunder_trial_start');
+  localStorage.removeItem('overunder_trial_end');
+  localStorage.removeItem('overunder_has_redeemed_trial');
+  localStorage.removeItem('overunder_trial_activated');
+  localStorage.removeItem('overunder_trial_shown');
 
-  try { judgementDayStore.init(); } catch (e) { console.warn("judgementDayStore init error:", e); }
   try { initClock(); } catch (e) { console.warn("initClock error:", e); }
   try { setupOnboardingTabs(); } catch (e) { console.warn("setupOnboardingTabs error:", e); }
   try { setupEventListeners(); } catch (e) { console.warn("setupEventListeners error:", e); }
@@ -735,8 +728,6 @@ async function startApp() {
   try { initSettingsSidebar(); } catch (e) { console.warn("initSettingsSidebar error:", e); }
   try { runSplashScreen(hasRoomParam); } catch (e) { console.warn("runSplashScreen error:", e); }
   try { updatePremiumUI(); } catch (e) { console.warn("updatePremiumUI error:", e); }
-  try { checkTrialStatus(); } catch (e) { console.warn("checkTrialStatus error:", e); }
-  try { updateGiftBannerUI(); } catch (e) { console.warn("updateGiftBannerUI error:", e); }
 }
 
 if (document.readyState === 'loading') {
@@ -1141,123 +1132,20 @@ function checkPremiumStatusFromToken() {
   return false;
 }
 
-// ==========================================================================
-// STORE GLOBALE REATTIVO PER "JUDGEMENT DAY" & TRIAL 30 GIORNI
-// ==========================================================================
-const judgementDayStore = {
-  state: {
-    isPurchased: false,
-    trialRedeemed: false,
-    trialStart: 0,
-    trialEnd: 0,
-    isTrialActive: false,
-    hasAccess: false,
-    timeLeftMs: 0
-  },
-
-  listeners: new Set(),
-
-  init() {
-    this.hydrate();
-  },
-
-  hydrate() {
-    const isPurchased = localStorage.getItem('overunder_judgement_purchased') === 'true' || localStorage.getItem('overunder_premium_unlocked') === 'true' || checkPremiumStatusFromToken();
-    const trialRedeemed = localStorage.getItem('overunder_trial_redeemed') === 'true' || localStorage.getItem('overunder_has_redeemed_trial') === 'true';
-    
-    const startStr = localStorage.getItem('overunder_trial_start') || localStorage.getItem('overunder_trial_start_date') || '0';
-    const endStr = localStorage.getItem('overunder_trial_end') || localStorage.getItem('overunder_trial_end_date') || '0';
-    
-    const trialStart = parseInt(startStr, 10);
-    const trialEnd = parseInt(endStr, 10);
-    const isTrialActive = trialRedeemed && trialEnd > 0 && (Date.now() < trialEnd);
-
-    if (trialRedeemed && trialEnd > 0 && Date.now() >= trialEnd) {
-      localStorage.setItem('overunder_trial_activated', 'expired');
-    }
-
-    this.state = {
-      isPurchased,
-      trialRedeemed,
-      trialStart,
-      trialEnd,
-      isTrialActive,
-      hasAccess: isPurchased || isTrialActive,
-      timeLeftMs: (trialEnd > 0 && isTrialActive) ? (trialEnd - Date.now()) : 0
-    };
-
-    return this.state;
-  },
-
-  setTrialActivated(startMs, endMs) {
-    const now = Date.now();
-    const start = startMs || now;
-    const end = endMs || (now + 30 * 24 * 60 * 60 * 1000);
-
-    // 1. Scrittura SINCRONA nel LocalStorage (Permanente)
-    localStorage.setItem('overunder_trial_redeemed', 'true');
-    localStorage.setItem('overunder_trial_start', String(start));
-    localStorage.setItem('overunder_trial_end', String(end));
-
-    // Scrittura chiavi retrocompatibili
-    localStorage.setItem('overunder_has_redeemed_trial', 'true');
-    localStorage.setItem('overunder_trial_activated', 'true');
-    localStorage.setItem('overunder_trial_start_date', String(start));
-    localStorage.setItem('overunder_trial_end_date', String(end));
-
-    // 2. Aggiornamento SINCRONO dello stato in memoria
-    this.hydrate();
-
-    // 3. Notifica sincrona ed immediata di tutti i componenti figli
-    this.notify(true);
-  },
-
-  subscribe(listener) {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  },
-
-  notify(autoCheckToggle = false) {
-    state.trialActivated = this.state.isTrialActive;
-    state.roomIsPremium = this.state.hasAccess;
-
-    if (el.createPremiumToggle) {
-      if (this.state.hasAccess) {
-        if (autoCheckToggle) {
-          el.createPremiumToggle.checked = true;
-        }
-      } else {
-        el.createPremiumToggle.checked = false;
-      }
-    }
-
-    updateJudgementCardBadge();
-    updatePremiumUI();
-    updateGiftBannerUI();
-
-    this.listeners.forEach(fn => {
-      try { fn(this.state); } catch (e) { console.error("Errore listener judgementDayStore:", e); }
-    });
-
-    window.dispatchEvent(new CustomEvent('overunder_premium_state_changed', { detail: this.state }));
-  }
-};
-
 function checkJudgementDayAccess() {
-  return judgementDayStore.hydrate();
+  const isPurchased = localStorage.getItem('overunder_judgement_purchased') === 'true' || localStorage.getItem('overunder_premium_unlocked') === 'true' || checkPremiumStatusFromToken();
+  return {
+    hasAccess: isPurchased,
+    isPurchased: isPurchased
+  };
 }
 
 function hasPremiumAccess() {
-  return judgementDayStore.hydrate().hasAccess;
-}
-
-function syncJudgementDayUI(autoCheckToggle = false) {
-  judgementDayStore.hydrate();
-  judgementDayStore.notify(autoCheckToggle);
+  return checkJudgementDayAccess().hasAccess;
 }
 
 function updatePremiumUI() {
-  const isPremium = checkPremiumStatusFromToken();
+  const isPremium = checkJudgementDayAccess().hasAccess;
   const crown = document.getElementById('premium-crown-icon');
   if (crown) {
     crown.style.display = isPremium ? 'none' : 'inline';
@@ -1272,235 +1160,6 @@ function updatePremiumUI() {
       priceLabel.style.display = 'block';
     }
     descLabel.style.textAlign = 'left';
-  }
-}
-
-let trialTimerInterval = null;
-
-function formatTrialCountdown(remainingMs) {
-  if (remainingMs <= 0) return { text: '🔒 SCADUTO', mode: 'expired' };
-
-  const totalSecs = Math.floor(remainingMs / 1000);
-  const days = Math.floor(totalSecs / (24 * 3600));
-  const hours = Math.floor((totalSecs % (24 * 3600)) / 3600);
-  const minutes = Math.floor((totalSecs % 3600) / 60);
-  const seconds = totalSecs % 60;
-
-  if (days >= 1) {
-    return {
-      text: `⏳ ${days} ${days === 1 ? 'giorno' : 'giorni'} di prova`,
-      mode: 'normal'
-    };
-  } else if (hours >= 1) {
-    return {
-      text: `⏳ ${hours}h ${minutes}m rimasti`,
-      mode: 'normal'
-    };
-  } else {
-    return {
-      text: `⏳ ${minutes}m ${String(seconds).padStart(2, '0')}s`,
-      mode: 'panic'
-    };
-  }
-}
-
-function updateJudgementCardBadge() {
-  const badge = document.getElementById('judgement-trial-badge');
-  if (!badge) return;
-
-  const access = checkJudgementDayAccess();
-
-  // Caso 1: Licenza Premium a Vita / Acquistata
-  if (access.isPurchased) {
-    if (trialTimerInterval) {
-      clearInterval(trialTimerInterval);
-      trialTimerInterval = null;
-    }
-    badge.className = 'judgement-trial-badge badge-lifetime';
-    badge.innerHTML = '👑 PREMIUM A VITA';
-    badge.style.display = 'inline-flex';
-    badge.onclick = (e) => {
-      e.stopPropagation();
-      showToast('Hai la licenza Premium a vita per Judgement Day! 👑', 3500);
-    };
-    return;
-  }
-
-  // Caso 2: Prova 30 Giorni Attiva
-  if (access.isTrialActive) {
-    const refreshBadgeTimer = () => {
-      const currentAccess = checkJudgementDayAccess();
-      if (!currentAccess.isTrialActive) {
-        if (trialTimerInterval) {
-          clearInterval(trialTimerInterval);
-          trialTimerInterval = null;
-        }
-        syncJudgementDayUI();
-        return;
-      }
-      const info = formatTrialCountdown(currentAccess.timeLeftMs);
-      badge.className = `judgement-trial-badge ${info.mode === 'panic' ? 'badge-panic' : ''}`;
-      badge.innerHTML = info.text;
-      badge.style.display = 'inline-flex';
-
-      const endDate = Date.now() + currentAccess.timeLeftMs;
-      const expDate = new Date(endDate);
-      const dateFormatted = expDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const timeFormatted = expDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-
-      badge.onclick = (e) => {
-        e.stopPropagation();
-        showToast(`La tua prova gratuita scade il ${dateFormatted} alle ${timeFormatted} ⏳`, 4500);
-      };
-    };
-
-    refreshBadgeTimer();
-    if (!trialTimerInterval) {
-      trialTimerInterval = setInterval(refreshBadgeTimer, 1000);
-    }
-    return;
-  } else {
-    if (trialTimerInterval) {
-      clearInterval(trialTimerInterval);
-      trialTimerInterval = null;
-    }
-  }
-
-  // Caso 3: Prova Riscatta e Scaduta
-  if (access.trialRedeemed) {
-    badge.className = 'judgement-trial-badge badge-panic';
-    badge.innerHTML = '🔒 PROVA SCADUTA';
-    badge.style.display = 'inline-flex';
-    badge.onclick = (e) => {
-      e.stopPropagation();
-      if (el.trialExpiredModal) {
-        el.trialExpiredModal.style.display = 'flex';
-        el.trialExpiredModal.classList.add('active');
-      }
-    };
-    return;
-  }
-
-  // Caso 4: Regalo Non Ancora Riscattato
-  badge.className = 'judgement-trial-badge badge-available';
-  badge.innerHTML = 'Regalo disponibile 🎁';
-  badge.style.display = 'inline-flex';
-  badge.onclick = (e) => {
-    e.stopPropagation();
-    if (el.trialGiftModal) {
-      el.trialGiftModal.style.display = 'flex';
-      el.trialGiftModal.classList.add('active');
-    }
-  };
-}
-
-function updateGiftBannerUI() {
-  const access = checkJudgementDayAccess();
-  const isGiftAvailable = !access.hasAccess && !access.trialRedeemed;
-
-  if (el.onboardingGiftBanner) {
-    el.onboardingGiftBanner.style.display = isGiftAvailable ? 'block' : 'none';
-  }
-
-  const sidebarGiftSection = document.getElementById('sidebar-gift-section');
-  if (sidebarGiftSection) {
-    sidebarGiftSection.style.display = isGiftAvailable ? 'block' : 'none';
-  }
-}
-
-async function checkTrialStatus() {
-  // Reidrata prima lo stato locale dal localStorage (ground truth)
-  judgementDayStore.hydrate();
-
-  try {
-    const fingerprint = getDeviceFingerprint();
-    const res = await fetch(`/api/trial/status?deviceUuid=${sessionId}&fingerprint=${fingerprint}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.activated || data.hasRedeemedTrial || data.overunder_trial_redeemed === 'true') {
-        const startMs = data.trial_start || data.trial_start_date || judgementDayStore.state.trialStart;
-        const endMs = data.trial_end || data.trial_end_date || judgementDayStore.state.trialEnd;
-
-        localStorage.setItem('overunder_trial_redeemed', 'true');
-        localStorage.setItem('overunder_has_redeemed_trial', 'true');
-        if (startMs) {
-          localStorage.setItem('overunder_trial_start', String(startMs));
-          localStorage.setItem('overunder_trial_start_date', String(startMs));
-        }
-        if (endMs) {
-          localStorage.setItem('overunder_trial_end', String(endMs));
-          localStorage.setItem('overunder_trial_end_date', String(endMs));
-        }
-        if (data.active) {
-          localStorage.setItem('overunder_trial_activated', 'true');
-        } else {
-          localStorage.setItem('overunder_trial_activated', 'expired');
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("Errore recupero stato trial dal server:", e);
-  } finally {
-    // PROTEZIONE DA SOVRASCRITTURE ALL'AVVIO: Preserva e notifica lo stato dal localStorage
-    judgementDayStore.notify();
-  }
-}
-
-async function activateTrialOnServer() {
-  const deviceUuid = sessionId;
-  const fingerprint = getDeviceFingerprint();
-  
-  const token = sessionStorage.getItem('overunder_token');
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers['Authorization'] = 'Bearer ' + token;
-  }
-  
-  const res = await fetch('/api/trial/activate', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ deviceUuid, fingerprint })
-  });
-  
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error || "Impossibile attivare il regalo di benvenuto.");
-  }
-  
-  const data = await res.json();
-  if (data.token) {
-    sessionStorage.setItem('overunder_token', data.token);
-    state.roomIsPremium = true;
-    if (socket.connected) {
-      socket.disconnect();
-      socket.connect();
-    }
-  }
-  
-  const now = Date.now();
-  const startMs = data.trial_start || data.trial_start_date || now;
-  const endMs = data.trial_end || data.trial_end_date || (now + 30 * 24 * 60 * 60 * 1000);
-
-  // AGGIORNAMENTO SINCRONO NELLO STORE E NEL LOCALSTORAGE CON NOTIFICA IMMEDIATA
-  judgementDayStore.setTrialActivated(startMs, endMs);
-}
-
-function checkMatchEndTrialExpiration() {
-  const endDateStr = localStorage.getItem('overunder_trial_end_date');
-  if (endDateStr) {
-    const endDate = parseInt(endDateStr, 10);
-    if (!isNaN(endDate) && Date.now() > endDate) {
-      const isLifetimePremium = checkPremiumStatusFromToken() && !localStorage.getItem('overunder_trial_activated');
-      if (!isLifetimePremium) {
-        state.trialActivated = false;
-        localStorage.setItem('overunder_trial_activated', 'expired');
-        sessionStorage.removeItem('overunder_token');
-        state.roomIsPremium = false;
-        if (el.createPremiumToggle) el.createPremiumToggle.checked = false;
-        updatePremiumUI();
-        updateGiftBannerUI();
-      }
-    }
   }
 }
 
@@ -1540,43 +1199,7 @@ function setupEventListeners() {
     el.btnWelcomeStart.addEventListener('click', () => {
       try { AudioSynth.init(); } catch (e) {}
       try { AudioSynth.playConfirm(true); } catch (e) {}
-
-      const access = checkJudgementDayAccess();
-      const trialShown = localStorage.getItem('overunder_trial_shown') === 'true';
-      const isProd = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-
-      // Mostra il pop-up SOLO SE l'utente NON l'ha mai riscattato in passato (!access.trialRedeemed) e NON ha accesso
-      if (isProd && !access.hasAccess && !access.trialRedeemed && !trialShown) {
-        if (el.trialGiftModal) {
-          el.trialGiftModal.style.display = 'flex';
-          el.trialGiftModal.classList.add('active');
-          localStorage.setItem('overunder_trial_shown', 'true');
-        } else {
-          showScreen(el.screenOnboarding);
-        }
-      } else {
-        showScreen(el.screenOnboarding);
-      }
-    });
-  }
-
-  // === DEBUG TRIAL POPUP ===
-  if (el.btnDebugTrial) {
-    el.btnDebugTrial.addEventListener('click', () => {
-      if (el.trialGiftModal) {
-        el.trialGiftModal.style.display = 'flex';
-        el.trialGiftModal.classList.add('active');
-      }
-    });
-  }
-
-  // === TEST SCADENZA TRIAL ===
-  if (el.btnTestExpired) {
-    el.btnTestExpired.addEventListener('click', () => {
-      if (el.trialExpiredModal) {
-        el.trialExpiredModal.style.display = 'flex';
-        el.trialExpiredModal.classList.add('active');
-      }
+      showScreen(el.screenOnboarding);
     });
   }
 
@@ -1585,32 +1208,22 @@ function showPurchaseModal() {
   if (standardModal) {
     standardModal.style.display = 'flex';
     standardModal.classList.add('active');
-  } else if (el.trialGiftModal) {
-    el.trialGiftModal.style.display = 'flex';
-    el.trialGiftModal.classList.add('active');
   }
 }
 
-  // === RESTRIZIONE TOGGLE PREMIUM LOBBY (SBLOCCO DIRETTO DA LOCALSTORAGE) ===
+  // === RESTRIZIONE TOGGLE PREMIUM LOBBY ===
   if (el.createPremiumToggle) {
     el.createPremiumToggle.addEventListener('change', (e) => {
-      const isPurchased = localStorage.getItem('overunder_judgement_purchased') === 'true' || localStorage.getItem('overunder_premium_unlocked') === 'true' || checkPremiumStatusFromToken();
-      const trialRedeemed = localStorage.getItem('overunder_trial_redeemed') === 'true' || localStorage.getItem('overunder_has_redeemed_trial') === 'true';
-      const trialEnd = parseInt(localStorage.getItem('overunder_trial_end') || localStorage.getItem('overunder_trial_end_date') || '0', 10);
-      const isTrialActive = trialRedeemed && (Date.now() < trialEnd || trialEnd === 0);
-
-      const canAccess = isPurchased || isTrialActive;
-
-      console.log("--> CLICK SWITCH - VERIFICA DIRETTA:", { isPurchased, trialRedeemed, isTrialActive, canAccess });
+      const access = checkJudgementDayAccess();
+      console.log("--> CLICK SWITCH JUDGEMENT DAY:", access);
 
       if (el.createPremiumToggle.checked) {
-        if (canAccess) {
-          // L'utente ha la prova attiva o l'acquisto a vita: CONSENTI L'ATTIVAZIONE
-          console.log("Accesso Premium/Trial confermato!");
+        if (access.hasAccess) {
+          console.log("Accesso Premium confermato!");
           return;
         }
         
-        // Se NON ha accesso, blocca lo switch e mostra la modale di acquisto
+        // Se NON ha acquistato, deseleziona lo switch e mostra direttamente la modale di acquisto
         e.preventDefault();
         el.createPremiumToggle.checked = false;
         showPurchaseModal();
@@ -1622,12 +1235,8 @@ function showPurchaseModal() {
   if (el.btnResetNoPremium) {
     el.btnResetNoPremium.addEventListener('click', () => {
       sessionStorage.removeItem('overunder_token');
-      localStorage.removeItem('overunder_trial_activated');
-      localStorage.removeItem('overunder_trial_shown');
-      localStorage.removeItem('overunder_trial_redeemed');
-      localStorage.removeItem('overunder_has_redeemed_trial');
-      localStorage.removeItem('overunder_trial_start');
-      localStorage.removeItem('overunder_trial_end');
+      localStorage.removeItem('overunder_judgement_purchased');
+      localStorage.removeItem('overunder_premium_unlocked');
       state.roomIsPremium = false;
       if (el.createPremiumToggle) {
         el.createPremiumToggle.checked = false;
@@ -1636,124 +1245,8 @@ function showPurchaseModal() {
       if (crown) {
         crown.style.display = 'inline';
       }
-      if (el.onboardingGiftBanner) {
-        el.onboardingGiftBanner.style.display = 'block';
-      }
-      syncJudgementDayUI();
+      updatePremiumUI();
       showError("Stato Premium resettato a NON ACQUISTATO!");
-    });
-  }
-
-  // === ATTIVAZIONE REGALO (TRIAL) ===
-  if (el.btnActivateTrial) {
-    el.btnActivateTrial.addEventListener('click', async () => {
-      console.log("--> 1. CLICK ACCETTA PROVA ESEGUITO");
-      localStorage.setItem('overunder_trial_redeemed', 'true');
-      console.log("--> 2. LOCALSTORAGE IMPOSTATO:", localStorage.getItem('overunder_trial_redeemed'));
-
-      try {
-        el.btnActivateTrial.disabled = true;
-        el.btnActivateTrial.innerText = "ATTIVAZIONE...";
-        
-        triggerParticleExplosion();
-        AudioSynth.init();
-        AudioSynth.playConfirm(true);
-        
-        await activateTrialOnServer();
-        console.log("--> 2b. SERVER ACTIVATION COMPLETE, STORE STATE:", judgementDayStore.state);
-        
-        // Forza l'inizializzazione o l'aggiornamento dello store in memoria
-        if (judgementDayStore && typeof judgementDayStore.init === 'function') {
-          judgementDayStore.init(); 
-        }
-        
-        // Lancia l'evento globale per avvisare lo Switch e la Card di fare il re-render
-        window.dispatchEvent(new CustomEvent('trial-state-changed'));
-
-        setTimeout(() => {
-          if (el.trialGiftModal) {
-            el.trialGiftModal.classList.add('modal-fade-out');
-            setTimeout(() => {
-              el.trialGiftModal.style.display = 'none';
-              el.trialGiftModal.classList.remove('active', 'modal-fade-out');
-              showScreen(el.screenOnboarding);
-            }, 500);
-          }
-        }, 1500);
-      } catch (err) {
-        console.error(err);
-        showError(err.message || "Errore di attivazione trial");
-        el.btnActivateTrial.disabled = false;
-        el.btnActivateTrial.innerText = "ATTIVA ORA";
-        setTimeout(() => {
-          if (el.trialGiftModal) {
-            el.trialGiftModal.style.display = 'none';
-            el.trialGiftModal.classList.remove('active');
-          }
-          showScreen(el.screenOnboarding);
-        }, 1500);
-      }
-    });
-  }
-
-// Listener globale per l'evento trial-state-changed per aggiornare lo switch e la card
-window.addEventListener('trial-state-changed', () => {
-  const access = checkJudgementDayAccess();
-  console.log("--> EVENT trial-state-changed RICEVUTO, NUOVO ACCESSO:", access);
-  if (el.createPremiumToggle) {
-    el.createPremiumToggle.checked = access.hasAccess;
-  }
-  updateJudgementCardBadge();
-  updatePremiumUI();
-  updateGiftBannerUI();
-});
-
-  // === REGALO PIÙ TARDI ===
-  if (el.btnActivateLaterModal) {
-    el.btnActivateLaterModal.addEventListener('click', () => {
-      localStorage.setItem('overunder_trial_shown', 'true');
-      if (el.trialGiftModal) {
-        el.trialGiftModal.style.display = 'none';
-        el.trialGiftModal.classList.remove('active');
-      }
-      updateGiftBannerUI();
-      showScreen(el.screenOnboarding);
-    });
-  }
-
-  // === BANNER REGALO ONBOARDING E SIDEBAR ===
-  if (el.onboardingGiftBanner) {
-    el.onboardingGiftBanner.addEventListener('click', () => {
-      if (el.trialGiftModal) {
-        el.trialGiftModal.style.display = 'flex';
-        el.trialGiftModal.classList.add('active');
-      }
-    });
-  }
-
-  const btnSidebarGift = document.getElementById('btn-sidebar-gift');
-  if (btnSidebarGift) {
-    btnSidebarGift.addEventListener('click', () => {
-      const sidebar = document.getElementById('settings-sidebar');
-      const backdrop = document.getElementById('settings-sidebar-backdrop');
-      if (sidebar) sidebar.classList.remove('open');
-      if (backdrop) backdrop.classList.remove('open');
-
-      if (el.trialGiftModal) {
-        el.trialGiftModal.style.display = 'flex';
-        el.trialGiftModal.classList.add('active');
-      }
-    });
-  }
-
-  // === PAYWALL BLOCKER CHIUDI ===
-  if (el.btnPaywallClose) {
-    el.btnPaywallClose.addEventListener('click', () => {
-      if (el.trialExpiredModal) {
-        el.trialExpiredModal.style.display = 'none';
-        el.trialExpiredModal.classList.remove('active');
-      }
-      showScreen(el.screenOnboarding);
     });
   }
 

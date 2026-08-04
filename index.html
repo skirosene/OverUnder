@@ -116,7 +116,6 @@
               stroke-linejoin="round" fill="none" />
           </svg>
         </button>
-        <button id="btn-debug-trial" class="debug-trial-btn" style="display: none;">[DEBUG: APRI REGALO]</button>
       </section>
 
       <!-- SCHERMATA 1: ONBOARDING / SETUP (CREA O ENTRA STANZA) -->
@@ -147,11 +146,6 @@
         </div>
 
         <div class="setup-card glass-panel">
-          <!-- Banner Regalo Gogna -->
-          <div id="onboarding-gift-banner" class="gift-banner-pulse"
-            style="display: none; width: 100%; cursor: pointer;">
-            🎁 Riscatta 30 Giorni di Modalità "Judgement Day" GRATIS!
-          </div>
           <!-- Bottoni di selezione modalità (Tab) -->
           <div class="mode-tabs">
             <button id="tab-solo" class="tab-btn active">GIOCA DA SOLO</button>
@@ -263,7 +257,6 @@
                     style="font-family: var(--font-title); font-weight: 800; font-size: 0.8rem; color: #df33ff; letter-spacing: 0.5px;"><span
                       id="premium-crown-icon">👑 </span>MODALITÀ "JUDGEMENT DAY"</span>
                   <div style="display: flex; align-items: center; gap: 6px;">
-                    <div id="judgement-trial-badge" class="judgement-trial-badge" style="display: none;"></div>
                     <button id="btn-info-gogna" class="btn-info-gogna" type="button" title="Come funziona?">i</button>
                   </div>
                 </div>
@@ -1064,88 +1057,6 @@
     </button>
   </div>
 
-  <!-- Modal Regalo di Benvenuto (Modalità "Judgement Day" Trial) -->
-  <div id="trial-gift-modal" class="custom-modal-overlay"
-    style="display: none; justify-content: center; align-items: center; z-index: 15000;">
-    <div class="gift-modal-box">
-
-      <!-- Icona Pacco Regalo con Starburst CSS -->
-      <div class="gift-icon-container">
-        <div class="gift-starburst"></div>
-        <div class="gift-emoji">🎁</div>
-      </div>
-
-      <!-- Titolo -->
-      <h2 class="gift-modal-title">
-        UN REGALO<br>PER TE!
-      </h2>
-
-      <!-- Sottotitolo -->
-      <p class="gift-modal-desc">
-        Sblocca la modalità <span class="text-pink">"JUDGEMENT DAY"</span> gratis per <span class="text-bold-white">30
-          giorni.</span><br>
-        <span class="desc-small">Dai vita alle tue carte personalizzate: aggiungi le tue immagini, crea le didascalie e
-          scatena il delirio al tavolo con i tuoi amici!</span>
-      </p>
-
-      <!-- Pulsanti d'azione -->
-      <div class="gift-modal-actions">
-        <button id="btn-activate-trial" class="btn-gift-primary">
-          ATTIVA ORA
-        </button>
-        <button id="btn-activate-later-modal" class="btn-gift-secondary">
-          CONSERVA PER DOPO
-        </button>
-      </div>
-
-      <!-- Canvas per particelle -->
-      <canvas id="trial-particles-canvas"
-        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; border-radius: 20px; z-index: 5;"></canvas>
-    </div>
-  </div>
-
-  <!-- Modal Paywall Scadenza Trial -->
-  <div id="trial-expired-modal" class="custom-modal-overlay paywall-overlay"
-    style="display: none; justify-content: center; align-items: center; z-index: 16000;">
-    <div class="trial-expired-modal-box">
-
-      <!-- Titolo -->
-      <h2 class="title-floating">
-        <span style="display: block; font-size: 2.2rem; margin-bottom: 4px;">⏳</span>I TUOI 30 GIORNI SONO<br>VOLATI!
-      </h2>
-
-      <!-- Descrizione -->
-      <div class="paywall-desc-box">
-        <p class="paywall-desc-glow">
-          Il tuo periodo di prova gratuito è terminato. In questo mese hai messo alla gogna il tuo gruppo e scatenato il
-          delirio al tavolo con le vostre carte più assurde. Non fermare il divertimento!
-        </p>
-      </div>
-
-      <!-- Prezzo -->
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%;">
-        <div class="price-neon-glow">
-          16,99 €
-        </div>
-        <div
-          style="font-size: 0.72rem; color: #a0a0a0; line-height: 1.4; padding: 0 10px; text-align: center; font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;">
-          Acquisto unico. Sblocca la modalità per sempre, senza abbonamenti o rinnovi automatici. Paga solo l'Host,
-          tutta la comitiva gioca GRATIS.
-        </div>
-      </div>
-
-      <!-- Azioni -->
-      <div style="width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-        <button id="btn-paywall-buy" class="btn-sblocca-fucsia">
-          SBLOCCA PER SEMPRE
-        </button>
-        <button id="btn-paywall-close" class="btn-paywall-close-styled">
-          CHIUDI
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Modal Paywall Standard (Vendita Diretta) -->
   <div id="paywall-standard-modal" class="custom-modal-overlay paywall-overlay"
     style="display: none; justify-content: center; align-items: center; z-index: 16000;">
@@ -1402,20 +1313,6 @@
           </div>
         </div>
 
-        <!-- Sezione Regalo di Benvenuto (Reminder Persistente) -->
-        <div id="sidebar-gift-section" class="sidebar-section glass-panel" style="display: none;">
-          <div class="sidebar-section-header">
-            <span class="sidebar-section-icon">🎁</span>
-            <div class="sidebar-section-text">
-              <div class="sidebar-item-title">Regalo Disponibile</div>
-              <div class="sidebar-item-sub">30 giorni di Judgement Day gratis</div>
-            </div>
-          </div>
-          <button id="btn-sidebar-gift" class="sidebar-action-btn" style="background: linear-gradient(135deg, #ff007f, #bd33ff); color: white; border: none; font-weight: 700; cursor: pointer;">
-            Riscatta Regalo 🎁
-          </button>
-        </div>
-
         <!-- Sezione 2: Condivisione Link -->
         <div class="sidebar-section glass-panel">
           <div class="sidebar-section-header">
@@ -1465,7 +1362,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=200"></script>
+  <script src="/app.js?v=300"></script>
 </body>
 
 </html>
