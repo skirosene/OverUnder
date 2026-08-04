@@ -3394,15 +3394,16 @@ function gameLoop() {
     if (!state.isSoloMode && !state.roundEndActive) {
       state.roundEndActive = true;
       AudioSynth.playGong();
+      stopTimerLoop();
     }
     
-    // In solo mode, auto-advance on timer expiry
+    // In solo mode, auto-advance su timeout (ferma prima il timer corrente così non cancella il nuovo loop della carta successiva)
     if (state.isSoloMode && !state.userHasVoted) {
+      stopTimerLoop();
       state.userHasVoted = true;
       AudioSynth.playTimeout();
       handleSoloVote('timeout');
     }
-    stopTimerLoop();
     return;
   }
   
@@ -3684,7 +3685,8 @@ function showSoloCard() {
   el.btnUnderrated.classList.remove('disabled', 'pulse-active');
   el.btnOverrated.classList.remove('disabled', 'pulse-active');
 
-  // Reset timer bar
+  // Reset timer bar & UI counter
+  updateTimerUI(state.timerDurationMs);
   el.timerBar.style.background = 'hsl(145, 80%, 50%)';
   el.timerBar.style.boxShadow = '0 0 12px hsl(145, 80%, 50%)';
 
