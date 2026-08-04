@@ -12,199 +12,42 @@ const multer = require('multer');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overunder_super_secret_key_12345_mvp';
 
-// Setup Nodemailer Transporter (Resend / SMTP)
-const smtpPort = Number(process.env.SMTP_PORT) || 587;
-const smtpSecure = process.env.SMTP_SECURE !== undefined 
-  ? (process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === '1') 
-  : (smtpPort === 465);
-
-const transporterOptions = {
-  host: process.env.SMTP_HOST || 'smtp.resend.com',
-  port: smtpPort,
-  secure: smtpSecure,
-  auth: {
-    user: process.env.SMTP_USER || 'resend',
-    pass: process.env.SMTP_PASS
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
-  tls: {
-    rejectUnauthorized: false
-  }
-};
-
-const transporter = nodemailer.createTransport(transporterOptions);
-
-// Helper per recuperare variabili d'ambiente pulite con ricerca flessibile ed auto-detection delle chiavi Resend (re_...)
-function getCleanEnvVar(...keys) {
-  const envKeys = Object.keys(process.env);
-  
-  // 1. Cerca per valore che inizia con 're_' (formato ufficiale Resend API Key)
-  for (const ek of envKeys) {
-    const val = process.env[ek];
-    if (val && typeof val === 'string') {
-      const clean = val.replace(/^["']|["']$/g, '').trim();
-      if (clean.startsWith('re_') && clean.length > 10) {
-        console.log(`[ENV AUTO-DETECT] Trovata chiave Resend (formato 're_...') nella variabile ${ek}!`);
-        return clean;
-      }
-    }
-  }
-
-  // 2. Cerca per il nome esatto delle chiavi richieste
-  for (const k of keys) {
-    const val = process.env[k];
-    if (val && typeof val === 'string') {
-      const clean = val.replace(/^["']|["']$/g, '').trim();
-      if (clean.length > 0 && clean !== 'sync:false' && clean !== 'undefined' && clean !== 'null') {
-        return clean;
-      }
-    }
-  }
-
-  // 3. Cerca fuzzy per nome della variabile (resend, smtp, mail)
-  for (const ek of envKeys) {
-    const cleanEk = ek.toLowerCase().trim();
-    if (cleanEk.includes('resend') || cleanEk.includes('smtp') || cleanEk.includes('mail')) {
-      const val = process.env[ek];
-      if (val && typeof val === 'string') {
-        const clean = val.replace(/^["']|["']$/g, '').trim();
-        if (clean.length > 0 && clean !== 'sync:false' && clean !== 'undefined' && clean !== 'null') {
-          return clean;
-        }
-      }
-    }
-  }
-
-  // 4. Fallback predefinito di sicurezza assemblato per evitare che problemi di sync su Render blocchino l'invio
-  const fallbackKeyParts = ['re', '_', 'Mf2S5RgM_', 'N3To8is79fbmHANzAWAYRdGq'];
-  return fallbackKeyParts.join('');
-}
+// Inizializzazione SDK Resend con API Key
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Memoria temporanea per le sessioni OTP di trasferimento licenza (email -> { otp, expiresAt })
 const otpSessions = new Map();
 
-// Helper resiliente per l'invio dell'email OTP (Resend REST API porta 443 + Nodemailer SMTP)
-async function sendOtpEmail(toEmail, otp) {
-  const apiKey = getCleanEnvVar('RESEND_API_KEY', 'RESEND_KEY', 'RESEND_APIKEY', 'RESEND_TOKEN', 'RESEND_SECRET', 'RESEND', 'SMTP_PASS', 'SMTP_PASSWORD', 'API_KEY');
-  const configuredFrom = getCleanEnvVar('EMAIL_FROM', 'SMTP_FROM', 'MAIL_FROM');
-  const smtpHost = getCleanEnvVar('SMTP_HOST', 'MAIL_HOST') || 'smtp.resend.com';
-  const smtpUser = getCleanEnvVar('SMTP_USER', 'MAIL_USER') || 'resend';
-  const smtpPort = Number(process.env.SMTP_PORT) || 587;
-
-  // Determina l'indirizzo mittente
-  const fromCandidates = ['onboarding@resend.dev', 'OverUnder <onboarding@resend.dev>'];
-  if (configuredFrom && configuredFrom.includes('@') && !configuredFrom.includes('@gmail.') && !configuredFrom.includes('@yahoo.')) {
-    fromCandidates.unshift(configuredFrom);
-  }
-
-  const htmlContent = `
-    <div style="font-family: sans-serif; background-color: #000; color: #fff; padding: 24px; border-radius: 12px; max-width: 500px; margin: 0 auto; text-align: center;">
-      <h2 style="color: #fff; font-size: 22px; margin-bottom: 8px;">Codice di Verifica OverUnder 👑</h2>
-      <p style="color: #ccc; font-size: 14px; line-height: 1.5;">Inserisci questo codice nell'app per completare il trasferimento della modalità Premium:</p>
-      <div style="background: rgba(255,0,127,0.1); border: 1px solid #ff007f; border-radius: 10px; padding: 16px; margin: 20px 0;">
-        <span style="letter-spacing: 8px; color: #ff007f; font-size: 38px; font-weight: 800; font-family: monospace;">${otp}</span>
-      </div>
-      <p style="font-size: 12px; color: #888;">Questo codice è valido per 1 minuto. Se non hai richiesto tu questo trasferimento, ignora questa email.</p>
-    </div>
-  `;
-
-  let lastError = null;
-
-  // 1. TENTATIVO VIA RESEND REST API (https://api.resend.com/emails - Porta 443 HTTPS)
-  if (apiKey && apiKey.length > 5) {
-    console.log(`[EMAIL OTP] Trovata API Key (${apiKey.substring(0, 5)}... lunghezza: ${apiKey.length})`);
-    for (const fromAddr of fromCandidates) {
-      try {
-        console.log(`[EMAIL OTP] Tentativo Resend HTTP API per ${toEmail} (From: ${fromAddr})...`);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'User-Agent': 'OverUnderApp/1.0'
-          },
-          body: JSON.stringify({
-            from: fromAddr,
-            to: [toEmail],
-            subject: 'Codice di verifica OverUnder 👑',
-            html: htmlContent
-          }),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        const resData = await res.json().catch(() => ({}));
-        if (res.ok && resData.id) {
-          console.log(`[EMAIL OTP] ✅ Inviata via Resend REST API! ID: ${resData.id} (From: ${fromAddr})`);
-          return { success: true, provider: 'resend-api', id: resData.id };
-        } else {
-          const errMsg = resData.message || resData.error || (typeof resData === 'string' ? resData : `HTTP ${res.status}`);
-          console.warn(`[EMAIL OTP] Resend API risposto con errore (From: ${fromAddr}):`, errMsg);
-          lastError = new Error(errMsg);
-        }
-      } catch (errApi) {
-        console.error(`[EMAIL OTP] Eccezione Resend REST API:`, errApi.message || errApi);
-        lastError = errApi;
-      }
-    }
-  } else {
-    const presentKeys = Object.keys(process.env).filter(k => 
-      !k.startsWith('npm_') && 
-      !k.startsWith('XDG_') && 
-      !k.startsWith('COLOR') && 
-      !k.startsWith('LANG') && 
-      !k.startsWith('TERM') &&
-      !k.startsWith('PATH')
-    );
-    console.warn(`[EMAIL OTP] Nessuna API Key Resend/SMTP valida trovata in process.env. Chiavi visibili:`, presentKeys);
-    throw new Error(`Nessuna API Key trovata. Variabili d'ambiente lette da Render: [${presentKeys.join(', ')}]. Imposta RESEND_API_KEY su Render.`);
-  }
-
-  // 2. TENTATIVO VIA NODEMAILER SMTP
-  if (apiKey && apiKey.length > 5) {
-    const isSecure = (smtpPort === 465);
-    const tempTransporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: isSecure,
-      auth: {
-        user: smtpUser,
-        pass: apiKey
-      },
-      connectionTimeout: 8000,
-      greetingTimeout: 8000,
-      socketTimeout: 8000,
-      tls: { rejectUnauthorized: false }
+/**
+ * Funzione per l'invio dell'email OTP tramite SDK ufficiale di Resend
+ */
+async function sendOtpEmail(toEmail, otpCode) {
+  const fromAddress = process.env.EMAIL_FROM || 'no-reply@wwwoverunder-game.com';
+  
+  try {
+    const data = await resend.emails.send({
+      from: `OverUnder Game <${fromAddress}>`,
+      to: [toEmail],
+      subject: `Il tuo codice di verifica OverUnder: ${otpCode}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; background-color: #0f172a; color: #ffffff; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #ff007f;">OverUnder - Codice OTP</h2>
+          <p>Usa il seguente codice per accedere al gioco:</p>
+          <h1 style="font-size: 32px; letter-spacing: 4px; color: #00f0ff;">${otpCode}</h1>
+          <p style="font-size: 12px; color: #94a3b8;">Se non hai richiesto tu questo codice, ignora questa email.</p>
+        </div>
+      `
     });
-
-    for (const fromAddr of fromCandidates) {
-      try {
-        console.log(`[EMAIL OTP] Tentativo Nodemailer SMTP (${smtpHost}:${smtpPort}) per ${toEmail}...`);
-        const info = await tempTransporter.sendMail({
-          from: fromAddr,
-          to: toEmail,
-          subject: 'Codice di verifica OverUnder 👑',
-          html: htmlContent
-        });
-        console.log(`[EMAIL OTP] ✅ Inviata via Nodemailer SMTP! MessageId: ${info.messageId}`);
-        return { success: true, provider: 'nodemailer-smtp', messageId: info.messageId };
-      } catch (errSmtp) {
-        console.error(`[EMAIL OTP] Eccezione Nodemailer SMTP (From: ${fromAddr}):`, errSmtp.message || errSmtp);
-        lastError = errSmtp;
-      }
-    }
+    console.log('Email inviata con successo tramite Resend:', data);
+    return data;
+  } catch (error) {
+    console.error('Errore durante l\'invio dell\'email con Resend:', error);
+    throw error;
   }
-
-  throw lastError || new Error("Nessuna API Key o configurazione SMTP valida trovata nel server. Configura RESEND_API_KEY su Render.");
 }
 
 // ==========================================================================
@@ -593,7 +436,7 @@ app.post('/api/premium/request-transfer', async (req, res) => {
 
   try {
     const sendResult = await sendOtpEmail(normalizedEmail, otp);
-    console.log(`[OTP PREMIUM] Invio completato a ${normalizedEmail} tramite ${sendResult.provider}`);
+    console.log(`[OTP PREMIUM] Invio completato a ${normalizedEmail} tramite Resend SDK:`, sendResult);
     return res.status(200).json({ success: true, message: 'Codice OTP inviato con successo.' });
   } catch (err) {
     const rawMsg = (err && (err.message || String(err))) || '';
