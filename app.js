@@ -1665,6 +1665,14 @@ function setupEventListeners() {
         await activateTrialOnServer();
         console.log("--> 2b. SERVER ACTIVATION COMPLETE, STORE STATE:", judgementDayStore.state);
         
+        // Forza l'inizializzazione o l'aggiornamento dello store in memoria
+        if (judgementDayStore && typeof judgementDayStore.init === 'function') {
+          judgementDayStore.init(); 
+        }
+        
+        // Lancia l'evento globale per avvisare lo Switch e la Card di fare il re-render
+        window.dispatchEvent(new CustomEvent('trial-state-changed'));
+
         setTimeout(() => {
           if (el.trialGiftModal) {
             el.trialGiftModal.classList.add('modal-fade-out');
@@ -1690,6 +1698,18 @@ function setupEventListeners() {
       }
     });
   }
+
+// Listener globale per l'evento trial-state-changed per aggiornare lo switch e la card
+window.addEventListener('trial-state-changed', () => {
+  const access = checkJudgementDayAccess();
+  console.log("--> EVENT trial-state-changed RICEVUTO, NUOVO ACCESSO:", access);
+  if (el.createPremiumToggle) {
+    el.createPremiumToggle.checked = access.hasAccess;
+  }
+  updateJudgementCardBadge();
+  updatePremiumUI();
+  updateGiftBannerUI();
+});
 
   // === REGALO PIÙ TARDI ===
   if (el.btnActivateLaterModal) {
