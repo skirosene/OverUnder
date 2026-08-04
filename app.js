@@ -708,6 +708,13 @@ function forceHideSplash() {
 }
 
 async function startApp() {
+  console.log("--> 0. APP INITIALIZATION (STARTUP CHECK):", {
+    overunder_trial_redeemed: localStorage.getItem('overunder_trial_redeemed'),
+    overunder_has_redeemed_trial: localStorage.getItem('overunder_has_redeemed_trial'),
+    overunder_trial_start: localStorage.getItem('overunder_trial_start'),
+    overunder_trial_end: localStorage.getItem('overunder_trial_end')
+  });
+
   try { judgementDayStore.init(); } catch (e) { console.warn("judgementDayStore init error:", e); }
   try { initClock(); } catch (e) { console.warn("initClock error:", e); }
   try { setupOnboardingTabs(); } catch (e) { console.warn("setupOnboardingTabs error:", e); }
@@ -1576,8 +1583,14 @@ function setupEventListeners() {
   // === RESTRIZIONE TOGGLE PREMIUM LOBBY ===
   if (el.createPremiumToggle) {
     el.createPremiumToggle.addEventListener('change', () => {
+      const access = checkJudgementDayAccess();
+      console.log("--> 3. VALUTAZIONE ACCESSO CARD:", {
+        local_storage_val: localStorage.getItem('overunder_trial_redeemed'),
+        state_val: access,
+        isPurchased: access.isPurchased
+      });
+
       if (el.createPremiumToggle.checked) {
-        const access = checkJudgementDayAccess();
         if (access.hasAccess) {
           console.log('[ACCESS] Accesso alla modalità Judgement Day consentito via checkJudgementDayAccess()');
           return;
@@ -1614,6 +1627,10 @@ function setupEventListeners() {
       sessionStorage.removeItem('overunder_token');
       localStorage.removeItem('overunder_trial_activated');
       localStorage.removeItem('overunder_trial_shown');
+      localStorage.removeItem('overunder_trial_redeemed');
+      localStorage.removeItem('overunder_has_redeemed_trial');
+      localStorage.removeItem('overunder_trial_start');
+      localStorage.removeItem('overunder_trial_end');
       state.roomIsPremium = false;
       if (el.createPremiumToggle) {
         el.createPremiumToggle.checked = false;
@@ -1625,7 +1642,7 @@ function setupEventListeners() {
       if (el.onboardingGiftBanner) {
         el.onboardingGiftBanner.style.display = 'block';
       }
-      updatePremiumUI();
+      syncJudgementDayUI();
       showError("Stato Premium resettato a NON ACQUISTATO!");
     });
   }
@@ -1633,6 +1650,10 @@ function setupEventListeners() {
   // === ATTIVAZIONE REGALO (TRIAL) ===
   if (el.btnActivateTrial) {
     el.btnActivateTrial.addEventListener('click', async () => {
+      console.log("--> 1. CLICK ACCETTA PROVA ESEGUITO");
+      localStorage.setItem('overunder_trial_redeemed', 'true');
+      console.log("--> 2. LOCALSTORAGE IMPOSTATO:", localStorage.getItem('overunder_trial_redeemed'));
+
       try {
         el.btnActivateTrial.disabled = true;
         el.btnActivateTrial.innerText = "ATTIVAZIONE...";
@@ -1642,6 +1663,7 @@ function setupEventListeners() {
         AudioSynth.playConfirm(true);
         
         await activateTrialOnServer();
+        console.log("--> 2b. SERVER ACTIVATION COMPLETE, STORE STATE:", judgementDayStore.state);
         
         setTimeout(() => {
           if (el.trialGiftModal) {
