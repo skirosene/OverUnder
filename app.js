@@ -1162,7 +1162,7 @@ const judgementDayStore = {
   },
 
   hydrate() {
-    const isPurchased = localStorage.getItem('overunder_judgement_purchased') === 'true' || checkPremiumStatusFromToken();
+    const isPurchased = localStorage.getItem('overunder_judgement_purchased') === 'true' || localStorage.getItem('overunder_premium_unlocked') === 'true' || checkPremiumStatusFromToken();
     const trialRedeemed = localStorage.getItem('overunder_trial_redeemed') === 'true' || localStorage.getItem('overunder_has_redeemed_trial') === 'true';
     
     const startStr = localStorage.getItem('overunder_trial_start') || localStorage.getItem('overunder_trial_start_date') || '0';
@@ -1580,43 +1580,40 @@ function setupEventListeners() {
     });
   }
 
-  // === RESTRIZIONE TOGGLE PREMIUM LOBBY ===
+function showPurchaseModal() {
+  const standardModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
+  if (standardModal) {
+    standardModal.style.display = 'flex';
+    standardModal.classList.add('active');
+  } else if (el.trialGiftModal) {
+    el.trialGiftModal.style.display = 'flex';
+    el.trialGiftModal.classList.add('active');
+  }
+}
+
+  // === RESTRIZIONE TOGGLE PREMIUM LOBBY (SBLOCCO DIRETTO DA LOCALSTORAGE) ===
   if (el.createPremiumToggle) {
-    el.createPremiumToggle.addEventListener('change', () => {
-      const access = checkJudgementDayAccess();
-      console.log("--> 3. VALUTAZIONE ACCESSO CARD:", {
-        local_storage_val: localStorage.getItem('overunder_trial_redeemed'),
-        state_val: access,
-        isPurchased: access.isPurchased
-      });
+    el.createPremiumToggle.addEventListener('change', (e) => {
+      const isPurchased = localStorage.getItem('overunder_judgement_purchased') === 'true' || localStorage.getItem('overunder_premium_unlocked') === 'true' || checkPremiumStatusFromToken();
+      const trialRedeemed = localStorage.getItem('overunder_trial_redeemed') === 'true' || localStorage.getItem('overunder_has_redeemed_trial') === 'true';
+      const trialEnd = parseInt(localStorage.getItem('overunder_trial_end') || localStorage.getItem('overunder_trial_end_date') || '0', 10);
+      const isTrialActive = trialRedeemed && (Date.now() < trialEnd || trialEnd === 0);
+
+      const canAccess = isPurchased || isTrialActive;
+
+      console.log("--> CLICK SWITCH - VERIFICA DIRETTA:", { isPurchased, trialRedeemed, isTrialActive, canAccess });
 
       if (el.createPremiumToggle.checked) {
-        if (access.hasAccess) {
-          console.log('[ACCESS] Accesso alla modalità Judgement Day consentito via checkJudgementDayAccess()');
+        if (canAccess) {
+          // L'utente ha la prova attiva o l'acquisto a vita: CONSENTI L'ATTIVAZIONE
+          console.log("Accesso Premium/Trial confermato!");
           return;
         }
-
-        // Accesso negato -> Deseleziona lo switch e mostra modale opportuna
+        
+        // Se NON ha accesso, blocca lo switch e mostra la modale di acquisto
+        e.preventDefault();
         el.createPremiumToggle.checked = false;
-
-        if (access.trialRedeemed) {
-          if (el.trialExpiredModal) {
-            el.trialExpiredModal.style.display = 'flex';
-            el.trialExpiredModal.classList.add('active');
-          }
-          showError("Il tuo periodo di prova gratuito di 30 giorni è terminato. Sblocca la modalità per continuare.");
-        } else {
-          if (el.trialGiftModal) {
-            el.trialGiftModal.style.display = 'flex';
-            el.trialGiftModal.classList.add('active');
-          } else {
-            const standardModal = document.getElementById('paywall-standard-modal');
-            if (standardModal) {
-              standardModal.style.display = 'flex';
-              standardModal.classList.add('active');
-            }
-          }
-        }
+        showPurchaseModal();
       }
     });
   }
