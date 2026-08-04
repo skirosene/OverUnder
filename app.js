@@ -708,6 +708,7 @@ function forceHideSplash() {
 }
 
 async function startApp() {
+  try { judgementDayStore.init(); } catch (e) { console.warn("judgementDayStore init error:", e); }
   try { initClock(); } catch (e) { console.warn("initClock error:", e); }
   try { setupOnboardingTabs(); } catch (e) { console.warn("setupOnboardingTabs error:", e); }
   try { setupEventListeners(); } catch (e) { console.warn("setupEventListeners error:", e); }
@@ -1133,55 +1134,119 @@ function checkPremiumStatusFromToken() {
   return false;
 }
 
-// FUNZIONE DI CHECK CENTRALIZZATA (Struttura richiesta)
-function checkJudgementDayAccess() {
-  const isPurchased = localStorage.getItem('overunder_judgement_purchased') === 'true' || checkPremiumStatusFromToken();
-  const trialRedeemed = localStorage.getItem('overunder_trial_redeemed') === 'true' || localStorage.getItem('overunder_has_redeemed_trial') === 'true';
-  const trialEnd = parseInt(
-    localStorage.getItem('overunder_trial_end') || 
-    localStorage.getItem('overunder_trial_end_date') || 
-    '0', 10
-  );
-  const isTrialActive = trialRedeemed && (Date.now() < trialEnd);
+// ==========================================================================
+// STORE GLOBALE REATTIVO PER "JUDGEMENT DAY" & TRIAL 30 GIORNI
+// ==========================================================================
+const judgementDayStore = {
+  state: {
+    isPurchased: false,
+    trialRedeemed: false,
+    trialStart: 0,
+    trialEnd: 0,
+    isTrialActive: false,
+    hasAccess: false,
+    timeLeftMs: 0
+  },
 
-  if (trialRedeemed && trialEnd > 0 && Date.now() >= trialEnd) {
-    localStorage.setItem('overunder_trial_activated', 'expired');
+  listeners: new Set(),
+
+  init() {
+    this.hydrate();
+  },
+
+  hydrate() {
+    const isPurchased = localStorage.getItem('overunder_judgement_purchased') === 'true' || checkPremiumStatusFromToken();
+    const trialRedeemed = localStorage.getItem('overunder_trial_redeemed') === 'true' || localStorage.getItem('overunder_has_redeemed_trial') === 'true';
+    
+    const startStr = localStorage.getItem('overunder_trial_start') || localStorage.getItem('overunder_trial_start_date') || '0';
+    const endStr = localStorage.getItem('overunder_trial_end') || localStorage.getItem('overunder_trial_end_date') || '0';
+    
+    const trialStart = parseInt(startStr, 10);
+    const trialEnd = parseInt(endStr, 10);
+    const isTrialActive = trialRedeemed && trialEnd > 0 && (Date.now() < trialEnd);
+
+    if (trialRedeemed && trialEnd > 0 && Date.now() >= trialEnd) {
+      localStorage.setItem('overunder_trial_activated', 'expired');
+    }
+
+    this.state = {
+      isPurchased,
+      trialRedeemed,
+      trialStart,
+      trialEnd,
+      isTrialActive,
+      hasAccess: isPurchased || isTrialActive,
+      timeLeftMs: (trialEnd > 0 && isTrialActive) ? (trialEnd - Date.now()) : 0
+    };
+
+    return this.state;
+  },
+
+  setTrialActivated(startMs, endMs) {
+    const now = Date.now();
+    const start = startMs || now;
+    const end = endMs || (now + 30 * 24 * 60 * 60 * 1000);
+
+    // 1. Scrittura SINCRONA nel LocalStorage (Permanente)
+    localStorage.setItem('overunder_trial_redeemed', 'true');
+    localStorage.setItem('overunder_trial_start', String(start));
+    localStorage.setItem('overunder_trial_end', String(end));
+
+    // Scrittura chiavi retrocompatibili
+    localStorage.setItem('overunder_has_redeemed_trial', 'true');
+    localStorage.setItem('overunder_trial_activated', 'true');
+    localStorage.setItem('overunder_trial_start_date', String(start));
+    localStorage.setItem('overunder_trial_end_date', String(end));
+
+    // 2. Aggiornamento SINCRONO dello stato in memoria
+    this.hydrate();
+
+    // 3. Notifica sincrona ed immediata di tutti i componenti figli
+    this.notify(true);
+  },
+
+  subscribe(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  },
+
+  notify(autoCheckToggle = false) {
+    state.trialActivated = this.state.isTrialActive;
+    state.roomIsPremium = this.state.hasAccess;
+
+    if (el.createPremiumToggle) {
+      if (this.state.hasAccess) {
+        if (autoCheckToggle) {
+          el.createPremiumToggle.checked = true;
+        }
+      } else {
+        el.createPremiumToggle.checked = false;
+      }
+    }
+
+    updateJudgementCardBadge();
+    updatePremiumUI();
+    updateGiftBannerUI();
+
+    this.listeners.forEach(fn => {
+      try { fn(this.state); } catch (e) { console.error("Errore listener judgementDayStore:", e); }
+    });
+
+    window.dispatchEvent(new CustomEvent('overunder_premium_state_changed', { detail: this.state }));
   }
+};
 
-  return {
-    hasAccess: isPurchased || isTrialActive,
-    isPurchased: isPurchased,
-    isTrialActive: isTrialActive,
-    trialRedeemed: trialRedeemed,
-    timeLeftMs: trialEnd > 0 ? (trialEnd - Date.now()) : 0
-  };
+function checkJudgementDayAccess() {
+  return judgementDayStore.hydrate();
 }
 
 function hasPremiumAccess() {
-  return checkJudgementDayAccess().hasAccess;
+  return judgementDayStore.hydrate().hasAccess;
 }
 
 function syncJudgementDayUI(autoCheckToggle = false) {
-  const access = checkJudgementDayAccess();
-
-  state.trialActivated = access.isTrialActive;
-  state.roomIsPremium = access.hasAccess;
-
-  if (el.createPremiumToggle) {
-    if (access.hasAccess) {
-      if (autoCheckToggle) {
-        el.createPremiumToggle.checked = true;
-      }
-    } else {
-      el.createPremiumToggle.checked = false;
-    }
-  }
-
-  updateJudgementCardBadge();
-  updatePremiumUI();
-  updateGiftBannerUI();
-
-  window.dispatchEvent(new CustomEvent('overunder_premium_state_changed', { detail: access }));
+  judgementDayStore.hydrate();
+  judgementDayStore.notify(autoCheckToggle);
 }
 
 function updatePremiumUI() {
@@ -1337,18 +1402,20 @@ function updateGiftBannerUI() {
 }
 
 async function checkTrialStatus() {
+  // Reidrata prima lo stato locale dal localStorage (ground truth)
+  judgementDayStore.hydrate();
+
   try {
     const fingerprint = getDeviceFingerprint();
     const res = await fetch(`/api/trial/status?deviceUuid=${sessionId}&fingerprint=${fingerprint}`);
     if (res.ok) {
       const data = await res.json();
       if (data.activated || data.hasRedeemedTrial || data.overunder_trial_redeemed === 'true') {
+        const startMs = data.trial_start || data.trial_start_date || judgementDayStore.state.trialStart;
+        const endMs = data.trial_end || data.trial_end_date || judgementDayStore.state.trialEnd;
+
         localStorage.setItem('overunder_trial_redeemed', 'true');
         localStorage.setItem('overunder_has_redeemed_trial', 'true');
-        
-        const startMs = data.trial_start || data.trial_start_date;
-        const endMs = data.trial_end || data.trial_end_date;
-
         if (startMs) {
           localStorage.setItem('overunder_trial_start', String(startMs));
           localStorage.setItem('overunder_trial_start_date', String(startMs));
@@ -1357,7 +1424,6 @@ async function checkTrialStatus() {
           localStorage.setItem('overunder_trial_end', String(endMs));
           localStorage.setItem('overunder_trial_end_date', String(endMs));
         }
-
         if (data.active) {
           localStorage.setItem('overunder_trial_activated', 'true');
         } else {
@@ -1366,9 +1432,10 @@ async function checkTrialStatus() {
       }
     }
   } catch (e) {
-    console.warn("Errore recupero stato trial:", e);
+    console.warn("Errore recupero stato trial dal server:", e);
   } finally {
-    syncJudgementDayUI();
+    // PROTEZIONE DA SOVRASCRITTURE ALL'AVVIO: Preserva e notifica lo stato dal localStorage
+    judgementDayStore.notify();
   }
 }
 
@@ -1407,19 +1474,8 @@ async function activateTrialOnServer() {
   const startMs = data.trial_start || data.trial_start_date || now;
   const endMs = data.trial_end || data.trial_end_date || (now + 30 * 24 * 60 * 60 * 1000);
 
-  // CHIAVI DI ARCHIVIAZIONE RICHIESTE
-  localStorage.setItem('overunder_trial_redeemed', 'true');
-  localStorage.setItem('overunder_trial_start', String(startMs));
-  localStorage.setItem('overunder_trial_end', String(endMs));
-
-  // CHIAVI RETROCOMPATIBILI
-  localStorage.setItem('overunder_trial_activated', 'true');
-  localStorage.setItem('overunder_has_redeemed_trial', 'true');
-  localStorage.setItem('overunder_trial_start_date', String(startMs));
-  localStorage.setItem('overunder_trial_end_date', String(endMs));
-
-  // Reattività immediata al millisecondo
-  syncJudgementDayUI(true);
+  // AGGIORNAMENTO SINCRONO NELLO STORE E NEL LOCALSTORAGE CON NOTIFICA IMMEDIATA
+  judgementDayStore.setTrialActivated(startMs, endMs);
 }
 
 function checkMatchEndTrialExpiration() {
