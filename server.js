@@ -318,13 +318,14 @@ app.get('/api/trial/status', (req, res) => {
   );
 
   if (!record) {
-    return res.json({ activated: false });
+    return res.json({ activated: false, hasRedeemedTrial: false });
   }
 
   const isExpired = Date.now() > record.trial_end_date;
   res.json({
     activated: true,
     active: !isExpired,
+    hasRedeemedTrial: true,
     trial_start_date: record.trial_start_date,
     trial_end_date: record.trial_end_date
   });
@@ -352,6 +353,7 @@ app.post('/api/trial/activate', (req, res) => {
     deviceUuid,
     fingerprint,
     trial_activated: true,
+    hasRedeemedTrial: true,
     trial_start_date: now,
     trial_end_date: now + 30 * 24 * 60 * 60 * 1000, // 30 giorni esatti dall'attivazione
     userId: null

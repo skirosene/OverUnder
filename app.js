@@ -1308,11 +1308,13 @@ function updateJudgementCardBadge() {
 }
 
 function updateGiftBannerUI() {
+  const hasRedeemedTrial = localStorage.getItem('overunder_has_redeemed_trial') === 'true';
   const trialActivated = localStorage.getItem('overunder_trial_activated') === 'true';
   const trialExpired = localStorage.getItem('overunder_trial_activated') === 'expired';
   const isPremium = checkPremiumStatusFromToken();
 
-  const isGiftAvailable = !isPremium && !trialActivated && !trialExpired;
+  // Il regalo è disponibile SOLO SE l'utente NON l'ha mai riscattato (hasRedeemedTrial === false), non è attivo, non è scaduto e non ha acquistato il Premium
+  const isGiftAvailable = !isPremium && !hasRedeemedTrial && !trialActivated && !trialExpired;
 
   if (el.onboardingGiftBanner) {
     el.onboardingGiftBanner.style.display = isGiftAvailable ? 'block' : 'none';
@@ -1331,7 +1333,8 @@ async function checkTrialStatus() {
     const res = await fetch(`/api/trial/status?deviceUuid=${sessionId}&fingerprint=${fingerprint}`);
     if (res.ok) {
       const data = await res.json();
-      if (data.activated) {
+      if (data.activated || data.hasRedeemedTrial) {
+        localStorage.setItem('overunder_has_redeemed_trial', 'true');
         if (data.active) {
           state.trialActivated = true;
           localStorage.setItem('overunder_trial_activated', 'true');
@@ -1415,6 +1418,8 @@ async function activateTrialOnServer() {
   }
   
   state.trialActivated = true;
+  // Imposta PERMANENTEMENTE hasRedeemedTrial = true
+  localStorage.setItem('overunder_has_redeemed_trial', 'true');
   localStorage.setItem('overunder_trial_activated', 'true');
   if (data.trial_start_date) localStorage.setItem('overunder_trial_start_date', data.trial_start_date);
   if (data.trial_end_date) localStorage.setItem('overunder_trial_end_date', data.trial_end_date || (Date.now() + 30 * 24 * 60 * 60 * 1000));
@@ -1479,13 +1484,16 @@ function setupEventListeners() {
       try { AudioSynth.init(); } catch (e) {}
       try { AudioSynth.playConfirm(true); } catch (e) {}
 
+      const hasRedeemedTrial = localStorage.getItem('overunder_has_redeemed_trial') === 'true';
       const trialActivated = localStorage.getItem('overunder_trial_activated') === 'true';
       const trialExpired = localStorage.getItem('overunder_trial_activated') === 'expired';
       const trialShown = localStorage.getItem('overunder_trial_shown') === 'true';
+      const isPremium = checkPremiumStatusFromToken();
 
       const isProd = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
-      if (isProd && !trialActivated && !trialExpired && !trialShown) {
+      // Il pop-up compare SOLO SE l'utente NON l'ha mai riscattato in passato (hasRedeemedTrial === false) e NON ha acquistato il Premium
+      if (isProd && !hasRedeemedTrial && !trialActivated && !trialExpired && !isPremium && !trialShown) {
         if (el.trialGiftModal) {
           el.trialGiftModal.style.display = 'flex';
           el.trialGiftModal.classList.add('active');
