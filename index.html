@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=121">
+  <link rel="stylesheet" href="/style.css?v=122">
 </head>
 
 <body>
@@ -257,12 +257,15 @@
               <!-- Toggle Premium (Modalità "Judgement Day") -->
               <div id="judgement-day-card" class="input-group"
                 style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px; background: rgba(189, 51, 255, 0.08); padding: 12px; border-radius: 12px; border: 1px solid rgba(189, 51, 255, 0.25); cursor: pointer; -webkit-tap-highlight-color: transparent;">
-                <!-- Riga Superiore: Titolo + Info -->
+                <!-- Riga Superiore: Titolo + Badge + Info -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <span
                     style="font-family: var(--font-title); font-weight: 800; font-size: 0.8rem; color: #df33ff; letter-spacing: 0.5px;"><span
                       id="premium-crown-icon">👑 </span>MODALITÀ "JUDGEMENT DAY"</span>
-                  <button id="btn-info-gogna" class="btn-info-gogna" type="button" title="Come funziona?">i</button>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <div id="judgement-trial-badge" class="judgement-trial-badge" style="display: none;"></div>
+                    <button id="btn-info-gogna" class="btn-info-gogna" type="button" title="Come funziona?">i</button>
+                  </div>
                 </div>
                 <!-- Riga Inferiore: Descrizione + Switch -->
                 <div
@@ -1462,7 +1465,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=182"></script>
+  <script src="/app.js?v=183"></script>
 </body>
 
 </html>

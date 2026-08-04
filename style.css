@@ -2815,6 +2815,55 @@ input[type="submit"] {
   100% { opacity: 1; transform: translateY(0); }
 }
 
+/* Badge Trial & Countdown per Judgement Day Card */
+.judgement-trial-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-family: var(--font-title);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  background: rgba(255, 179, 0, 0.12);
+  border: 1px solid rgba(255, 179, 0, 0.4);
+  color: #ffca28;
+  box-shadow: 0 0 8px rgba(255, 179, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.judgement-trial-badge:hover, .judgement-trial-badge:active {
+  transform: scale(1.04);
+  background: rgba(255, 179, 0, 0.22);
+}
+
+.judgement-trial-badge.badge-available {
+  background: linear-gradient(135deg, rgba(255, 0, 127, 0.15), rgba(189, 51, 255, 0.2));
+  border-color: rgba(255, 0, 127, 0.4);
+  color: #ff66c4;
+}
+
+.judgement-trial-badge.badge-panic {
+  background: rgba(255, 51, 51, 0.2);
+  border-color: rgba(255, 51, 51, 0.6);
+  color: #ff4d4d;
+  animation: pulse-trial-badge 1s infinite alternate;
+}
+
+.judgement-trial-badge.badge-lifetime {
+  background: rgba(0, 240, 255, 0.12);
+  border-color: rgba(0, 240, 255, 0.4);
+  color: #00f0ff;
+}
+
+@keyframes pulse-trial-badge {
+  0% { box-shadow: 0 0 4px rgba(255, 51, 51, 0.3); }
+  100% { box-shadow: 0 0 12px rgba(255, 51, 51, 0.7); }
+}
+
 /* ==========================================================================
    STILI AVATAR E LISTA PARTECIPANTI (HD & RESPONSIVE)
    ========================================================================== */

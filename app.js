@@ -1150,6 +1150,137 @@ function updatePremiumUI() {
     }
     descLabel.style.textAlign = 'left';
   }
+  updateJudgementCardBadge();
+}
+
+let trialTimerInterval = null;
+
+function formatTrialCountdown(remainingMs) {
+  if (remainingMs <= 0) return { text: '🔒 SCADUTO', mode: 'expired' };
+
+  const totalSecs = Math.floor(remainingMs / 1000);
+  const days = Math.floor(totalSecs / (24 * 3600));
+  const hours = Math.floor((totalSecs % (24 * 3600)) / 3600);
+  const minutes = Math.floor((totalSecs % 3600) / 60);
+  const seconds = totalSecs % 60;
+
+  if (days >= 1) {
+    return {
+      text: `⏳ ${days} ${days === 1 ? 'giorno' : 'giorni'} di prova`,
+      mode: 'normal'
+    };
+  } else if (hours >= 1) {
+    return {
+      text: `⏳ ${hours}h ${minutes}m rimasti`,
+      mode: 'normal'
+    };
+  } else {
+    return {
+      text: `⏳ ${minutes}m ${String(seconds).padStart(2, '0')}s`,
+      mode: 'panic'
+    };
+  }
+}
+
+function updateJudgementCardBadge() {
+  const badge = document.getElementById('judgement-trial-badge');
+  if (!badge) return;
+
+  const isLifetime = checkPremiumStatusFromToken() && !localStorage.getItem('overunder_trial_activated');
+  const trialActivated = localStorage.getItem('overunder_trial_activated') === 'true';
+  const trialExpired = localStorage.getItem('overunder_trial_activated') === 'expired';
+  const endDateStr = localStorage.getItem('overunder_trial_end_date');
+
+  // Caso 1: Licenza Premium a Vita
+  if (isLifetime) {
+    if (trialTimerInterval) {
+      clearInterval(trialTimerInterval);
+      trialTimerInterval = null;
+    }
+    badge.className = 'judgement-trial-badge badge-lifetime';
+    badge.innerHTML = '👑 PREMIUM A VITA';
+    badge.style.display = 'inline-flex';
+    badge.onclick = (e) => {
+      e.stopPropagation();
+      showToast('Hai la licenza Premium a vita per Judgement Day! 👑', 3500);
+    };
+    return;
+  }
+
+  // Caso 2: Prova 30 Giorni Attiva
+  if (trialActivated && endDateStr) {
+    const endDate = parseInt(endDateStr, 10);
+
+    const refreshBadgeTimer = () => {
+      const remaining = endDate - Date.now();
+      if (remaining <= 0) {
+        if (trialTimerInterval) {
+          clearInterval(trialTimerInterval);
+          trialTimerInterval = null;
+        }
+        localStorage.setItem('overunder_trial_activated', 'expired');
+        updateJudgementCardBadge();
+        updatePremiumUI();
+        return;
+      }
+      const info = formatTrialCountdown(remaining);
+      badge.className = `judgement-trial-badge ${info.mode === 'panic' ? 'badge-panic' : ''}`;
+      badge.innerHTML = info.text;
+      badge.style.display = 'inline-flex';
+
+      const expDate = new Date(endDate);
+      const dateFormatted = expDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const timeFormatted = expDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+      badge.onclick = (e) => {
+        e.stopPropagation();
+        showToast(`La tua prova gratuita scade il ${dateFormatted} alle ${timeFormatted} ⏳`, 4500);
+      };
+    };
+
+    refreshBadgeTimer();
+    if (!trialTimerInterval) {
+      trialTimerInterval = setInterval(refreshBadgeTimer, 1000);
+    }
+    return;
+  } else {
+    if (trialTimerInterval) {
+      clearInterval(trialTimerInterval);
+      trialTimerInterval = null;
+    }
+  }
+
+  // Caso 3: Prova Non Ancora Attivata ma Disponibile
+  if (!trialActivated && !trialExpired) {
+    badge.className = 'judgement-trial-badge badge-available';
+    badge.innerHTML = 'Regalo disponibile 🎁';
+    badge.style.display = 'inline-flex';
+    badge.onclick = (e) => {
+      e.stopPropagation();
+      if (el.trialGiftModal) {
+        el.trialGiftModal.style.display = 'flex';
+        el.trialGiftModal.classList.add('active');
+      }
+    };
+    return;
+  }
+
+  // Caso 4: Prova Scaduta
+  if (trialExpired) {
+    badge.className = 'judgement-trial-badge badge-panic';
+    badge.innerHTML = '🔒 PROVA SCADUTA';
+    badge.style.display = 'inline-flex';
+    badge.onclick = (e) => {
+      e.stopPropagation();
+      if (el.trialExpiredModal) {
+        el.trialExpiredModal.style.display = 'flex';
+        el.trialExpiredModal.classList.add('active');
+      }
+    };
+    return;
+  }
+
+  badge.style.display = 'none';
 }
 
 function updateGiftBannerUI() {
@@ -1167,6 +1298,7 @@ function updateGiftBannerUI() {
   if (sidebarGiftSection) {
     sidebarGiftSection.style.display = isGiftAvailable ? 'block' : 'none';
   }
+  updateJudgementCardBadge();
 }
 
 async function checkTrialStatus() {
