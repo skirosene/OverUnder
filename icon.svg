@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Sfondo Sfumato Scuro Premium -->
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1c24"/>
+      <stop offset="50%" stop-color="#111116"/>
+      <stop offset="100%" stop-color="#09090c"/>
+    </linearGradient>
+
+    <!-- Gradiente Linea di Separazione (Giallo/Arancione -> Ciano/Azzurro) -->
+    <linearGradient id="divider-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFB300"/>
+      <stop offset="100%" stop-color="#00A8E8"/>
+    </linearGradient>
+
+    <!-- Bagliore per la scritta OVER (Giallo/Arancione) -->
+    <filter id="over-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="14" flood-color="#FFB300" flood-opacity="0.6"/>
+    </filter>
+
+    <!-- Bagliore per la scritta UNDER (Ciano/Azzurro) -->
+    <filter id="under-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="14" flood-color="#00A8E8" flood-opacity="0.6"/>
+    </filter>
+    
+    <!-- Bagliore per la linea divisoria -->
+    <filter id="line-glow" x="-20%" y="-50%" width="140%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#00A8E8" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Quadrato con Angoli Arrotondati (iOS / Android App Icon Style) -->
+  <rect x="12" y="12" width="488" height="488" rx="110" fill="url(#bg-gradient)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="6"/>
+
+  <!-- Gruppo Logo Centrato Perfettamente -->
+  <g transform="translate(0, 0)">
+    <!-- Scritta OVER in alto -->
+    <text x="256" y="212" 
+          font-family="'Outfit', 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif" 
+          font-weight="900" 
+          font-size="112" 
+          letter-spacing="8" 
+          text-anchor="middle" 
+          fill="#FFB300" 
+          filter="url(#over-glow)">OVER</text>
+
+    <!-- Linea Sottile di Separazione -->
+    <rect x="156" y="248" width="200" height="8" rx="4" fill="url(#divider-gradient)" filter="url(#line-glow)"/>
+
+    <!-- Scritta UNDER in basso -->
+    <text x="256" y="358" 
+          font-family="'Outfit', 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif" 
+          font-weight="900" 
+          font-size="94" 
+          letter-spacing="8" 
+          text-anchor="middle" 
+          fill="#00A8E8" 
+          filter="url(#under-glow)">UNDER</text>
+  </g>
+</svg>
