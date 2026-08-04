@@ -1008,6 +1008,32 @@ input[type="submit"] {
   word-wrap: break-word;
   max-width: 94%;
   margin: auto 0;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: all 0.2s ease;
+}
+
+.prompt-text.expanded {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  font-size: 1.15rem !important;
+  max-height: none !important;
+}
+
+.prompt-card.expanded {
+  max-height: none !important;
+  overflow-y: auto !important;
+  height: auto !important;
+}
+
+.summary-item-prompt.expanded {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
 }
 
 /* 3. Footer (Stato Votazioni & Bottoni OVER/UNDER) -> STICKY BOTTOM ANCORATO IN BASSO */

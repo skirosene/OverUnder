@@ -1943,6 +1943,14 @@ function showPurchaseModal() {
     });
   }
 
+  // Tap/Click toggle per espandere/contrarre frasi lunghe durante il gameplay (senza press prolungato)
+  if (el.currentPromptText) {
+    bindFastClick(el.currentPromptText, () => {
+      el.currentPromptText.classList.toggle('expanded');
+      if (el.promptCard) el.promptCard.classList.toggle('expanded');
+    });
+  }
+
   // Pulsante indietro nella lobby
   if (el.btnBackLobby) {
     el.btnBackLobby.addEventListener('click', () => {
@@ -3761,7 +3769,6 @@ function renderFilteredResultsList() {
 }
 
 function renderGameOver({ awards, summary }) {
-  checkMatchEndTrialExpiration();
   // Condizionale titolo in base a Solo vs Gruppo
   const subtitleEl = document.getElementById('summary-subtitle');
   if (subtitleEl) {
@@ -3769,93 +3776,111 @@ function renderGameOver({ awards, summary }) {
   }
 
   // Genera premi
-  el.groupAwardsContainer.innerHTML = '';
-  if (awards.length === 0) {
-    el.groupAwardsContainer.innerHTML = `<div class="no-players-text">Nessun premio speciale assegnato in questa partita!</div>`;
-  } else {
-    awards.forEach(aw => {
-      const card = document.createElement('div');
-      card.className = 'award-card';
-      card.innerHTML = `
-        <div class="award-icon-box">${aw.icon}</div>
-        <div class="award-info">
-          <div class="award-title-row">
-            <span class="award-name">${aw.title}</span>
-            <span class="award-winner">${aw.winner}</span>
+  if (el.groupAwardsContainer) {
+    el.groupAwardsContainer.innerHTML = '';
+    const awardsList = Array.isArray(awards) ? awards : [];
+    if (awardsList.length === 0) {
+      el.groupAwardsContainer.innerHTML = `<div class="no-players-text">Nessun premio speciale assegnato in questa partita!</div>`;
+    } else {
+      awardsList.forEach(aw => {
+        const card = document.createElement('div');
+        card.className = 'award-card';
+        card.innerHTML = `
+          <div class="award-icon-box">${aw.icon || '🏆'}</div>
+          <div class="award-info">
+            <div class="award-title-row">
+              <span class="award-name">${aw.title || ''}</span>
+              <span class="award-winner">${aw.winner || ''}</span>
+            </div>
+            <div class="award-desc">${aw.desc || ''}</div>
           </div>
-          <div class="award-desc">${aw.desc}</div>
-        </div>
-      `;
-      el.groupAwardsContainer.appendChild(card);
-    });
+        `;
+        el.groupAwardsContainer.appendChild(card);
+      });
+    }
   }
 
   // Genera verdetti completi per scorrimento
-  el.summaryCardsList.innerHTML = '';
-  summary.forEach(res => {
-    const item = document.createElement('div');
-    item.className = 'summary-item';
-    
-    let playerVotesHtml = '';
-    res.votes.forEach(pv => {
-      let badgeClass = 'voto-timeout';
-      let badgeText = 'Tempo Scaduto';
-      if (pv.vote === 'underrated') {
-        badgeClass = 'voto-under';
-        badgeText = 'Sottovalutato';
-      } else if (pv.vote === 'overrated') {
-        badgeClass = 'voto-over';
-        badgeText = 'Sopravvalutato';
-      }
-      playerVotesHtml += `
-        <div class="summary-player-vote-row">
-          <span>${pv.player}</span>
-          <span class="summary-item-voto ${badgeClass}">${badgeText}</span>
+  if (el.summaryCardsList) {
+    el.summaryCardsList.innerHTML = '';
+    const summaryList = Array.isArray(summary) ? summary : [];
+    summaryList.forEach(res => {
+      const item = document.createElement('div');
+      item.className = 'summary-item';
+      
+      let playerVotesHtml = '';
+      const votesList = Array.isArray(res.votes) ? res.votes : [];
+      votesList.forEach(pv => {
+        let badgeClass = 'voto-timeout';
+        let badgeText = 'Tempo Scaduto';
+        if (pv.vote === 'underrated') {
+          badgeClass = 'voto-under';
+          badgeText = 'Sottovalutato';
+        } else if (pv.vote === 'overrated') {
+          badgeClass = 'voto-over';
+          badgeText = 'Sopravvalutato';
+        }
+        playerVotesHtml += `
+          <div class="summary-player-vote-row">
+            <span>${pv.player || 'Giocatore'}</span>
+            <span class="summary-item-voto ${badgeClass}">${badgeText}</span>
+          </div>
+        `;
+      });
+
+      const hasImage = res.image ? true : false;
+      const imgHtml = hasImage ? `<div class="summary-card-img-container" style="width: 50px; height: 50px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); margin-right: 12px; flex-shrink: 0; cursor: pointer;"><img class="summary-card-image" src="${res.image}" style="width: 100%; height: 100%; object-fit: cover;"></div>` : '';
+      const promptText = res.image ? (res.prompt || '') : (res.prompt || '');
+
+      const statsHtml = (state.roomIsPremium || !res.stats) 
+        ? '' 
+        : `<span class="summary-item-stats">Mondo: <span style="color: #F97316; font-weight: bold;">OVER ${res.stats.overrated || 0}%</span> / <span style="color: #EC4899; font-weight: bold;">UNDER ${res.stats.underrated || 0}%</span></span>`;
+
+      item.innerHTML = `
+        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+          ${imgHtml}
+          <div class="summary-item-prompt clickable-toggle-text" style="margin-bottom: 0; flex: 1; text-align: left; cursor: pointer;">${promptText}</div>
         </div>
+        <div class="summary-item-details">
+          ${playerVotesHtml}
+        </div>
+        ${statsHtml}
       `;
-    });
 
-    const hasImage = res.image ? true : false;
-    const imgHtml = hasImage ? `<div class="summary-card-img-container" style="width: 50px; height: 50px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); margin-right: 12px; flex-shrink: 0; cursor: pointer;"><img class="summary-card-image" src="${res.image}" style="width: 100%; height: 100%; object-fit: cover;"></div>` : '';
-    const promptText = res.image ? '' : res.prompt;
+      if (hasImage) {
+        const imgContainer = item.querySelector('.summary-card-img-container');
+        if (imgContainer) {
+          imgContainer.addEventListener('click', () => {
+            openCardImageZoom(res.image, res.prompt);
+          });
+        }
+      }
 
-    const statsHtml = state.roomIsPremium 
-      ? '' 
-      : `<span class="summary-item-stats">Mondo: <span style="color: #F97316; font-weight: bold;">OVER ${res.stats.overrated}%</span> / <span style="color: #EC4899; font-weight: bold;">UNDER ${res.stats.underrated}%</span></span>`;
-
-    item.innerHTML = `
-      <div style="display: flex; align-items: center; margin-bottom: 8px;">
-        ${imgHtml}
-        <div class="summary-item-prompt" style="margin-bottom: 0; flex: 1; text-align: left;">${promptText}</div>
-      </div>
-      <div class="summary-item-details">
-        ${playerVotesHtml}
-      </div>
-      ${statsHtml}
-    `;
-
-    if (hasImage) {
-      const imgContainer = item.querySelector('.summary-card-img-container');
-      if (imgContainer) {
-        imgContainer.addEventListener('click', () => {
-          openCardImageZoom(res.image, res.prompt);
+      // Permetti l'espansione al tap sulle didascalie del summary
+      const promptDiv = item.querySelector('.summary-item-prompt');
+      if (promptDiv) {
+        bindFastClick(promptDiv, () => {
+          promptDiv.classList.toggle('expanded');
         });
       }
-    }
-    el.summaryCardsList.appendChild(item);
-  });
+
+      el.summaryCardsList.appendChild(item);
+    });
+  }
 
   // Controlli Host per riavvio
-  if (state.isHost) {
-    el.summaryHostControls.style.display = 'block';
-    el.summaryPlayerWaiting.style.display = 'none';
-    const btnRestartSpan = el.btnRestart ? el.btnRestart.querySelector('span') : null;
-    if (btnRestartSpan) {
-      btnRestartSpan.textContent = state.isSoloMode ? "TORNA AL MENU" : "RICOMINCIA";
+  if (el.summaryHostControls && el.summaryPlayerWaiting) {
+    if (state.isHost || state.isSoloMode) {
+      el.summaryHostControls.style.display = 'block';
+      el.summaryPlayerWaiting.style.display = 'none';
+      const btnRestartSpan = el.btnRestart ? el.btnRestart.querySelector('span') : null;
+      if (btnRestartSpan) {
+        btnRestartSpan.textContent = state.isSoloMode ? "TORNA AL MENU" : "RICOMINCIA";
+      }
+    } else {
+      el.summaryHostControls.style.display = 'none';
+      el.summaryPlayerWaiting.style.display = 'block';
     }
-  } else {
-    el.summaryHostControls.style.display = 'none';
-    el.summaryPlayerWaiting.style.display = 'block';
   }
 
   showScreen(el.screenSummary);
@@ -4913,9 +4938,9 @@ function setupPremiumCreatorEvents() {
                 el.premiumImagePreview.src = uploadUrl;
                 el.premiumImagePreviewContainer.style.display = 'flex';
                 el.premiumCardInput.style.paddingLeft = '48px';
-                el.premiumCardInput.value = '';
-                el.premiumCardInput.placeholder = state.currentUploadedFilename || 'immagine caricata';
-                el.premiumCardInput.disabled = true;
+                el.premiumCardInput.placeholder = 'Aggiungi una didascalia facoltativa...';
+                el.premiumCardInput.disabled = false;
+                el.premiumCardInput.focus();
               }
             }
           }

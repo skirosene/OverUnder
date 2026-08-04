@@ -1402,7 +1402,7 @@ io.on('connection', (socket) => {
     console.log(`Bot aggiunti alla stanza ${currentRoomCode}`);
   });
 
-  // Evento 4c: Invio delle carte custom Premium
+  // Evento 4c: Invio delle carte custom Premium (Gogna)
   socket.on('submit_premium_cards', ({ cards }) => {
     const room = rooms[currentRoomCode];
     if (!room || !room.isPremium) return;
@@ -1410,13 +1410,16 @@ io.on('connection', (socket) => {
     if (Array.isArray(cards)) {
       cards.forEach(cardObj => {
         if (cardObj && typeof cardObj === 'object') {
-          const trimmedText = (cardObj.text || '').trim();
-          if (trimmedText) {
-            const exists = room.customCards.some(c => c.text === trimmedText);
+          const rawText = (cardObj.text || '').trim();
+          const image = cardObj.image || null;
+          const text = rawText || (image ? 'Immagine personalizzata' : '');
+          
+          if (text || image) {
+            const exists = room.customCards.some(c => (image && c.image === image) || (text && c.text === text));
             if (!exists) {
               room.customCards.push({
-                text: trimmedText,
-                image: cardObj.image || null
+                text: text,
+                image: image
               });
             }
           }
@@ -1441,7 +1444,7 @@ io.on('connection', (socket) => {
     }
 
     io.to(room.roomCode).emit('player_list_update', { players: room.players });
-    console.log(`Giocatore ${player ? player.name : socket.id} ha inviato ${cards ? cards.length : 0} carte custom. Totale stanza: ${room.customCards.length}`);
+    console.log(`Giocatore ${player ? player.name : socket.id} ha inviato ${cards ? cards.length : 0} carte custom. Totale mazzo stanza: ${room.customCards.length}`);
   });
 
 
