@@ -1133,28 +1133,55 @@ function checkPremiumStatusFromToken() {
   return false;
 }
 
-// Unificazione dello Stato Accesso Premium (Acquisto o Prova 30 giorni attiva)
-function hasPremiumAccess() {
-  // 1. Licenza Premium a Vita / Acquisto reale
-  const isPurchased = checkPremiumStatusFromToken();
-  if (isPurchased) {
-    return true;
+// FUNZIONE DI CHECK CENTRALIZZATA (Struttura richiesta)
+function checkJudgementDayAccess() {
+  const isPurchased = localStorage.getItem('overunder_judgement_purchased') === 'true' || checkPremiumStatusFromToken();
+  const trialRedeemed = localStorage.getItem('overunder_trial_redeemed') === 'true' || localStorage.getItem('overunder_has_redeemed_trial') === 'true';
+  const trialEnd = parseInt(
+    localStorage.getItem('overunder_trial_end') || 
+    localStorage.getItem('overunder_trial_end_date') || 
+    '0', 10
+  );
+  const isTrialActive = trialRedeemed && (Date.now() < trialEnd);
+
+  if (trialRedeemed && trialEnd > 0 && Date.now() >= trialEnd) {
+    localStorage.setItem('overunder_trial_activated', 'expired');
   }
 
-  // 2. Prova Gratuita di 30 Giorni Attiva
-  const trialActivated = localStorage.getItem('overunder_trial_activated') === 'true';
-  const endDateStr = localStorage.getItem('overunder_trial_end_date');
+  return {
+    hasAccess: isPurchased || isTrialActive,
+    isPurchased: isPurchased,
+    isTrialActive: isTrialActive,
+    trialRedeemed: trialRedeemed,
+    timeLeftMs: trialEnd > 0 ? (trialEnd - Date.now()) : 0
+  };
+}
 
-  if (trialActivated && endDateStr) {
-    const endDate = parseInt(endDateStr, 10);
-    if (!isNaN(endDate) && Date.now() < endDate) {
-      return true; // Prova attiva e nei 30 giorni!
-    } else if (!isNaN(endDate) && Date.now() >= endDate) {
-      localStorage.setItem('overunder_trial_activated', 'expired');
+function hasPremiumAccess() {
+  return checkJudgementDayAccess().hasAccess;
+}
+
+function syncJudgementDayUI(autoCheckToggle = false) {
+  const access = checkJudgementDayAccess();
+
+  state.trialActivated = access.isTrialActive;
+  state.roomIsPremium = access.hasAccess;
+
+  if (el.createPremiumToggle) {
+    if (access.hasAccess) {
+      if (autoCheckToggle) {
+        el.createPremiumToggle.checked = true;
+      }
+    } else {
+      el.createPremiumToggle.checked = false;
     }
   }
 
-  return false;
+  updateJudgementCardBadge();
+  updatePremiumUI();
+  updateGiftBannerUI();
+
+  window.dispatchEvent(new CustomEvent('overunder_premium_state_changed', { detail: access }));
 }
 
 function updatePremiumUI() {
@@ -1174,7 +1201,6 @@ function updatePremiumUI() {
     }
     descLabel.style.textAlign = 'left';
   }
-  updateJudgementCardBadge();
 }
 
 let trialTimerInterval = null;
@@ -1210,13 +1236,10 @@ function updateJudgementCardBadge() {
   const badge = document.getElementById('judgement-trial-badge');
   if (!badge) return;
 
-  const isLifetime = checkPremiumStatusFromToken() && !localStorage.getItem('overunder_trial_activated');
-  const trialActivated = localStorage.getItem('overunder_trial_activated') === 'true';
-  const trialExpired = localStorage.getItem('overunder_trial_activated') === 'expired';
-  const endDateStr = localStorage.getItem('overunder_trial_end_date');
+  const access = checkJudgementDayAccess();
 
-  // Caso 1: Licenza Premium a Vita
-  if (isLifetime) {
+  // Caso 1: Licenza Premium a Vita / Acquistata
+  if (access.isPurchased) {
     if (trialTimerInterval) {
       clearInterval(trialTimerInterval);
       trialTimerInterval = null;
@@ -1232,26 +1255,23 @@ function updateJudgementCardBadge() {
   }
 
   // Caso 2: Prova 30 Giorni Attiva
-  if (trialActivated && endDateStr) {
-    const endDate = parseInt(endDateStr, 10);
-
+  if (access.isTrialActive) {
     const refreshBadgeTimer = () => {
-      const remaining = endDate - Date.now();
-      if (remaining <= 0) {
+      const currentAccess = checkJudgementDayAccess();
+      if (!currentAccess.isTrialActive) {
         if (trialTimerInterval) {
           clearInterval(trialTimerInterval);
           trialTimerInterval = null;
         }
-        localStorage.setItem('overunder_trial_activated', 'expired');
-        updateJudgementCardBadge();
-        updatePremiumUI();
+        syncJudgementDayUI();
         return;
       }
-      const info = formatTrialCountdown(remaining);
+      const info = formatTrialCountdown(currentAccess.timeLeftMs);
       badge.className = `judgement-trial-badge ${info.mode === 'panic' ? 'badge-panic' : ''}`;
       badge.innerHTML = info.text;
       badge.style.display = 'inline-flex';
 
+      const endDate = Date.now() + currentAccess.timeLeftMs;
       const expDate = new Date(endDate);
       const dateFormatted = expDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
       const timeFormatted = expDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
@@ -1274,23 +1294,8 @@ function updateJudgementCardBadge() {
     }
   }
 
-  // Caso 3: Prova Non Ancora Attivata ma Disponibile
-  if (!trialActivated && !trialExpired) {
-    badge.className = 'judgement-trial-badge badge-available';
-    badge.innerHTML = 'Regalo disponibile 🎁';
-    badge.style.display = 'inline-flex';
-    badge.onclick = (e) => {
-      e.stopPropagation();
-      if (el.trialGiftModal) {
-        el.trialGiftModal.style.display = 'flex';
-        el.trialGiftModal.classList.add('active');
-      }
-    };
-    return;
-  }
-
-  // Caso 4: Prova Scaduta
-  if (trialExpired) {
+  // Caso 3: Prova Riscatta e Scaduta
+  if (access.trialRedeemed) {
     badge.className = 'judgement-trial-badge badge-panic';
     badge.innerHTML = '🔒 PROVA SCADUTA';
     badge.style.display = 'inline-flex';
@@ -1304,17 +1309,22 @@ function updateJudgementCardBadge() {
     return;
   }
 
-  badge.style.display = 'none';
+  // Caso 4: Regalo Non Ancora Riscattato
+  badge.className = 'judgement-trial-badge badge-available';
+  badge.innerHTML = 'Regalo disponibile 🎁';
+  badge.style.display = 'inline-flex';
+  badge.onclick = (e) => {
+    e.stopPropagation();
+    if (el.trialGiftModal) {
+      el.trialGiftModal.style.display = 'flex';
+      el.trialGiftModal.classList.add('active');
+    }
+  };
 }
 
 function updateGiftBannerUI() {
-  const hasRedeemedTrial = localStorage.getItem('overunder_has_redeemed_trial') === 'true';
-  const trialActivated = localStorage.getItem('overunder_trial_activated') === 'true';
-  const trialExpired = localStorage.getItem('overunder_trial_activated') === 'expired';
-  const isPremium = checkPremiumStatusFromToken();
-
-  // Il regalo è disponibile SOLO SE l'utente NON l'ha mai riscattato (hasRedeemedTrial === false), non è attivo, non è scaduto e non ha acquistato il Premium
-  const isGiftAvailable = !isPremium && !hasRedeemedTrial && !trialActivated && !trialExpired;
+  const access = checkJudgementDayAccess();
+  const isGiftAvailable = !access.hasAccess && !access.trialRedeemed;
 
   if (el.onboardingGiftBanner) {
     el.onboardingGiftBanner.style.display = isGiftAvailable ? 'block' : 'none';
@@ -1324,7 +1334,6 @@ function updateGiftBannerUI() {
   if (sidebarGiftSection) {
     sidebarGiftSection.style.display = isGiftAvailable ? 'block' : 'none';
   }
-  updateJudgementCardBadge();
 }
 
 async function checkTrialStatus() {
@@ -1333,57 +1342,34 @@ async function checkTrialStatus() {
     const res = await fetch(`/api/trial/status?deviceUuid=${sessionId}&fingerprint=${fingerprint}`);
     if (res.ok) {
       const data = await res.json();
-      if (data.activated || data.hasRedeemedTrial) {
+      if (data.activated || data.hasRedeemedTrial || data.overunder_trial_redeemed === 'true') {
+        localStorage.setItem('overunder_trial_redeemed', 'true');
         localStorage.setItem('overunder_has_redeemed_trial', 'true');
-        if (data.active) {
-          state.trialActivated = true;
-          localStorage.setItem('overunder_trial_activated', 'true');
-          if (data.trial_start_date) localStorage.setItem('overunder_trial_start_date', data.trial_start_date);
-          if (data.trial_end_date) localStorage.setItem('overunder_trial_end_date', data.trial_end_date);
-        } else {
-          state.trialActivated = false;
-          localStorage.setItem('overunder_trial_activated', 'expired');
-          if (data.trial_end_date) localStorage.setItem('overunder_trial_end_date', data.trial_end_date);
+        
+        const startMs = data.trial_start || data.trial_start_date;
+        const endMs = data.trial_end || data.trial_end_date;
+
+        if (startMs) {
+          localStorage.setItem('overunder_trial_start', String(startMs));
+          localStorage.setItem('overunder_trial_start_date', String(startMs));
         }
-      } else {
-        state.trialActivated = false;
-        localStorage.removeItem('overunder_trial_activated');
-        localStorage.removeItem('overunder_trial_start_date');
-        localStorage.removeItem('overunder_trial_end_date');
+        if (endMs) {
+          localStorage.setItem('overunder_trial_end', String(endMs));
+          localStorage.setItem('overunder_trial_end_date', String(endMs));
+        }
+
+        if (data.active) {
+          localStorage.setItem('overunder_trial_activated', 'true');
+        } else {
+          localStorage.setItem('overunder_trial_activated', 'expired');
+        }
       }
     }
   } catch (e) {
     console.warn("Errore recupero stato trial:", e);
   } finally {
-    updateGiftBannerUI();
+    syncJudgementDayUI();
   }
-}
-
-function applyPremiumStateChange(autoCheckToggle = false) {
-  const hasAccess = hasPremiumAccess();
-
-  // 1. Aggiorna lo stato globale
-  state.trialActivated = (localStorage.getItem('overunder_trial_activated') === 'true');
-  state.roomIsPremium = hasAccess;
-
-  // 2. Se l'utente ha accesso ed è richiesto (es. all'attivazione del regalo), sblocca e seleziona immediatamente lo switch Judgement Day
-  if (hasAccess && autoCheckToggle && el.createPremiumToggle) {
-    el.createPremiumToggle.checked = true;
-  }
-
-  // 3. Re-render reattivo immediato di tutti i componenti dipendenti
-  updateJudgementCardBadge();
-  updatePremiumUI();
-  updateGiftBannerUI();
-
-  // 4. Invia un evento reattivo personalizzato a livello di window
-  window.dispatchEvent(new CustomEvent('overunder_premium_state_changed', {
-    detail: {
-      hasAccess,
-      trialActivated: state.trialActivated,
-      endDate: localStorage.getItem('overunder_trial_end_date')
-    }
-  }));
 }
 
 async function activateTrialOnServer() {
@@ -1417,15 +1403,23 @@ async function activateTrialOnServer() {
     }
   }
   
-  state.trialActivated = true;
-  // Imposta PERMANENTEMENTE hasRedeemedTrial = true
-  localStorage.setItem('overunder_has_redeemed_trial', 'true');
+  const now = Date.now();
+  const startMs = data.trial_start || data.trial_start_date || now;
+  const endMs = data.trial_end || data.trial_end_date || (now + 30 * 24 * 60 * 60 * 1000);
+
+  // CHIAVI DI ARCHIVIAZIONE RICHIESTE
+  localStorage.setItem('overunder_trial_redeemed', 'true');
+  localStorage.setItem('overunder_trial_start', String(startMs));
+  localStorage.setItem('overunder_trial_end', String(endMs));
+
+  // CHIAVI RETROCOMPATIBILI
   localStorage.setItem('overunder_trial_activated', 'true');
-  if (data.trial_start_date) localStorage.setItem('overunder_trial_start_date', data.trial_start_date);
-  if (data.trial_end_date) localStorage.setItem('overunder_trial_end_date', data.trial_end_date || (Date.now() + 30 * 24 * 60 * 60 * 1000));
-  
-  // Reattività immediata al millisecondo (sblocca e seleziona lo switch Judgement Day e aggiorna i badge)
-  applyPremiumStateChange(true);
+  localStorage.setItem('overunder_has_redeemed_trial', 'true');
+  localStorage.setItem('overunder_trial_start_date', String(startMs));
+  localStorage.setItem('overunder_trial_end_date', String(endMs));
+
+  // Reattività immediata al millisecondo
+  syncJudgementDayUI(true);
 }
 
 function checkMatchEndTrialExpiration() {
@@ -1484,16 +1478,12 @@ function setupEventListeners() {
       try { AudioSynth.init(); } catch (e) {}
       try { AudioSynth.playConfirm(true); } catch (e) {}
 
-      const hasRedeemedTrial = localStorage.getItem('overunder_has_redeemed_trial') === 'true';
-      const trialActivated = localStorage.getItem('overunder_trial_activated') === 'true';
-      const trialExpired = localStorage.getItem('overunder_trial_activated') === 'expired';
+      const access = checkJudgementDayAccess();
       const trialShown = localStorage.getItem('overunder_trial_shown') === 'true';
-      const isPremium = checkPremiumStatusFromToken();
-
       const isProd = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
-      // Il pop-up compare SOLO SE l'utente NON l'ha mai riscattato in passato (hasRedeemedTrial === false) e NON ha acquistato il Premium
-      if (isProd && !hasRedeemedTrial && !trialActivated && !trialExpired && !isPremium && !trialShown) {
+      // Mostra il pop-up SOLO SE l'utente NON l'ha mai riscattato in passato (!access.trialRedeemed) e NON ha accesso
+      if (isProd && !access.hasAccess && !access.trialRedeemed && !trialShown) {
         if (el.trialGiftModal) {
           el.trialGiftModal.style.display = 'flex';
           el.trialGiftModal.classList.add('active');
@@ -1531,24 +1521,22 @@ function setupEventListeners() {
   if (el.createPremiumToggle) {
     el.createPremiumToggle.addEventListener('change', () => {
       if (el.createPremiumToggle.checked) {
-        // Se ha accesso Premium (acquisto o prova 30 giorni attiva), CONSENTI AVVIO IMMEDIATO
-        if (hasPremiumAccess()) {
-          console.log('[ACCESS] Accesso alla modalità Judgement Day consentito (Acquisto o Trial 30 giorni attivo)');
+        const access = checkJudgementDayAccess();
+        if (access.hasAccess) {
+          console.log('[ACCESS] Accesso alla modalità Judgement Day consentito via checkJudgementDayAccess()');
           return;
         }
 
         // Accesso negato -> Deseleziona lo switch e mostra modale opportuna
         el.createPremiumToggle.checked = false;
-        const trialExpired = localStorage.getItem('overunder_trial_activated') === 'expired';
 
-        if (trialExpired) {
+        if (access.trialRedeemed) {
           if (el.trialExpiredModal) {
             el.trialExpiredModal.style.display = 'flex';
             el.trialExpiredModal.classList.add('active');
           }
           showError("Il tuo periodo di prova gratuito di 30 giorni è terminato. Sblocca la modalità per continuare.");
         } else {
-          // Prova non ancora attivata -> Apri il regalo o la modale di acquisto
           if (el.trialGiftModal) {
             el.trialGiftModal.style.display = 'flex';
             el.trialGiftModal.classList.add('active');
