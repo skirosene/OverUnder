@@ -13,41 +13,117 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overunder_super_secret_key_12345_mvp';
-
-// Inizializzazione SDK Resend con API Key
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Memoria temporanea per le sessioni OTP di trasferimento licenza (email -> { otp, expiresAt })
 const otpSessions = new Map();
 
 /**
- * Funzione per l'invio dell'email OTP tramite SDK ufficiale di Resend
+ * Funzione per l'invio dell'email OTP tramite SDK ufficiale di Resend o Nodemailer SMTP (con fallback)
  */
 async function sendOtpEmail(toEmail, otpCode) {
-  const fromAddress = process.env.EMAIL_FROM || 'no-reply@wwwoverunder-game.com';
-  
-  try {
-    const data = await resend.emails.send({
-      from: `OverUnder Game <${fromAddress}>`,
-      to: [toEmail],
-      subject: `Il tuo codice di verifica OverUnder: ${otpCode}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; background-color: #0f172a; color: #ffffff; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #ff007f;">OverUnder - Codice OTP</h2>
-          <p>Usa il seguente codice per accedere al gioco:</p>
-          <h1 style="font-size: 32px; letter-spacing: 4px; color: #00f0ff;">${otpCode}</h1>
-          <p style="font-size: 12px; color: #94a3b8;">Se non hai richiesto tu questo codice, ignora questa email.</p>
-        </div>
-      `
-    });
-    console.log('Email inviata con successo tramite Resend:', data);
-    return data;
-  } catch (error) {
-    console.error('Errore durante l\'invio dell\'email con Resend:', error);
-    throw error;
+  // 1. Tenta prima con l'SDK di Resend se RESEND_API_KEY è definita
+  if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim()) {
+    const resend = new Resend(process.env.RESEND_API_KEY.trim());
+    const fromAddr = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+
+    try {
+      const data = await resend.emails.send({
+        from: `OverUnder Game <${fromAddr}>`,
+        to: [toEmail],
+        subject: `Il tuo codice di verifica OverUnder: ${otpCode}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; background-color: #0f172a; color: #ffffff; padding: 20px; border-radius: 8px;">
+            <h2 style="color: #ff007f;">OverUnder - Codice OTP</h2>
+            <p>Usa il seguente codice per accedere al gioco:</p>
+            <h1 style="font-size: 32px; letter-spacing: 4px; color: #00f0ff;">${otpCode}</h1>
+            <p style="font-size: 12px; color: #94a3b8;">Se non hai richiesto tu questo codice, ignora questa email.</p>
+          </div>
+        `
+      });
+
+      if (data && data.error) {
+        throw new Error(data.error.message || JSON.stringify(data.error));
+      }
+
+      console.log('[RESEND] Email inviata con successo:', data);
+      return data;
+    } catch (error) {
+      const msg = error.message || String(error);
+      console.error('[RESEND ERR]', msg);
+
+      // Se il primo tentativo è fallito per via del mittente personalizzato non verificato, tentiamo un fallback con onboarding@resend.dev
+      if (fromAddr !== 'onboarding@resend.dev' && (msg.includes('domain') || msg.includes('verify') || msg.includes('not verified') || msg.includes('validation_error'))) {
+        console.log('[RESEND RETRY] Tentativo di invio fallback tramite onboarding@resend.dev...');
+        try {
+          const retryData = await resend.emails.send({
+            from: `OverUnder Game <onboarding@resend.dev>`,
+            to: [toEmail],
+            subject: `Il tuo codice di verifica OverUnder: ${otpCode}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; background-color: #0f172a; color: #ffffff; padding: 20px; border-radius: 8px;">
+                <h2 style="color: #ff007f;">OverUnder - Codice OTP</h2>
+                <p>Usa il seguente codice per accedere al gioco:</p>
+                <h1 style="font-size: 32px; letter-spacing: 4px; color: #00f0ff;">${otpCode}</h1>
+                <p style="font-size: 12px; color: #94a3b8;">Se non hai richiesto tu questo codice, ignora questa email.</p>
+              </div>
+            `
+          });
+          if (retryData && retryData.error) {
+            throw new Error(retryData.error.message || JSON.stringify(retryData.error));
+          }
+          console.log('[RESEND RETRY SUCCESS]', retryData);
+          return retryData;
+        } catch (retryErr) {
+          console.error('[RESEND RETRY ERR]', retryErr.message || retryErr);
+          if (!process.env.SMTP_HOST && !process.env.SMTP_USER) {
+            throw retryErr;
+          }
+        }
+      } else if (!process.env.SMTP_HOST && !process.env.SMTP_USER) {
+        throw error;
+      }
+    }
   }
+
+  // 2. Fallback su Nodemailer SMTP se configurato (SMTP_HOST, SMTP_USER, SMTP_PASS)
+  if (process.env.SMTP_HOST || process.env.SMTP_USER || process.env.SMTP_PASS) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT || '587', 10),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS
+        }
+      });
+
+      const sender = process.env.EMAIL_FROM || process.env.SMTP_USER;
+      const info = await transporter.sendMail({
+        from: `OverUnder Game <${sender}>`,
+        to: toEmail,
+        subject: `Il tuo codice di verifica OverUnder: ${otpCode}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; background-color: #0f172a; color: #ffffff; padding: 20px; border-radius: 8px;">
+            <h2 style="color: #ff007f;">OverUnder - Codice OTP</h2>
+            <p>Usa il seguente codice per accedere al gioco:</p>
+            <h1 style="font-size: 32px; letter-spacing: 4px; color: #00f0ff;">${otpCode}</h1>
+            <p style="font-size: 12px; color: #94a3b8;">Se non hai richiesto tu questo codice, ignora questa email.</p>
+          </div>
+        `
+      });
+      console.log('[SMTP SUCCESS] Email inviata con Nodemailer:', info.messageId);
+      return info;
+    } catch (smtpErr) {
+      console.error('[SMTP ERR]', smtpErr.message || smtpErr);
+      throw smtpErr;
+    }
+  }
+
+  throw new Error("Nessun provider email configurato su Render. Imposta la variabile RESEND_API_KEY oppure SMTP_HOST/SMTP_PASS nel pannello di Render.");
 }
 
 // ==========================================================================
@@ -325,9 +401,19 @@ app.get('/api/room-info', (req, res) => {
   });
 });
 
-// ==========================================================================
-// ROTTE TRASFERIMENTO LICENZA PREMIUM (EMAIL & OTP)
-// ==========================================================================
+// Endpoint di diagnostica e controllo stato servizio Email
+app.get('/api/admin/email-status', (req, res) => {
+  const hasResend = !!(process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim());
+  const hasSmtp = !!(process.env.SMTP_HOST || process.env.SMTP_USER);
+
+  res.json({
+    ok: hasResend || hasSmtp,
+    resendConfigured: hasResend,
+    smtpConfigured: hasSmtp,
+    emailFrom: process.env.EMAIL_FROM || (hasResend ? 'onboarding@resend.dev (default)' : 'non impostato'),
+    status: (hasResend || hasSmtp) ? 'CONFIGURATO' : 'MANCANTE'
+  });
+});
 
 // 1. Richiesta invio OTP via Email
 app.post('/api/premium/request-transfer', async (req, res) => {
