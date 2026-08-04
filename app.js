@@ -1356,6 +1356,33 @@ async function checkTrialStatus() {
   }
 }
 
+function applyPremiumStateChange(autoCheckToggle = false) {
+  const hasAccess = hasPremiumAccess();
+
+  // 1. Aggiorna lo stato globale
+  state.trialActivated = (localStorage.getItem('overunder_trial_activated') === 'true');
+  state.roomIsPremium = hasAccess;
+
+  // 2. Se l'utente ha accesso ed è richiesto (es. all'attivazione del regalo), sblocca e seleziona immediatamente lo switch Judgement Day
+  if (hasAccess && autoCheckToggle && el.createPremiumToggle) {
+    el.createPremiumToggle.checked = true;
+  }
+
+  // 3. Re-render reattivo immediato di tutti i componenti dipendenti
+  updateJudgementCardBadge();
+  updatePremiumUI();
+  updateGiftBannerUI();
+
+  // 4. Invia un evento reattivo personalizzato a livello di window
+  window.dispatchEvent(new CustomEvent('overunder_premium_state_changed', {
+    detail: {
+      hasAccess,
+      trialActivated: state.trialActivated,
+      endDate: localStorage.getItem('overunder_trial_end_date')
+    }
+  }));
+}
+
 async function activateTrialOnServer() {
   const deviceUuid = sessionId;
   const fingerprint = getDeviceFingerprint();
@@ -1392,8 +1419,8 @@ async function activateTrialOnServer() {
   if (data.trial_start_date) localStorage.setItem('overunder_trial_start_date', data.trial_start_date);
   if (data.trial_end_date) localStorage.setItem('overunder_trial_end_date', data.trial_end_date || (Date.now() + 30 * 24 * 60 * 60 * 1000));
   
-  updateGiftBannerUI();
-  updatePremiumUI();
+  // Reattività immediata al millisecondo (sblocca e seleziona lo switch Judgement Day e aggiorna i badge)
+  applyPremiumStateChange(true);
 }
 
 function checkMatchEndTrialExpiration() {
