@@ -727,6 +727,8 @@ async function startApp() {
   try { initSettingsSidebar(); } catch (e) { console.warn("initSettingsSidebar error:", e); }
   try { runSplashScreen(hasRoomParam); } catch (e) { console.warn("runSplashScreen error:", e); }
   try { updatePremiumUI(); } catch (e) { console.warn("updatePremiumUI error:", e); }
+  try { checkTrialStatus(); } catch (e) { console.warn("checkTrialStatus error:", e); }
+  try { updateGiftBannerUI(); } catch (e) { console.warn("updateGiftBannerUI error:", e); }
 }
 
 if (document.readyState === 'loading') {
@@ -1150,6 +1152,23 @@ function updatePremiumUI() {
   }
 }
 
+function updateGiftBannerUI() {
+  const trialActivated = localStorage.getItem('overunder_trial_activated') === 'true';
+  const trialExpired = localStorage.getItem('overunder_trial_activated') === 'expired';
+  const isPremium = checkPremiumStatusFromToken();
+
+  const isGiftAvailable = !isPremium && !trialActivated && !trialExpired;
+
+  if (el.onboardingGiftBanner) {
+    el.onboardingGiftBanner.style.display = isGiftAvailable ? 'block' : 'none';
+  }
+
+  const sidebarGiftSection = document.getElementById('sidebar-gift-section');
+  if (sidebarGiftSection) {
+    sidebarGiftSection.style.display = isGiftAvailable ? 'block' : 'none';
+  }
+}
+
 async function checkTrialStatus() {
   try {
     const fingerprint = getDeviceFingerprint();
@@ -1160,26 +1179,24 @@ async function checkTrialStatus() {
         if (data.active) {
           state.trialActivated = true;
           localStorage.setItem('overunder_trial_activated', 'true');
-          if (el.onboardingGiftBanner) {
-            el.onboardingGiftBanner.style.display = 'none';
-          }
+          if (data.trial_start_date) localStorage.setItem('overunder_trial_start_date', data.trial_start_date);
+          if (data.trial_end_date) localStorage.setItem('overunder_trial_end_date', data.trial_end_date);
         } else {
           state.trialActivated = false;
           localStorage.setItem('overunder_trial_activated', 'expired');
-          if (el.onboardingGiftBanner) {
-            el.onboardingGiftBanner.style.display = 'none';
-          }
+          if (data.trial_end_date) localStorage.setItem('overunder_trial_end_date', data.trial_end_date);
         }
       } else {
         state.trialActivated = false;
         localStorage.removeItem('overunder_trial_activated');
-        if (el.onboardingGiftBanner) {
-          el.onboardingGiftBanner.style.display = 'block';
-        }
+        localStorage.removeItem('overunder_trial_start_date');
+        localStorage.removeItem('overunder_trial_end_date');
       }
     }
   } catch (e) {
     console.warn("Errore recupero stato trial:", e);
+  } finally {
+    updateGiftBannerUI();
   }
 }
 
@@ -1216,9 +1233,29 @@ async function activateTrialOnServer() {
   
   state.trialActivated = true;
   localStorage.setItem('overunder_trial_activated', 'true');
+  if (data.trial_start_date) localStorage.setItem('overunder_trial_start_date', data.trial_start_date);
+  if (data.trial_end_date) localStorage.setItem('overunder_trial_end_date', data.trial_end_date || (Date.now() + 30 * 24 * 60 * 60 * 1000));
   
-  if (el.onboardingGiftBanner) {
-    el.onboardingGiftBanner.style.display = 'none';
+  updateGiftBannerUI();
+  updatePremiumUI();
+}
+
+function checkMatchEndTrialExpiration() {
+  const endDateStr = localStorage.getItem('overunder_trial_end_date');
+  if (endDateStr) {
+    const endDate = parseInt(endDateStr, 10);
+    if (!isNaN(endDate) && Date.now() > endDate) {
+      const isLifetimePremium = checkPremiumStatusFromToken() && !localStorage.getItem('overunder_trial_activated');
+      if (!isLifetimePremium) {
+        state.trialActivated = false;
+        localStorage.setItem('overunder_trial_activated', 'expired');
+        sessionStorage.removeItem('overunder_token');
+        state.roomIsPremium = false;
+        if (el.createPremiumToggle) el.createPremiumToggle.checked = false;
+        updatePremiumUI();
+        updateGiftBannerUI();
+      }
+    }
   }
 }
 
@@ -1398,13 +1435,29 @@ function setupEventListeners() {
         el.trialGiftModal.style.display = 'none';
         el.trialGiftModal.classList.remove('active');
       }
+      updateGiftBannerUI();
       showScreen(el.screenOnboarding);
     });
   }
 
-  // === BANNER REGALO ONBOARDING ===
+  // === BANNER REGALO ONBOARDING E SIDEBAR ===
   if (el.onboardingGiftBanner) {
     el.onboardingGiftBanner.addEventListener('click', () => {
+      if (el.trialGiftModal) {
+        el.trialGiftModal.style.display = 'flex';
+        el.trialGiftModal.classList.add('active');
+      }
+    });
+  }
+
+  const btnSidebarGift = document.getElementById('btn-sidebar-gift');
+  if (btnSidebarGift) {
+    btnSidebarGift.addEventListener('click', () => {
+      const sidebar = document.getElementById('settings-sidebar');
+      const backdrop = document.getElementById('settings-sidebar-backdrop');
+      if (sidebar) sidebar.classList.remove('open');
+      if (backdrop) backdrop.classList.remove('open');
+
       if (el.trialGiftModal) {
         el.trialGiftModal.style.display = 'flex';
         el.trialGiftModal.classList.add('active');
@@ -3740,6 +3793,7 @@ function advanceSoloGame() {
 }
 
 function renderSoloGameOver() {
+  checkMatchEndTrialExpiration();
   // Riproduci suono gong alla fine della partita in Solo
   AudioSynth.playGong();
 
@@ -3933,6 +3987,7 @@ function renderFilteredResultsList() {
 }
 
 function renderGameOver({ awards, summary }) {
+  checkMatchEndTrialExpiration();
   // Condizionale titolo in base a Solo vs Gruppo
   const subtitleEl = document.getElementById('summary-subtitle');
   if (subtitleEl) {

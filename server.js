@@ -325,6 +325,7 @@ app.get('/api/trial/status', (req, res) => {
   res.json({
     activated: true,
     active: !isExpired,
+    trial_start_date: record.trial_start_date,
     trial_end_date: record.trial_end_date
   });
 });
@@ -352,7 +353,7 @@ app.post('/api/trial/activate', (req, res) => {
     fingerprint,
     trial_activated: true,
     trial_start_date: now,
-    trial_end_date: now + 30 * 24 * 60 * 60 * 1000, // 30 giorni
+    trial_end_date: now + 30 * 24 * 60 * 60 * 1000, // 30 giorni esatti dall'attivazione
     userId: null
   };
 
@@ -386,12 +387,21 @@ app.post('/api/trial/activate', (req, res) => {
       isPremium: true,
       trial_active: true,
       trial_end_date: trialRecord.trial_end_date
-    }, JWT_SECRET, { expiresIn: '7d' });
+    }, JWT_SECRET, { expiresIn: '30d' });
     
-    return res.json({ success: true, token: newToken });
+    return res.json({ 
+      success: true, 
+      token: newToken,
+      trial_start_date: trialRecord.trial_start_date,
+      trial_end_date: trialRecord.trial_end_date
+    });
   }
 
-  res.json({ success: true });
+  res.json({ 
+    success: true,
+    trial_start_date: trialRecord.trial_start_date,
+    trial_end_date: trialRecord.trial_end_date
+  });
 });
 
 // Endpoint pubblico per verificare modalità (Standard vs Premium) e stato di una stanza

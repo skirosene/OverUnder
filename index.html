@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=120">
+  <link rel="stylesheet" href="/style.css?v=121">
 </head>
 
 <body>
@@ -1399,6 +1399,20 @@
           </div>
         </div>
 
+        <!-- Sezione Regalo di Benvenuto (Reminder Persistente) -->
+        <div id="sidebar-gift-section" class="sidebar-section glass-panel" style="display: none;">
+          <div class="sidebar-section-header">
+            <span class="sidebar-section-icon">🎁</span>
+            <div class="sidebar-section-text">
+              <div class="sidebar-item-title">Regalo Disponibile</div>
+              <div class="sidebar-item-sub">30 giorni di Judgement Day gratis</div>
+            </div>
+          </div>
+          <button id="btn-sidebar-gift" class="sidebar-action-btn" style="background: linear-gradient(135deg, #ff007f, #bd33ff); color: white; border: none; font-weight: 700; cursor: pointer;">
+            Riscatta Regalo 🎁
+          </button>
+        </div>
+
         <!-- Sezione 2: Condivisione Link -->
         <div class="sidebar-section glass-panel">
           <div class="sidebar-section-header">
@@ -1448,7 +1462,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=181"></script>
+  <script src="/app.js?v=182"></script>
 </body>
 
 </html>
