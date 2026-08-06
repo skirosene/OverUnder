@@ -1969,16 +1969,14 @@ function showPurchaseModal() {
     });
   }
 
-  // Click per zoomare l'immagine della carta (Gogna)
+  // Disabilitati i click sulle immagini (Visualizzazione Full-Card diretta)
   if (el.gameplayPromptImage) {
-    el.gameplayPromptImage.addEventListener('click', () => {
-      openCardImageZoom(el.gameplayPromptImage.src, state.currentPromptText);
-    });
+    el.gameplayPromptImage.style.pointerEvents = 'none';
+    el.gameplayPromptImage.style.cursor = 'default';
   }
   if (el.resultsPromptImage) {
-    el.resultsPromptImage.addEventListener('click', () => {
-      openCardImageZoom(el.resultsPromptImage.src, state.currentPromptText);
-    });
+    el.resultsPromptImage.style.pointerEvents = 'none';
+    el.resultsPromptImage.style.cursor = 'default';
   }
 
   // Gestione tap su didascalie/frasi lunghe delle carte (espansione al tap/click)
@@ -3062,7 +3060,11 @@ function updateGameplayCardMedia(prompt, image) {
 
   const hasImage = !!(image && typeof image === 'string' && image.length > 5);
   const cleanPrompt = (prompt && typeof prompt === 'string') ? prompt.trim() : '';
-  const isGenericPrompt = !cleanPrompt || cleanPrompt === 'Carta Immagine' || cleanPrompt.startsWith('Immagine (');
+  const isGenericPrompt = !cleanPrompt || 
+                          cleanPrompt === 'Carta Immagine' || 
+                          cleanPrompt.startsWith('Immagine (') || 
+                          cleanPrompt === 'immagine caricata' ||
+                          cleanPrompt.startsWith('image_');
   const hasText = !isGenericPrompt;
 
   if (hasImage) {
@@ -3070,27 +3072,30 @@ function updateGameplayCardMedia(prompt, image) {
     el.gameplayPromptImageContainer.style.display = 'block';
 
     if (!hasText) {
-      // SOLO IMMAGINE: Visualizzazione GRANDE ed ESPANSA diretta sul campo di gioco (NO Tap Zoom)
+      // FULL-CARD (Sola Immagine): Immagine espansa senza alcun testo o titolo visibile
       el.gameplayPromptImageContainer.style.width = '100%';
-      el.gameplayPromptImageContainer.style.maxWidth = '280px';
-      el.gameplayPromptImageContainer.style.height = '220px';
+      el.gameplayPromptImageContainer.style.maxWidth = '290px';
+      el.gameplayPromptImageContainer.style.height = '230px';
       el.gameplayPromptImageContainer.style.borderRadius = '16px';
       el.gameplayPromptImageContainer.style.margin = '10px 0';
       el.gameplayPromptImage.style.objectFit = 'contain';
       el.gameplayPromptImage.style.pointerEvents = 'none';
       el.gameplayPromptImage.style.cursor = 'default';
 
-      if (el.currentPromptText) el.currentPromptText.style.display = 'none';
+      if (el.currentPromptText) {
+        el.currentPromptText.style.display = 'none';
+        el.currentPromptText.textContent = '';
+      }
     } else {
-      // IMMAGINE + TESTO: Formato compatto con supporto Tap Zoom
+      // IMMAGINE + DIDASCALIA CUSTOM: Formato compatto con testo custom dell'Host
       el.gameplayPromptImageContainer.style.width = '130px';
       el.gameplayPromptImageContainer.style.maxWidth = '130px';
       el.gameplayPromptImageContainer.style.height = '130px';
       el.gameplayPromptImageContainer.style.borderRadius = '12px';
       el.gameplayPromptImageContainer.style.margin = '8px 0';
       el.gameplayPromptImage.style.objectFit = 'cover';
-      el.gameplayPromptImage.style.pointerEvents = 'auto';
-      el.gameplayPromptImage.style.cursor = 'pointer';
+      el.gameplayPromptImage.style.pointerEvents = 'none';
+      el.gameplayPromptImage.style.cursor = 'default';
 
       if (el.currentPromptText) {
         el.currentPromptText.style.display = 'block';
@@ -3887,20 +3892,30 @@ function renderRoundResults({ votes, groupStats, globalStats, prompt, image, car
     if (el.globalStatsCard) el.globalStatsCard.style.display = '';
   }
 
-  // Gestione immagine risultati round
+  // Gestione immagine risultati round (Full-Card, no zoom)
   if (el.resultsPromptImageContainer) {
     if (image) {
       el.resultsPromptImage.src = image;
       el.resultsPromptImageContainer.style.display = 'block';
+      el.resultsPromptImage.style.pointerEvents = 'none';
+      el.resultsPromptImage.style.cursor = 'default';
     } else {
       el.resultsPromptImageContainer.style.display = 'none';
       el.resultsPromptImage.src = '';
     }
   }
 
-  // 1. Popola il soggetto del prompt
-  const promptText = image ? '' : prompt;
-  el.resultsPromptSubject.textContent = promptText;
+  // 1. Popola il soggetto del prompt (nasconde titoli generici in partita)
+  const cleanResultPrompt = (prompt && typeof prompt === 'string') ? prompt.trim() : '';
+  const isGenericResultPrompt = !cleanResultPrompt || cleanResultPrompt === 'Carta Immagine' || cleanResultPrompt.startsWith('Immagine (') || cleanResultPrompt === 'immagine caricata' || cleanResultPrompt.startsWith('image_');
+  
+  if (!isGenericResultPrompt) {
+    el.resultsPromptSubject.textContent = cleanResultPrompt;
+    el.resultsPromptSubject.style.display = 'block';
+  } else {
+    el.resultsPromptSubject.textContent = '';
+    el.resultsPromptSubject.style.display = 'none';
+  }
 
   // 3. Modulo 1: Il Tuo Gruppo (Barre percentuali bipolari)
   el.groupUnderPctText.textContent = `UNDER ${groupStats.underrated}%`;
@@ -5774,38 +5789,7 @@ function openAvatarZoom(player) {
 }
 
 function openCardImageZoom(imageSrc, promptText) {
-  if (!imageSrc) return;
-  const zoomModal = el.cardImageZoomModal;
-  const zoomImage = el.cardImageZoomImage;
-  const zoomPrompt = el.cardImageZoomPrompt;
-
-  if (!zoomModal) return;
-
-  if (zoomImage) {
-    zoomImage.src = imageSrc;
-    zoomImage.style.display = 'block';
-  }
-
-  if (zoomPrompt) {
-    let cleanPrompt = (promptText || '').trim();
-    const cleanLower = cleanPrompt.toLowerCase();
-    
-    // Controlla se il prompt è un nome file o la stringa di fallback di sistema
-    const isFilename = /\.(png|jpg|jpeg|gif|webp)$/i.test(cleanLower) || 
-                       cleanLower === 'immagine caricata' ||
-                       cleanLower.includes('gemini_generated') ||
-                       cleanLower.includes('/uploads/');
-                       
-    if (isFilename) {
-      cleanPrompt = '';
-    }
-    
-    zoomPrompt.textContent = cleanPrompt;
-    zoomPrompt.style.display = cleanPrompt ? 'block' : 'none';
-  }
-
-  zoomModal.style.display = 'flex';
-  zoomModal.offsetHeight;
-  zoomModal.classList.add('active');
+  // ABOLITA: Le immagini sul campo di gioco sono già grandi e ben visibili in formato Full-Card direttamente.
+  return;
 }
 
