@@ -2489,15 +2489,7 @@ function setupSocketListeners() {
       state.userHasVoted = !!gameData.userHasVoted;
 
       if (el.currentDeckName) el.currentDeckName.textContent = state.currentDeckName;
-      if (el.currentPromptText) el.currentPromptText.textContent = state.currentPromptText;
-      
-      if (gameData.image) {
-        if (el.gameplayPromptImage) el.gameplayPromptImage.src = gameData.image;
-        if (el.gameplayPromptImageContainer) el.gameplayPromptImageContainer.style.display = 'block';
-      } else {
-        if (el.gameplayPromptImageContainer) el.gameplayPromptImageContainer.style.display = 'none';
-        if (el.gameplayPromptImage) el.gameplayPromptImage.src = '';
-      }
+      updateGameplayCardMedia(gameData.prompt, gameData.image);
       
       const totalDisplay = (state.totalCards == 9999 || state.totalCards === '∞') ? '∞' : state.totalCards;
       if (el.deckProgress) el.deckProgress.textContent = `Carta ${state.currentCardIndex + 1} / ${totalDisplay}`;
@@ -2761,19 +2753,9 @@ function setupSocketListeners() {
     el.roundEndOverlay.classList.remove('active');
     el.roundEndOverlayVoteActions.style.display = 'none';
     
-    // Gestione Immagine Gameplay Premium
-    if (image) {
-      el.gameplayPromptImage.src = image;
-      el.gameplayPromptImageContainer.style.display = 'block';
-    } else {
-      el.gameplayPromptImageContainer.style.display = 'none';
-      el.gameplayPromptImage.src = '';
-    }
-
     // Reset interfaccia gameplay
     el.currentDeckName.textContent = state.currentDeckName;
-    const promptText = image ? '' : prompt;
-    el.currentPromptText.textContent = promptText;
+    updateGameplayCardMedia(prompt, image);
     const totalDisplay = (totalCards == 9999 || totalCards === '∞') ? '∞' : totalCards;
     el.deckProgress.textContent = `Carta ${cardIndex + 1} / ${totalDisplay}`;
     
@@ -3043,6 +3025,62 @@ function preloadDeckImages(imageUrls) {
   });
   if (total > 0) {
     console.log(`[PRELOAD] Avviato pre-caricamento di ${total} immagini del mazzo.`);
+  }
+}
+
+/**
+ * Gestione dinamica dei media delle carte (Premium & Standard).
+ * Se la carta contiene SOLO l'immagine (senza didascalia), la rende visibile DIRETTAMENTE
+ * in formato grande ed espanso sul campo di gioco senza richiedere tap o modali di ingrandimento.
+ */
+function updateGameplayCardMedia(prompt, image) {
+  if (!el.gameplayPromptImageContainer || !el.gameplayPromptImage) return;
+
+  const hasImage = !!(image && typeof image === 'string' && image.length > 5);
+  const cleanPrompt = (prompt && typeof prompt === 'string') ? prompt.trim() : '';
+  const isGenericPrompt = !cleanPrompt || cleanPrompt === 'Carta Immagine' || cleanPrompt.startsWith('Immagine (');
+  const hasText = !isGenericPrompt;
+
+  if (hasImage) {
+    el.gameplayPromptImage.src = image;
+    el.gameplayPromptImageContainer.style.display = 'block';
+
+    if (!hasText) {
+      // SOLO IMMAGINE: Visualizzazione GRANDE ed ESPANSA diretta sul campo di gioco (NO Tap Zoom)
+      el.gameplayPromptImageContainer.style.width = '100%';
+      el.gameplayPromptImageContainer.style.maxWidth = '280px';
+      el.gameplayPromptImageContainer.style.height = '220px';
+      el.gameplayPromptImageContainer.style.borderRadius = '16px';
+      el.gameplayPromptImageContainer.style.margin = '10px 0';
+      el.gameplayPromptImage.style.objectFit = 'contain';
+      el.gameplayPromptImage.style.pointerEvents = 'none';
+      el.gameplayPromptImage.style.cursor = 'default';
+
+      if (el.currentPromptText) el.currentPromptText.style.display = 'none';
+    } else {
+      // IMMAGINE + TESTO: Formato compatto con supporto Tap Zoom
+      el.gameplayPromptImageContainer.style.width = '130px';
+      el.gameplayPromptImageContainer.style.maxWidth = '130px';
+      el.gameplayPromptImageContainer.style.height = '130px';
+      el.gameplayPromptImageContainer.style.borderRadius = '12px';
+      el.gameplayPromptImageContainer.style.margin = '8px 0';
+      el.gameplayPromptImage.style.objectFit = 'cover';
+      el.gameplayPromptImage.style.pointerEvents = 'auto';
+      el.gameplayPromptImage.style.cursor = 'pointer';
+
+      if (el.currentPromptText) {
+        el.currentPromptText.style.display = 'block';
+        el.currentPromptText.textContent = cleanPrompt;
+      }
+    }
+  } else {
+    // SOLO TESTO
+    el.gameplayPromptImageContainer.style.display = 'none';
+    el.gameplayPromptImage.src = '';
+    if (el.currentPromptText) {
+      el.currentPromptText.style.display = 'block';
+      el.currentPromptText.textContent = cleanPrompt;
+    }
   }
 }
 
@@ -3526,6 +3564,22 @@ function resetToMenu() {
   if (el.premiumImageUpload) el.premiumImageUpload.value = '';
   
   resetFromJoinLink();
+
+  // Reset pulizia URL da eventuali parametri di invito
+  try {
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  } catch (e) {}
+
+  // Resetta lo scroll e ripristina l'altezza/classi del contenitore principale
+  try { window.scrollTo(0, 0); } catch (e) {}
+  const container = document.querySelector('.app-container') || document.querySelector('.phone-frame');
+  if (container) {
+    container.style.padding = '';
+    container.style.margin = '';
+    container.style.height = '';
+  }
   
   if (state.timerRequestId) {
     cancelAnimationFrame(state.timerRequestId);
@@ -3650,15 +3704,7 @@ function showSoloCard() {
   state.currentCardIndex = state.soloCardIndex;
 
   el.currentDeckName.textContent = state.currentDeckName;
-  el.currentPromptText.textContent = card.prompt;
-  
-  if (card.image) {
-    el.gameplayPromptImage.src = card.image;
-    el.gameplayPromptImageContainer.style.display = 'block';
-  } else {
-    el.gameplayPromptImageContainer.style.display = 'none';
-    el.gameplayPromptImage.src = '';
-  }
+  updateGameplayCardMedia(promptStr, card.image);
   
   const totalDisplay = (state.totalCards == 9999 || state.totalCards === '∞') ? '∞' : state.totalCards;
   el.deckProgress.textContent = `Carta ${state.soloCardIndex + 1} / ${totalDisplay}`;
@@ -4718,7 +4764,8 @@ function renderCapsules() {
     
     const hasImage = cardObj.image ? true : false;
     const imgHtml = hasImage ? `<img src="${cardObj.image}" style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover; margin-right: 8px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15);">` : '';
-    const textToDisplay = cardObj.image ? (cardObj.text || 'immagine caricata') : cardObj.text;
+    const genericName = `Immagine (${index + 1})`;
+    const textToDisplay = cardObj.image ? (cardObj.text || genericName) : cardObj.text;
 
     if (state.editingPremiumCardIndex === index) {
       capsule.className = 'premium-card-capsule inline-editing';
@@ -4738,7 +4785,7 @@ function renderCapsules() {
       const saveInlineEdit = () => {
         const newText = input.value.trim();
         if (newText || cardObj.image) {
-          state.localPremiumCards[index].text = newText || 'immagine caricata';
+          state.localPremiumCards[index].text = newText || `Immagine (${index + 1})`;
           if (state.hasSubmittedPremiumCards) {
             socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
           }
@@ -5027,7 +5074,8 @@ function setupPremiumCreatorEvents() {
       if (!file) return;
 
       state.cropperTarget = 'card';
-      state.currentUploadedFilename = file.name;
+      const cardCount = (state.localPremiumCards ? state.localPremiumCards.length : 0) + 1;
+      state.currentUploadedFilename = `image_${Date.now()}_${cardCount}.webp`;
 
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -5381,6 +5429,32 @@ function setupAvatarEvents() {
       e.stopPropagation();
       if (el.avatarOptionsPopover) el.avatarOptionsPopover.style.display = 'none';
       if (el.inputAvatarGallery) el.inputAvatarGallery.click();
+    });
+  }
+
+  const btnRemoveAvatar = document.getElementById('btn-remove-avatar');
+  if (btnRemoveAvatar) {
+    btnRemoveAvatar.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (el.avatarOptionsPopover) el.avatarOptionsPopover.style.display = 'none';
+
+      state.playerAvatarUrl = null;
+      localStorage.removeItem('overunder_avatarUrl');
+
+      if (el.avatarPreviewImg) {
+        el.avatarPreviewImg.style.display = 'none';
+        el.avatarPreviewImg.src = '';
+      }
+      if (el.avatarDefaultSvg) {
+        el.avatarDefaultSvg.style.display = 'block';
+      }
+      const box = document.getElementById('avatar-preview-box');
+      if (box) box.classList.remove('has-image');
+
+      if (socket && socket.connected && state.roomCode) {
+        socket.emit('update_avatar', { avatar: null });
+      }
+      showToast("Foto profilo rimossa.");
     });
   }
 

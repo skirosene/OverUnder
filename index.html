@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=1002">
+  <link rel="stylesheet" href="/style.css?v=1100">
 </head>
 
 <body>
@@ -186,6 +186,10 @@
                 <button id="btn-select-upload" type="button" class="popover-btn"
                   style="display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; color: white; font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; text-align: left; transition: background 0.15s ease;">
                   <span style="font-size: 0.95rem;">📁</span> Carica
+                </button>
+                <button id="btn-remove-avatar" type="button" class="popover-btn"
+                  style="display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; color: #ff3838; font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; text-align: left; transition: background 0.15s ease;">
+                  <span style="font-size: 0.95rem;">🗑️</span> Rimuovi foto
                 </button>
               </div>
             </div>
@@ -1374,7 +1378,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=1002"></script>
+  <script src="/app.js?v=1100"></script>
 </body>
 
 </html>

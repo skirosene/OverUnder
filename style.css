@@ -284,6 +284,51 @@ input[type="submit"] {
     margin-bottom: 0 !important;
     flex-shrink: 0 !important;
   }
+
+  /* Adattamento Responsive Schermata Risultati & Classifica Finale (Mobile) */
+  #screen-results.active,
+  #screen-summary.active {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    min-height: 100dvh !important;
+    height: 100dvh !important;
+    padding: max(16px, calc(10px + env(safe-area-inset-top))) 16px max(24px, calc(16px + env(safe-area-inset-bottom))) 16px !important;
+    box-sizing: border-box !important;
+    gap: 16px !important;
+  }
+
+  .results-scrollable-content,
+  .summary-scroll-panel {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 12px 4px !important;
+    overflow-y: auto !important;
+  }
+
+  .results-card,
+  .results-module,
+  .group-awards-container,
+  .summary-cards-list {
+    margin-bottom: 14px !important;
+    padding: 16px 14px !important;
+    gap: 12px !important;
+  }
+
+  .results-votes-list,
+  #round-end-votes-list {
+    gap: 10px !important;
+    padding: 8px 0 !important;
+  }
+
+  .round-end-vote-item,
+  .results-vote-item {
+    padding: 10px 14px !important;
+    margin-bottom: 6px !important;
+    font-size: 0.9rem !important;
+  }
 }
 
 /* ==========================================================================
