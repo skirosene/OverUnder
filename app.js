@@ -4074,7 +4074,7 @@ function renderGameOver({ awards, summary }) {
     } else {
       awardsList.forEach(aw => {
         const card = document.createElement('div');
-        card.className = 'award-card';
+        card.className = 'award-card glass-panel';
         card.innerHTML = `
           <div class="award-icon-box">${aw.icon || '🏆'}</div>
           <div class="award-info">
@@ -4121,26 +4121,44 @@ function renderGameOver({ awards, summary }) {
       const hasImage = res.image ? true : false;
       const rawPrompt = (res.prompt || '').trim();
 
-      // Filter out technical file names or placeholders (e.g. image_1786...webp, Immagine (1), etc.)
+      // Riconoscimento rigoroso di file tecnici / id / placeholder per non mostrarli MAI nei verdetti
       const isTechnicalName = !rawPrompt || 
-                             rawPrompt.startsWith('image_') || 
+                             /^image[_\-\.0-9]/i.test(rawPrompt) || 
+                             /^img[_\-\.0-9]/i.test(rawPrompt) || 
+                             /^photo[_\-\.0-9]/i.test(rawPrompt) || 
+                             /^upload[_\-\.0-9]/i.test(rawPrompt) || 
                              rawPrompt.startsWith('Immagine (') || 
-                             rawPrompt === 'immagine caricata' ||
-                             rawPrompt === 'Carta Immagine' ||
-                             /\.(webp|jpg|jpeg|png)$/i.test(rawPrompt);
+                             rawPrompt.toLowerCase() === 'immagine caricata' ||
+                             rawPrompt.toLowerCase() === 'carta immagine' ||
+                             /\.(webp|jpg|jpeg|png|gif)$/i.test(rawPrompt) ||
+                             /^[a-zA-Z0-9_-]+\.(webp|jpg|jpeg|png|gif)$/i.test(rawPrompt);
 
-      const imgHtml = hasImage ? `<div class="summary-card-img-container" style="width: 54px; height: 54px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.18); margin-right: 12px; flex-shrink: 0; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);"><img class="summary-card-image" src="${res.image}" style="width: 100%; height: 100%; object-fit: cover;"></div>` : '';
-      
-      const promptHtml = (hasImage && isTechnicalName) 
-        ? '' 
-        : (rawPrompt ? `<div class="summary-item-prompt clickable-toggle-text" style="margin-bottom: 0; flex: 1; text-align: left; cursor: pointer; font-weight: 700; font-size: 0.9rem; color: #FFFFFF;">${rawPrompt}</div>` : '');
-
-      const headerLayout = (hasImage || promptHtml) ? `
-        <div style="display: flex; align-items: center; margin-bottom: 6px;">
-          ${imgHtml}
-          ${promptHtml}
-        </div>
-      ` : '';
+      let headerLayout = '';
+      if (hasImage && isTechnicalName) {
+        // Foto "nuda" centrata con bordi arrotondati, senza scritte tecniche
+        headerLayout = `
+          <div style="display: flex; justify-content: center; width: 100%; margin-bottom: 8px;">
+            <div class="summary-card-img-container" style="width: 72px; height: 72px; border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.18); cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,0.4); flex-shrink: 0;">
+              <img class="summary-card-image" src="${res.image}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+            </div>
+          </div>
+        `;
+      } else if (hasImage && !isTechnicalName) {
+        // Foto + Didattica pulita
+        headerLayout = `
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+            <div class="summary-card-img-container" style="width: 56px; height: 56px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.18); flex-shrink: 0; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+              <img class="summary-card-image" src="${res.image}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+            </div>
+            <div class="summary-item-prompt clickable-toggle-text" style="margin-bottom: 0; flex: 1; text-align: left; cursor: pointer; font-weight: 700; font-size: 0.95rem; color: #FFFFFF;">${rawPrompt}</div>
+          </div>
+        `;
+      } else if (!hasImage && !isTechnicalName && rawPrompt) {
+        // Solo testo prompt pulito
+        headerLayout = `
+          <div class="summary-item-prompt clickable-toggle-text" style="margin-bottom: 6px; text-align: left; cursor: pointer; font-weight: 700; font-size: 0.95rem; color: #FFFFFF;">${rawPrompt}</div>
+        `;
+      }
 
       const statsHtml = (state.roomIsPremium || !res.stats) 
         ? '' 

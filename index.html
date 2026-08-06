@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=1600">
+  <link rel="stylesheet" href="/style.css?v=1700">
 </head>
 
 <body>
@@ -41,7 +41,7 @@
   </div>
 
   <!-- Contenitore principale del gioco (Layout responsive) -->
-  <div class="app-container">
+  <div class="app-container" id="app">
     <div class="phone-frame">
 
       <!-- SCHERMATA DI AVVIO / SPLASH SCREEN (Fase 1 e 2) -->
@@ -75,32 +75,32 @@
           <p class="logo-tagline">Sopravvalutato o Sottovalutato?</p>
         </div>
 
-        <h2 class="welcome-section-title" style="margin-top: 10px; margin-bottom: 4px;">COME SI GIOCA?</h2>
+        <h2 class="welcome-section-title" style="margin-top: 6px; margin-bottom: 4px;">COME SI GIOCA?</h2>
 
         <!-- Tre Micro-Card Regole Spacchettate (Anti-Vuoto Nero) -->
         <div class="welcome-rules-container">
           <div class="rule-card glass-panel">
-            <div class="rule-card-icon">💡</div>
-            <div class="rule-card-content">
+            <div class="rule-card-header">
+              <span class="rule-card-icon">💡</span>
               <h3 class="rule-card-title">La Carta</h3>
-              <p class="rule-card-desc">Ti verrà mostrata una carta casuale: ogni carta nasconde un'entità diversa, dalla più iconica alla più inaspettata...</p>
             </div>
+            <p class="rule-card-desc">Ti verrà mostrata una carta casuale: ogni carta nasconde un'entità diversa, dalla più iconica alla più inaspettata...</p>
           </div>
 
           <div class="rule-card glass-panel">
-            <div class="rule-card-icon">🤔</div>
-            <div class="rule-card-content">
+            <div class="rule-card-header">
+              <span class="rule-card-icon">🤔</span>
               <h3 class="rule-card-title">La Scelta</h3>
-              <p class="rule-card-desc">Sputa il rospo. È sopravvalutato (OVER) o sottovalutato (UNDER)? Vota di pancia senza farti spiare.</p>
             </div>
+            <p class="rule-card-desc">Sputa il rospo. È sopravvalutato (OVER) o sottovalutato (UNDER)? Vota di pancia senza farti spiare.</p>
           </div>
 
           <div class="rule-card glass-panel">
-            <div class="rule-card-icon">📊</div>
-            <div class="rule-card-content">
+            <div class="rule-card-header">
+              <span class="rule-card-icon">📊</span>
               <h3 class="rule-card-title">Il Verdetto</h3>
-              <p class="rule-card-desc">Scatena il dibattito. Scopri chi la pensa come te e individua immediatamente il caso umano del gruppo.</p>
             </div>
+            <p class="rule-card-desc">Scatena il dibattito. Scopri chi la pensa come te e individua immediatamente il caso umano del gruppo.</p>
           </div>
         </div>
 
@@ -802,7 +802,7 @@
 
         <!-- Pulsante Riavvio (Solo Host controlla, Player vede dicitura di attesa) -->
         <div id="summary-host-controls" style="display: none; width: 100%;">
-          <button id="btn-restart" class="btn btn-primary btn-pulse-blue">
+          <button id="btn-restart" class="btn btn-pulse-premium">
             <span>TORNA AL MENU</span>
             <svg class="btn-icon" viewBox="0 0 24 24">
               <path
@@ -1374,7 +1374,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=1400"></script>
+  <script src="/app.js?v=1700"></script>
 </body>
 
 </html>
