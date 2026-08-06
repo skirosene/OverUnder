@@ -4096,7 +4096,7 @@ function renderGameOver({ awards, summary }) {
     const summaryList = Array.isArray(summary) ? summary : [];
     summaryList.forEach(res => {
       const item = document.createElement('div');
-      item.className = 'summary-item';
+      item.className = 'summary-item glass-panel';
       
       let playerVotesHtml = '';
       const votesList = Array.isArray(res.votes) ? res.votes : [];
@@ -4112,25 +4112,42 @@ function renderGameOver({ awards, summary }) {
         }
         playerVotesHtml += `
           <div class="summary-player-vote-row">
-            <span>${pv.player || 'Giocatore'}</span>
+            <span class="summary-player-name">${pv.player || 'Giocatore'}</span>
             <span class="summary-item-voto ${badgeClass}">${badgeText}</span>
           </div>
         `;
       });
 
       const hasImage = res.image ? true : false;
-      const imgHtml = hasImage ? `<div class="summary-card-img-container" style="width: 50px; height: 50px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); margin-right: 12px; flex-shrink: 0; cursor: pointer;"><img class="summary-card-image" src="${res.image}" style="width: 100%; height: 100%; object-fit: cover;"></div>` : '';
-      const promptText = res.image ? (res.prompt || '') : (res.prompt || '');
+      const rawPrompt = (res.prompt || '').trim();
+
+      // Filter out technical file names or placeholders (e.g. image_1786...webp, Immagine (1), etc.)
+      const isTechnicalName = !rawPrompt || 
+                             rawPrompt.startsWith('image_') || 
+                             rawPrompt.startsWith('Immagine (') || 
+                             rawPrompt === 'immagine caricata' ||
+                             rawPrompt === 'Carta Immagine' ||
+                             /\.(webp|jpg|jpeg|png)$/i.test(rawPrompt);
+
+      const imgHtml = hasImage ? `<div class="summary-card-img-container" style="width: 54px; height: 54px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.18); margin-right: 12px; flex-shrink: 0; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);"><img class="summary-card-image" src="${res.image}" style="width: 100%; height: 100%; object-fit: cover;"></div>` : '';
+      
+      const promptHtml = (hasImage && isTechnicalName) 
+        ? '' 
+        : (rawPrompt ? `<div class="summary-item-prompt clickable-toggle-text" style="margin-bottom: 0; flex: 1; text-align: left; cursor: pointer; font-weight: 700; font-size: 0.9rem; color: #FFFFFF;">${rawPrompt}</div>` : '');
+
+      const headerLayout = (hasImage || promptHtml) ? `
+        <div style="display: flex; align-items: center; margin-bottom: 6px;">
+          ${imgHtml}
+          ${promptHtml}
+        </div>
+      ` : '';
 
       const statsHtml = (state.roomIsPremium || !res.stats) 
         ? '' 
-        : `<span class="summary-item-stats">Mondo: <span style="color: #F97316; font-weight: bold;">OVER ${res.stats.overrated || 0}%</span> / <span style="color: #EC4899; font-weight: bold;">UNDER ${res.stats.underrated || 0}%</span></span>`;
+        : `<div class="summary-item-stats" style="margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); text-align: right; font-size: 0.7rem; color: rgba(255,255,255,0.5);">Mondo: <span style="color: #F59E0B; font-weight: 700;">OVER ${res.stats.overrated || 0}%</span> / <span style="color: #06B6D4; font-weight: 700;">UNDER ${res.stats.underrated || 0}%</span></div>`;
 
       item.innerHTML = `
-        <div style="display: flex; align-items: center; margin-bottom: 8px;">
-          ${imgHtml}
-          <div class="summary-item-prompt clickable-toggle-text" style="margin-bottom: 0; flex: 1; text-align: left; cursor: pointer;">${promptText}</div>
-        </div>
+        ${headerLayout}
         <div class="summary-item-details">
           ${playerVotesHtml}
         </div>
@@ -4141,7 +4158,7 @@ function renderGameOver({ awards, summary }) {
         const imgContainer = item.querySelector('.summary-card-img-container');
         if (imgContainer) {
           imgContainer.addEventListener('click', () => {
-            openCardImageZoom(res.image, res.prompt);
+            openCardImageZoom(res.image, isTechnicalName ? '' : res.prompt);
           });
         }
       }
