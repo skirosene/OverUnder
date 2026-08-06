@@ -239,7 +239,7 @@ input[type="submit"] {
     padding-right: max(12px, env(safe-area-inset-right));
   }
 
-  /* Layout Schermata Benvenuto (Testata Fissa in Alto + Bottom Sheet dal Basso) */
+  /* 1. LAYOUT SINGLE-SCREEN (Altezza Fissa 100dvh & Zero Scroll) */
   #screen-welcome {
     display: flex !important;
     flex-direction: column !important;
@@ -248,6 +248,7 @@ input[type="submit"] {
     text-align: center !important;
     height: 100% !important;
     min-height: 100dvh !important;
+    max-height: 100dvh !important;
     padding: 0 !important;
     position: relative !important;
     overflow: hidden !important;
@@ -256,7 +257,7 @@ input[type="submit"] {
   /* Testata Fissa in Alto (Logo "OVER UNDER" + Sottotitolo) */
   #screen-welcome .logo-area {
     position: absolute !important;
-    top: max(6%, calc(16px + env(safe-area-inset-top))) !important;
+    top: max(4%, calc(10px + env(safe-area-inset-top))) !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     width: 100% !important;
@@ -267,43 +268,44 @@ input[type="submit"] {
     pointer-events: none !important;
   }
 
-  /* Pannello Bottom Sheet ("Come si gioca?") - Scivola dal Basso verso l'Alto */
+  /* 3. PANNELLO "COME SI GIOCA?" (Bottom Sheet Animato & COMPATTO) */
   .welcome-bottom-sheet {
     position: absolute !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    max-height: 72vh !important;
-    max-height: 72dvh !important;
-    background: rgba(18, 18, 18, 0.94) !important;
-    border-radius: 28px 28px 0 0 !important;
+    max-height: 68vh !important;
+    max-height: 68dvh !important;
+    background: #121212 !important;
+    border-radius: 24px 24px 0 0 !important;
     border-top: 1px solid rgba(255, 255, 255, 0.16) !important;
     border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
-    padding: 24px 20px max(20px, env(safe-area-inset-bottom)) 20px !important;
+    padding: 18px 16px max(14px, env(safe-area-inset-bottom)) 16px !important;
     box-sizing: border-box !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
-    gap: 16px !important;
+    gap: 10px !important;
     z-index: 10 !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
-    box-shadow: 0 -15px 40px rgba(0, 0, 0, 0.75) !important;
+    box-shadow: 0 -15px 40px rgba(0, 0, 0, 0.85) !important;
 
-    /* Animazione di Ingresso CSS Smooth Slide (iOS / Android Curve) */
+    /* 4. TRANSITIONS & KEYFRAMES (Stato iniziale: nascosto in basso) */
     transform: translateY(100%) !important;
     opacity: 0 !important;
-    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease !important;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease !important;
   }
 
-  /* Stato Attivo: Scivola in Posizione dal Basso */
+  /* Stato Attivo (.show / #screen-welcome.active): Scivola in Posizione dal Basso */
   #screen-welcome.active .welcome-bottom-sheet {
     transform: translateY(0) !important;
     opacity: 1 !important;
   }
 
+  /* Dimensionamento Compatto per le 3 Regole */
   #screen-welcome .welcome-card {
     background: transparent !important;
     border: none !important;
@@ -311,36 +313,53 @@ input[type="submit"] {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     padding: 0 !important;
-    gap: 14px !important;
+    gap: 8px !important;
     margin: 0 !important;
     width: 100% !important;
   }
 
   #screen-welcome .welcome-card .welcome-section-title {
-    font-size: 1.15rem !important;
-    margin-bottom: 4px !important;
+    font-size: 0.98rem !important;
+    font-weight: 800 !important;
+    margin-bottom: 2px !important;
     color: #ff3c8e !important;
     text-transform: uppercase !important;
     letter-spacing: 0.5px !important;
+    text-align: center !important;
   }
 
   #screen-welcome .rule-item {
-    gap: 12px !important;
+    gap: 10px !important;
+    align-items: flex-start !important;
+    text-align: left !important;
+  }
+
+  #screen-welcome .rule-item span {
+    font-size: 1.1rem !important;
+    line-height: 1 !important;
   }
 
   #screen-welcome .rule-item h4 {
-    font-size: 0.88rem !important;
-    margin-bottom: 2px !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 1px !important;
+    color: #ffffff !important;
   }
 
   #screen-welcome .rule-item p {
-    font-size: 0.78rem !important;
-    line-height: 1.35 !important;
+    font-size: 0.72rem !important;
+    color: var(--color-text-secondary) !important;
+    line-height: 1.25 !important;
+    margin: 0 !important;
   }
 
+  /* Pulsante INIZIA A GIOCARE interamente dentro il pannello */
   #screen-welcome #btn-welcome-start {
     width: 100% !important;
-    margin: 0 !important;
+    margin: 6px 0 max(4px, env(safe-area-inset-bottom)) 0 !important;
+    padding: 13px 20px !important;
+    font-size: 0.92rem !important;
+    font-weight: 800 !important;
     flex-shrink: 0 !important;
   }
 }
