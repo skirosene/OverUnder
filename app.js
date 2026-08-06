@@ -1733,11 +1733,7 @@ function showPurchaseModal() {
       const token = await authenticateHost(name);
       sessionStorage.setItem('overunder_token', token);
       localStorage.setItem('overunder_token', token);
-      if (socket.connected) {
-        socket.emit('AUTH', { token });
-      } else {
-        socket.connect();
-      }
+      executePendingSocketAction();
     } catch (err) {
       if (state.connectionTimeout) {
         clearTimeout(state.connectionTimeout);
@@ -2227,13 +2223,7 @@ function showPurchaseModal() {
       console.log('[INVITE] authenticateGuest OK, token ricevuto');
       safeSessionStorage.setItem('overunder_token', token);
       safeStorage.setItem('overunder_token', token);
-      if (socket.connected) {
-        console.log('[INVITE] Socket già connesso, invio AUTH');
-        socket.emit('AUTH', { token });
-      } else {
-        console.log('[INVITE] Socket non connesso, avvio connessione...');
-        socket.connect();
-      }
+      executePendingSocketAction();
     } catch (err) {
       console.error('[INVITE] Errore join:', err.message, err);
       if (state.connectionTimeout) {
@@ -2334,11 +2324,42 @@ function showError(msg) {
   el.nameErrorMsg.style.display = 'block';
 }
 
+/**
+ * Gestione Coda Azioni Socket (Socket Ready Queue).
+ * Esegue tempestivamente la richiesta di creazione/ingresso stanza non appena il socket
+ * è connesso ed autenticato, prevenendo blocchi o tempi morti.
+ */
+function executePendingSocketAction() {
+  if (!state.pendingSocketAction) return;
+
+  const action = state.pendingSocketAction;
+
+  if (!socket.connected) {
+    console.log("[SOCKET QUEUE] Socket non ancora connesso. Avvio socket.connect()...");
+    socket.connect();
+    return;
+  }
+
+  const token = safeSessionStorage.getItem('overunder_token');
+  if (token && !state.socketAuthenticated) {
+    console.log("[SOCKET QUEUE] Socket connesso: invio token AUTH...");
+    socket.emit('AUTH', { token });
+  }
+
+  console.log("[SOCKET QUEUE] Esecuzione immediata dell'azione in coda:", action.type);
+  state.pendingSocketAction = null;
+
+  if (action.type === 'create_room') {
+    socket.emit('create_room', action.data);
+  } else if (action.type === 'join_room') {
+    socket.emit('join_room', action.data);
+  }
+}
+
 // ==========================================================================
 // RICEZIONE DEGLI EVENTI DI RETE (SOCKET.IO LISTENERS)
 // ==========================================================================
 function setupSocketListeners() {
-  // 0. Connessione e Ripristino Sessione
   socket.on('connect', () => {
     console.log("Connesso al server. ID Socket:", socket.id);
     state.socketAuthenticated = false;
@@ -2347,8 +2368,8 @@ function setupSocketListeners() {
     if (savedToken) {
       console.log('[SOCKET] connect: invio AUTH con token salvato');
       socket.emit('AUTH', { token: savedToken });
-    } else {
-      console.log('[SOCKET] connect: nessun token salvato in sessionStorage');
+    } else if (state.pendingSocketAction) {
+      executePendingSocketAction();
     }
   });
 
@@ -2367,12 +2388,7 @@ function setupSocketListeners() {
     updatePremiumUI();
 
     if (state.pendingSocketAction) {
-      if (state.pendingSocketAction.type === 'create_room') {
-        socket.emit('create_room', state.pendingSocketAction.data);
-      } else if (state.pendingSocketAction.type === 'join_room') {
-        socket.emit('join_room', state.pendingSocketAction.data);
-      }
-      state.pendingSocketAction = null;
+      executePendingSocketAction();
       return;
     }
 
@@ -5110,9 +5126,9 @@ function setupPremiumCreatorEvents() {
     el.btnCropperConfirm.addEventListener('click', async () => {
       if (!activeCropper) return;
 
-      // Compressione HD Client-Side: 1080px per carte, 256px per avatar
+      // Compressione HD Client-Side: 1200px per carte, 512px per avatar HD
       const isAvatar = state.cropperTarget === 'avatar';
-      const maxSize = isAvatar ? 256 : 1080;
+      const maxSize = isAvatar ? 512 : 1200;
       const canvas = activeCropper.getCroppedCanvas({
         width: maxSize,
         height: maxSize,
@@ -5126,12 +5142,13 @@ function setupPremiumCreatorEvents() {
         const oldText = confirmBtn.textContent;
         confirmBtn.textContent = 'Caricamento...';
 
-        // WebP con fallback a JPEG al 85% di qualità
+        // WebP HD al 92% di qualità (nitidezza visiva eccellente)
+        const quality = isAvatar ? 0.92 : 0.88;
         let mimeType = 'image/webp';
-        let dataUrl = canvas.toDataURL(mimeType, 0.85);
+        let dataUrl = canvas.toDataURL(mimeType, quality);
         if (!dataUrl.startsWith('data:image/webp')) {
           mimeType = 'image/jpeg';
-          dataUrl = canvas.toDataURL(mimeType, 0.85);
+          dataUrl = canvas.toDataURL(mimeType, quality);
         }
 
         const ext = mimeType === 'image/webp' ? '.webp' : '.jpg';
