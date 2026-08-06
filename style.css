@@ -1077,6 +1077,42 @@ input[type="submit"] {
   border: 1px solid var(--color-border-glow) !important;
 }
 
+/* Carte Full-Image (Sola foto senza didascalia) */
+.prompt-card.is-full-image {
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.prompt-card.is-full-image #gameplay-prompt-image-container {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: inherit !important;
+  box-shadow: none !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+.prompt-card.is-full-image #gameplay-prompt-image {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: inherit !important;
+}
+
+.prompt-card.is-full-image #current-deck-name,
+.prompt-card.is-full-image #current-prompt-text {
+  display: none !important;
+}
+
 .prompt-category {
   display: none !important;
   font-family: var(--font-title);

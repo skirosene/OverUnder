@@ -418,13 +418,16 @@
           <!-- Box Input & Aggiunta -->
           <div class="custom-card-input-wrapper"
             style="width: 100%; position: relative; display: flex; align-items: center;">
-            <!-- Anteprima immagine caricata -->
+            <!-- Anteprima immagine caricata (Sostituisce l'input di testo quando attiva) -->
             <div id="premium-image-preview-container"
-              style="display: none; position: absolute; left: 10px; z-index: 10; align-items: center;">
-              <img id="premium-image-preview"
-                style="width: 30px; height: 30px; border-radius: 6px; object-fit: cover; border: 1px solid var(--color-underrated); cursor: pointer;">
-              <button id="btn-clear-image"
-                style="position: absolute; top: -6px; right: -6px; width: 14px; height: 14px; border-radius: 50%; background: #ff3333; color: white; border: none; font-size: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
+              style="display: none; align-items: center; width: 100%; height: 44px; padding: 0 45px 0 10px; background: rgba(255, 255, 255, 0.05); border: 1px dashed var(--color-underrated); border-radius: 12px; position: relative;">
+              <div style="position: relative; display: flex; align-items: center; flex-shrink: 0;">
+                <img id="premium-image-preview"
+                  style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover; border: 1px solid var(--color-underrated); cursor: pointer;">
+                <button id="btn-clear-image"
+                  style="position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 50%; background: #ff3333; color: white; border: none; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
+              </div>
+              <span style="color: var(--color-underrated); font-weight: 700; font-size: 0.85rem; margin-left: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Foto pronta (Premere +)</span>
             </div>
 
             <input type="text" id="premium-card-input" class="text-input" placeholder="A cosa stai pensando?"

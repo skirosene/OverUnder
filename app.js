@@ -622,6 +622,7 @@ const el = {
   
   // Custom Premium Image elements
   premiumImageUpload: document.getElementById('premium-image-upload'),
+  lblPremiumImageUpload: document.getElementById('lbl-premium-image-upload'),
   premiumImagePreviewContainer: document.getElementById('premium-image-preview-container'),
   premiumImagePreview: document.getElementById('premium-image-preview'),
   btnClearImage: document.getElementById('btn-clear-image'),
@@ -640,6 +641,7 @@ const el = {
   drawerCardTitle: document.getElementById('drawer-card-title'),
   
   // Gameplay Prompt Image elements
+  promptCard: document.getElementById('prompt-card'),
   gameplayPromptImageContainer: document.getElementById('gameplay-prompt-image-container'),
   gameplayPromptImage: document.getElementById('gameplay-prompt-image'),
   
@@ -2858,9 +2860,11 @@ function setupSocketListeners() {
       state.currentCroppedImage = null;
       if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'none';
       if (el.premiumImagePreview) el.premiumImagePreview.src = '';
+      if (el.lblPremiumImageUpload) el.lblPremiumImageUpload.style.display = 'inline-flex';
       if (el.premiumCardInput) {
         el.premiumCardInput.value = '';
         el.premiumCardInput.disabled = false;
+        el.premiumCardInput.style.display = 'block';
         el.premiumCardInput.placeholder = 'A cosa stai pensando?';
         el.premiumCardInput.style.paddingLeft = '42px';
       }
@@ -2903,9 +2907,11 @@ function setupSocketListeners() {
     // Ripristina input mazzo
     if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'none';
     if (el.premiumImagePreview) el.premiumImagePreview.src = '';
+    if (el.lblPremiumImageUpload) el.lblPremiumImageUpload.style.display = 'inline-flex';
     if (el.premiumCardInput) {
       el.premiumCardInput.value = '';
       el.premiumCardInput.disabled = false;
+      el.premiumCardInput.style.display = 'block';
       el.premiumCardInput.placeholder = 'A cosa stai pensando?';
       el.premiumCardInput.style.paddingLeft = '42px';
     }
@@ -3058,6 +3064,7 @@ function preloadDeckImages(imageUrls) {
 function updateGameplayCardMedia(prompt, image) {
   if (!el.gameplayPromptImageContainer || !el.gameplayPromptImage) return;
 
+  const promptCard = el.promptCard || document.getElementById('prompt-card');
   const hasImage = !!(image && typeof image === 'string' && image.length > 5);
   const cleanPrompt = (prompt && typeof prompt === 'string') ? prompt.trim() : '';
   const isGenericPrompt = !cleanPrompt || 
@@ -3072,13 +3079,28 @@ function updateGameplayCardMedia(prompt, image) {
     el.gameplayPromptImageContainer.style.display = 'block';
 
     if (!hasText) {
-      // FULL-CARD (Sola Immagine): Immagine espansa senza alcun testo o titolo visibile
+      // FULL-CARD (Sola Immagine): L'immagine occupa il 100% della card senza padding o testi
+      if (promptCard) {
+        promptCard.classList.add('is-full-image');
+        promptCard.style.padding = '0';
+      }
+      if (el.currentDeckName) {
+        el.currentDeckName.style.display = 'none';
+      }
       el.gameplayPromptImageContainer.style.width = '100%';
-      el.gameplayPromptImageContainer.style.maxWidth = '290px';
-      el.gameplayPromptImageContainer.style.height = '230px';
-      el.gameplayPromptImageContainer.style.borderRadius = '16px';
-      el.gameplayPromptImageContainer.style.margin = '10px 0';
-      el.gameplayPromptImage.style.objectFit = 'contain';
+      el.gameplayPromptImageContainer.style.height = '100%';
+      el.gameplayPromptImageContainer.style.maxWidth = '100%';
+      el.gameplayPromptImageContainer.style.maxHeight = '100%';
+      el.gameplayPromptImageContainer.style.margin = '0';
+      el.gameplayPromptImageContainer.style.padding = '0';
+      el.gameplayPromptImageContainer.style.border = 'none';
+      el.gameplayPromptImageContainer.style.boxShadow = 'none';
+      el.gameplayPromptImageContainer.style.position = 'absolute';
+      el.gameplayPromptImageContainer.style.inset = '0';
+
+      el.gameplayPromptImage.style.width = '100%';
+      el.gameplayPromptImage.style.height = '100%';
+      el.gameplayPromptImage.style.objectFit = 'cover';
       el.gameplayPromptImage.style.pointerEvents = 'none';
       el.gameplayPromptImage.style.cursor = 'default';
 
@@ -3087,7 +3109,16 @@ function updateGameplayCardMedia(prompt, image) {
         el.currentPromptText.textContent = '';
       }
     } else {
-      // IMMAGINE + DIDASCALIA CUSTOM: Formato compatto con testo custom dell'Host
+      // IMMAGINE + DIDASCALIA CUSTOM (supporto legacy/ibrido)
+      if (promptCard) {
+        promptCard.classList.remove('is-full-image');
+        promptCard.style.padding = '';
+      }
+      if (el.currentDeckName) {
+        el.currentDeckName.style.display = '';
+      }
+      el.gameplayPromptImageContainer.style.position = 'relative';
+      el.gameplayPromptImageContainer.style.inset = 'auto';
       el.gameplayPromptImageContainer.style.width = '130px';
       el.gameplayPromptImageContainer.style.maxWidth = '130px';
       el.gameplayPromptImageContainer.style.height = '130px';
@@ -3104,6 +3135,15 @@ function updateGameplayCardMedia(prompt, image) {
     }
   } else {
     // SOLO TESTO
+    if (promptCard) {
+      promptCard.classList.remove('is-full-image');
+      promptCard.style.padding = '';
+    }
+    if (el.currentDeckName) {
+      el.currentDeckName.style.display = '';
+    }
+    el.gameplayPromptImageContainer.style.position = 'relative';
+    el.gameplayPromptImageContainer.style.inset = 'auto';
     el.gameplayPromptImageContainer.style.display = 'none';
     el.gameplayPromptImage.src = '';
     if (el.currentPromptText) {
@@ -5053,11 +5093,13 @@ function setupPremiumCreatorEvents() {
   }
 
   const addCard = () => {
-    const val = el.premiumCardInput.value.trim();
+    const val = el.premiumCardInput ? el.premiumCardInput.value.trim() : '';
     if (!val && !state.currentCroppedImage) return;
 
     const cardData = {
-      text: val || state.currentUploadedFilename || 'immagine caricata',
+      text: state.currentCroppedImage 
+        ? `Immagine (${state.localPremiumCards.length + 1})` 
+        : val,
       image: state.currentCroppedImage || null
     };
 
@@ -5085,18 +5127,24 @@ function setupPremiumCreatorEvents() {
       socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
     }
 
-    el.premiumCardInput.value = '';
+    if (el.premiumCardInput) {
+      el.premiumCardInput.value = '';
+      el.premiumCardInput.style.display = 'block';
+      el.premiumCardInput.disabled = false;
+      el.premiumCardInput.placeholder = 'A cosa stai pensando?';
+      el.premiumCardInput.focus();
+    }
+
+    if (el.lblPremiumImageUpload) {
+      el.lblPremiumImageUpload.style.display = 'inline-flex';
+    }
     
     // Reset image preview state
     state.currentCroppedImage = null;
     state.currentUploadedFilename = '';
-    el.premiumImagePreviewContainer.style.display = 'none';
-    el.premiumImagePreview.src = '';
-    el.premiumCardInput.style.paddingLeft = '42px';
-    el.premiumCardInput.disabled = false;
-    el.premiumCardInput.placeholder = 'A cosa stai pensando?';
+    if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'none';
+    if (el.premiumImagePreview) el.premiumImagePreview.src = '';
     
-    el.premiumCardInput.focus();
     AudioSynth.playConfirm(true);
   };
 
@@ -5218,14 +5266,17 @@ function setupPremiumCreatorEvents() {
                 }
                 state.editingPremiumCardIndex = null;
               } else {
-                // Caricamento nuova immagine
+                // Caricamento nuova immagine (Sola foto, no didascalia)
                 state.currentCroppedImage = uploadUrl;
                 el.premiumImagePreview.src = uploadUrl;
                 el.premiumImagePreviewContainer.style.display = 'flex';
-                el.premiumCardInput.style.paddingLeft = '48px';
-                el.premiumCardInput.placeholder = 'Aggiungi una didascalia facoltativa...';
-                el.premiumCardInput.disabled = false;
-                el.premiumCardInput.focus();
+                if (el.premiumCardInput) {
+                  el.premiumCardInput.value = '';
+                  el.premiumCardInput.style.display = 'none';
+                }
+                if (el.lblPremiumImageUpload) {
+                  el.lblPremiumImageUpload.style.display = 'none';
+                }
               }
             }
           }
@@ -5312,12 +5363,18 @@ async function uploadImage(dataUrl, filename) {
       e.stopPropagation();
       state.currentCroppedImage = null;
       state.currentUploadedFilename = '';
-      el.premiumImagePreviewContainer.style.display = 'none';
-      el.premiumImagePreview.src = '';
-      el.premiumCardInput.style.paddingLeft = '42px';
-      el.premiumCardInput.disabled = false;
-      el.premiumCardInput.placeholder = 'A cosa stai pensando?';
-      el.premiumCardInput.focus();
+      if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'none';
+      if (el.premiumImagePreview) el.premiumImagePreview.src = '';
+      if (el.premiumCardInput) {
+        el.premiumCardInput.style.display = 'block';
+        el.premiumCardInput.value = '';
+        el.premiumCardInput.disabled = false;
+        el.premiumCardInput.placeholder = 'A cosa stai pensando?';
+        el.premiumCardInput.focus();
+      }
+      if (el.lblPremiumImageUpload) {
+        el.lblPremiumImageUpload.style.display = 'inline-flex';
+      }
     });
   }
 
