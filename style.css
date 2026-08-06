@@ -4200,11 +4200,45 @@ input[type="submit"] {
 .onboarding-nav-header, .lobby-nav-header, .gameplay-header, .results-header-static-wrapper {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   width: 100%;
-  padding-top: max(10px, env(safe-area-inset-top));
+  padding-top: max(12px, env(safe-area-inset-top));
   margin-top: 4px;
   margin-bottom: 8px;
   flex: 0 0 auto;
+  position: relative;
+}
+
+/* Titolo Brand Fisso al centro della Navbar Header (Lobby & Onboarding) */
+.nav-header-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: 1.5px;
+  line-height: 1;
+  user-select: none;
+  pointer-events: none;
+  flex: 1;
+  text-align: center;
+  margin: 0 4px;
+  position: relative;
+  animation: none !important;
+  transform: none !important;
+}
+
+.nav-brand-over {
+  color: var(--color-overrated, #FFB300);
+  text-shadow: 0 0 10px rgba(255, 179, 0, 0.4);
+}
+
+.nav-brand-under {
+  color: var(--color-underrated, #00A8E8);
+  text-shadow: 0 0 10px rgba(0, 168, 232, 0.4);
+  text-transform: uppercase;
 }
 
 /* Tasto Home Navigazione Superiore (Senza Cerchio) */
@@ -5161,7 +5195,6 @@ input[type="submit"] {
   z-index: 1000;
   -webkit-tap-highlight-color: transparent;
   padding: 0;
-  margin-left: auto;
 }
 
 .nav-btn-settings svg {
