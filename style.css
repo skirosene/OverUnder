@@ -243,7 +243,7 @@ input[type="submit"] {
   }
 }
 
-/* Responsive Mobile per Schermata Benvenuto (Anti-Vuoto Nero & Spacchettamento Regole) */
+/* Responsive Mobile per Schermata Benvenuto (Design a Scaffale Compact & Anti-Overlap) */
 @media (max-width: 768px) {
   #screen-welcome.active {
     display: flex !important;
@@ -253,7 +253,7 @@ input[type="submit"] {
     text-align: center !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
-    padding: max(10px, calc(4px + env(safe-area-inset-top))) 16px max(10px, calc(4px + env(safe-area-inset-bottom))) 16px !important;
+    padding: max(10px, calc(4px + env(safe-area-inset-top))) 16px max(12px, calc(6px + env(safe-area-inset-bottom))) 16px !important;
     box-sizing: border-box !important;
     position: relative !important;
     overflow: hidden !important;
@@ -263,12 +263,14 @@ input[type="submit"] {
     margin-top: 2px !important;
     margin-bottom: 0 !important;
     flex-shrink: 0 !important;
+    transform: scale(0.88) !important;
+    transform-origin: top center !important;
   }
 
   .welcome-section-title {
-    margin-top: 4px !important;
-    margin-bottom: 4px !important;
-    font-size: 1.05rem !important;
+    margin-top: 2px !important;
+    margin-bottom: 2px !important;
+    font-size: 0.95rem !important;
     flex-shrink: 0 !important;
   }
 
@@ -276,62 +278,64 @@ input[type="submit"] {
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-evenly !important;
-    gap: 8px !important;
+    gap: 10px !important;
     flex: 1 1 auto !important;
     width: 100% !important;
-    margin: 4px 0 !important;
+    margin: 6px 0 !important;
     min-height: 0 !important;
   }
 
   .rule-card {
     background: rgba(255, 255, 255, 0.04) !important;
-    backdrop-filter: blur(5px) !important;
-    -webkit-backdrop-filter: blur(5px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
     border-radius: 16px !important;
     padding: 10px 14px !important;
     display: flex !important;
-    flex-direction: column !important;
-    gap: 4px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px !important;
     text-align: left !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3) !important;
     transition: transform 0.2s ease, border-color 0.2s ease !important;
   }
 
-  .rule-card-header {
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    margin-bottom: 2px !important;
-  }
-
   .rule-card-icon {
-    font-size: 1.35rem !important;
+    font-size: 24px !important;
     line-height: 1 !important;
     flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 32px !important;
+    height: 32px !important;
   }
 
+  .rule-card-body,
   .rule-card-content {
     display: flex !important;
     flex-direction: column !important;
-    gap: 4px !important;
+    gap: 2px !important;
     flex: 1 !important;
+    min-width: 0 !important;
   }
 
   .rule-card-title {
     font-family: var(--font-title) !important;
     font-weight: 800 !important;
-    font-size: 22px !important;
+    font-size: 16px !important;
     color: #FFFFFF !important;
     margin: 0 !important;
     letter-spacing: 0.3px !important;
+    line-height: 1.25 !important;
   }
 
   .rule-card-desc {
-    font-size: 15px !important;
+    font-size: 13px !important;
     font-weight: 400 !important;
     color: rgba(255, 255, 255, 0.75) !important;
-    line-height: 1.35 !important;
+    line-height: 1.3 !important;
     margin: 0 !important;
   }
 
@@ -1215,14 +1219,17 @@ input[type="submit"] {
   touch-action: manipulation;
 }
 
-.prompt-text {
+.prompt-text,
+#current-prompt-text {
   font-family: var(--font-title);
   font-weight: 800;
-  font-size: clamp(1.2rem, 5vw, 1.55rem) !important;
-  line-height: 1.35;
+  font-size: clamp(1.25rem, 5.2vw, 1.65rem) !important;
+  line-height: 1.4 !important;
   color: white;
-  max-width: 94%;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85), 0 1px 2px rgba(0, 0, 0, 0.9) !important;
+  max-width: 96%;
   margin: auto 0;
+  text-align: center;
 }
 
 /* Stato espanso (al tap) */
@@ -1643,13 +1650,15 @@ input[type="submit"] {
   align-items: center;
 }
 
-.results-prompt-subject {
+.results-prompt-subject,
+#results-prompt-subject {
   font-family: var(--font-title);
   font-weight: 800;
-  font-size: 1.22rem;
+  font-size: clamp(1.25rem, 5.2vw, 1.65rem) !important;
   color: white;
   text-align: center;
-  line-height: 1.35;
+  line-height: 1.4 !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85), 0 1px 2px rgba(0, 0, 0, 0.9) !important;
   word-wrap: break-word;
   word-break: break-word;
 }
@@ -3342,9 +3351,13 @@ input[type="submit"] {
     padding: 12px !important;
     min-height: 150px !important;
   }
-  .prompt-text {
-    font-size: 1.15rem !important;
-    line-height: 1.35 !important;
+  .prompt-text,
+  #current-prompt-text,
+  .results-prompt-subject,
+  #results-prompt-subject {
+    font-size: 1.2rem !important;
+    line-height: 1.4 !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85), 0 1px 2px rgba(0, 0, 0, 0.9) !important;
   }
   .avatar-setup-container {
     margin-top: 5px !important;

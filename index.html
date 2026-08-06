@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=1700">
+  <link rel="stylesheet" href="/style.css?v=1800">
 </head>
 
 <body>
@@ -65,7 +65,7 @@
 
       <!-- SCHERMATA 0: BENVENUTO / INTRO -->
       <section id="screen-welcome" class="screen">
-        <!-- Logo Centrato -->
+        <!-- Logo Centrato COMPATTO -->
         <div class="logo-area welcome-logo-area" style="animation: float-logo 4s ease-in-out infinite;">
           <div class="logo-title">
             <span class="logo-over">OVER</span>
@@ -75,32 +75,32 @@
           <p class="logo-tagline">Sopravvalutato o Sottovalutato?</p>
         </div>
 
-        <h2 class="welcome-section-title" style="margin-top: 6px; margin-bottom: 4px;">COME SI GIOCA?</h2>
+        <h2 class="welcome-section-title" style="margin-top: 4px; margin-bottom: 2px;">COME SI GIOCA?</h2>
 
-        <!-- Tre Micro-Card Regole Spacchettate (Anti-Vuoto Nero) -->
+        <!-- Tre Micro-Card Regole Spacchettate (Design a Scaffale Orrizzontale) -->
         <div class="welcome-rules-container">
           <div class="rule-card glass-panel">
-            <div class="rule-card-header">
-              <span class="rule-card-icon">💡</span>
+            <div class="rule-card-icon">💡</div>
+            <div class="rule-card-body">
               <h3 class="rule-card-title">La Carta</h3>
+              <p class="rule-card-desc">Ti verrà mostrata una carta casuale con un'entità iconica o inaspettata...</p>
             </div>
-            <p class="rule-card-desc">Ti verrà mostrata una carta casuale: ogni carta nasconde un'entità diversa, dalla più iconica alla più inaspettata...</p>
           </div>
 
           <div class="rule-card glass-panel">
-            <div class="rule-card-header">
-              <span class="rule-card-icon">🤔</span>
+            <div class="rule-card-icon">🤔</div>
+            <div class="rule-card-body">
               <h3 class="rule-card-title">La Scelta</h3>
+              <p class="rule-card-desc">È sopravvalutato (OVER) o sottovalutato (UNDER)? Vota di pancia senza farti spiare.</p>
             </div>
-            <p class="rule-card-desc">Sputa il rospo. È sopravvalutato (OVER) o sottovalutato (UNDER)? Vota di pancia senza farti spiare.</p>
           </div>
 
           <div class="rule-card glass-panel">
-            <div class="rule-card-header">
-              <span class="rule-card-icon">📊</span>
+            <div class="rule-card-icon">📊</div>
+            <div class="rule-card-body">
               <h3 class="rule-card-title">Il Verdetto</h3>
+              <p class="rule-card-desc">Scatena il dibattito. Scopri chi la pensa come te e individua il caso umano del gruppo.</p>
             </div>
-            <p class="rule-card-desc">Scatena il dibattito. Scopri chi la pensa come te e individua immediatamente il caso umano del gruppo.</p>
           </div>
         </div>
 
@@ -1374,7 +1374,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=1700"></script>
+  <script src="/app.js?v=1800"></script>
 </body>
 
 </html>
