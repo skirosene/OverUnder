@@ -240,7 +240,7 @@ input[type="submit"] {
 
   /* 1. LAYOUT SINGLE-SCREEN FISSATO (Altezza Fissa 100dvh & Zero Scroll) */
   #screen-welcome {
-    display: flex !important;
+    display: none !important;
     flex-direction: column !important;
     justify-content: flex-start !important;
     align-items: center !important;
@@ -252,6 +252,10 @@ input[type="submit"] {
     margin: 0 !important;
     position: relative !important;
     overflow: hidden !important;
+  }
+
+  #screen-welcome.active {
+    display: flex !important;
   }
 
   /* 2. FASE DI CARICAMENTO (Fading Spinner) */
@@ -325,16 +329,14 @@ input[type="submit"] {
     -webkit-backdrop-filter: blur(20px) !important;
 
     /* 4. TRANSITIONS & FINE CORSA PERFETTA A BOTTOM 0 */
-    visibility: hidden !important;
     pointer-events: none !important;
     transform: translateY(100%) !important;
     opacity: 0 !important;
-    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease, visibility 0.45s ease !important;
+    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease !important;
   }
 
   /* Stato Attivo: Scivola in Posizione Solida dal Basso a Filo Schermo (bottom: 0, translateY: 0) */
   #screen-welcome.active .welcome-bottom-sheet {
-    visibility: visible !important;
     pointer-events: auto !important;
     bottom: 0px !important;
     transform: translateY(0) !important;
