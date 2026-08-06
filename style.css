@@ -5298,19 +5298,24 @@ input[type="submit"] {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  justify-content: space-evenly;
+  gap: 16px;
   overflow-y: auto;
+  min-height: 0;
+  padding: 4px 0;
 }
 
 .sidebar-section {
-  padding: 16px;
-  border-radius: 14px;
+  padding: 18px 16px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  gap: 14px;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .sidebar-section:hover {
