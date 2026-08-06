@@ -1717,6 +1717,7 @@ function showPurchaseModal() {
     }
 
     const isPremiumToggleOn = el.createPremiumToggle ? el.createPremiumToggle.checked : false;
+    console.log("--> Tentativo creazione Stanza Premium...", { roomCode: code, isPremium: isPremiumToggleOn, name });
 
     sessionStorage.setItem('overunder_playerName', name);
     sessionStorage.setItem('overunder_roomCode', code);
@@ -1729,20 +1730,27 @@ function showPurchaseModal() {
       data: { roomCode: code, avatar: state.playerAvatarUrl, isPremium: isPremiumToggleOn }
     };
 
+    // Timeout Fallback di 1.5s: se l'autenticazione HTTP impiega più di 1.5s, fai proseguire subito la socket
+    let authPromiseDone = false;
+    const authTimeoutTimer = setTimeout(() => {
+      if (!authPromiseDone) {
+        console.warn("--> [TIMEOUT FALLBACK] AuthenticateHost impiega più di 1.5s. Esecuzione diretta socket...");
+        executePendingSocketAction();
+      }
+    }, 1500);
+
     try {
       const token = await authenticateHost(name);
+      authPromiseDone = true;
+      clearTimeout(authTimeoutTimer);
       sessionStorage.setItem('overunder_token', token);
       localStorage.setItem('overunder_token', token);
       executePendingSocketAction();
     } catch (err) {
-      if (state.connectionTimeout) {
-        clearTimeout(state.connectionTimeout);
-        state.connectionTimeout = null;
-      }
-      state.connectionLoadingActive = false;
-      handleConnectionError('not_found');
-      showError(err.message || "Impossibile creare la stanza.");
-      state.pendingSocketAction = null;
+      authPromiseDone = true;
+      clearTimeout(authTimeoutTimer);
+      console.warn("--> [CATCH FALLBACK] Errore in authenticateHost, procedo con invio socket:", err.message);
+      executePendingSocketAction();
     }
   });
 

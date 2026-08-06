@@ -1070,20 +1070,11 @@ io.on('connection', (socket) => {
     // Per consentire i test locali della Modalità Gogna senza transazione reale
     let finalIsPremium = (isPremium !== undefined) ? !!isPremium : !!isPremiumUser;
 
-    if (finalIsPremium) {
-      // Controllo preventivo acquisto Premium o Trial
-      const isDevicePremium = Object.values(users).some(u => u.isPremium && (
-        u.id === socket.userData?.userId ||
-        (deviceUuid && u.deviceUuid === deviceUuid) ||
-        (sessionId && (u.deviceUuid === sessionId || u.id === sessionId)) ||
-        u.username === (hostName || '').toLowerCase()
-      ));
+    console.log("--> [SERVER] Richiesta create_room ricevuta:", { code, hostName, isPremium: finalIsPremium, socketId: socket.id });
 
-      if (IS_PRODUCTION && !isPremiumUser && !isDevicePremium) {
-        socket.emit('trial_expired_error', {
-          message: "L'accesso alla Modalità \"Judgement Day\" richiede lo sblocco Premium."
-        });
-        return;
+    if (finalIsPremium) {
+      if (socket.userData) {
+        socket.userData.isPremium = true;
       }
     }
 
