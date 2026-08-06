@@ -218,7 +218,7 @@ input[type="submit"] {
 }
 
 /* Responsive per smartphone (App-Native Fullscreen + Safe Areas) */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .app-container {
     padding: 0;
   }
@@ -233,10 +233,65 @@ input[type="submit"] {
     border-radius: 0;
     box-shadow: none;
     background-color: #111111;
-    padding-top: max(28px, env(safe-area-inset-top));
+    padding-top: max(20px, env(safe-area-inset-top));
     padding-bottom: max(16px, env(safe-area-inset-bottom));
     padding-left: max(12px, env(safe-area-inset-left));
     padding-right: max(12px, env(safe-area-inset-right));
+  }
+
+  /* Ottimizzazione Layout Schermata "Come si gioca?" per Mobile */
+  #screen-welcome {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    text-align: center !important;
+    height: 100% !important;
+    min-height: 100dvh !important;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)) 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  #screen-welcome .logo-area {
+    margin-top: 8px !important;
+    margin-bottom: 12px !important;
+    flex-shrink: 0 !important;
+  }
+
+  #screen-welcome .welcome-card {
+    padding: 22px 20px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    margin-top: auto !important;
+    margin-bottom: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  #screen-welcome .welcome-card .welcome-section-title {
+    font-size: 1.15rem !important;
+    margin-bottom: 4px !important;
+  }
+
+  #screen-welcome .rule-item {
+    gap: 14px !important;
+  }
+
+  #screen-welcome .rule-item h4 {
+    font-size: 0.88rem !important;
+  }
+
+  #screen-welcome .rule-item p {
+    font-size: 0.78rem !important;
+    line-height: 1.35 !important;
+  }
+
+  #screen-welcome #btn-welcome-start {
+    width: 100% !important;
+    margin-bottom: max(24px, env(safe-area-inset-bottom)) !important;
+    margin-top: 12px !important;
+    flex-shrink: 0 !important;
   }
 }
 
@@ -276,6 +331,26 @@ input[type="submit"] {
 
 .screen::-webkit-scrollbar {
   width: 0px;
+}
+
+/* Schermata Welcome / Benvenuto ("Come Si Gioca?") - Desktop / Base */
+#screen-welcome {
+  justify-content: flex-start;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  height: 100%;
+  padding-top: 52px;
+  padding-bottom: 16px;
+}
+
+#screen-welcome .welcome-card {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+  width: 100%;
 }
 
 /* ==========================================================================
