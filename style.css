@@ -298,13 +298,15 @@ input[type="submit"] {
     pointer-events: none !important;
   }
 
-  /* 3. PANNELLO "COME SI GIOCA?" (Bottom Sheet a Filo con il Fondo e Neon Glow in Alto) */
+  /* 3. PANNELLO "COME SI GIOCA?" (Bottom Sheet - Stato Iniziale Nascosto Fuori dallo Schermo) */
   .welcome-bottom-sheet {
-    position: absolute !important;
+    position: fixed !important;
     bottom: 0px !important;
     left: 0px !important;
     right: 0px !important;
     width: 100% !important;
+    width: 100vw !important;
+    width: 100dvw !important;
     max-height: 72vh !important;
     max-height: 72dvh !important;
     background: rgba(18, 18, 22, 0.96) !important;
@@ -328,19 +330,22 @@ input[type="submit"] {
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
 
-    /* 4. TRANSITIONS & FINE CORSA PERFETTA A BOTTOM 0 */
-    pointer-events: none !important;
-    transform: translateY(100%) !important;
+    /* Stato Iniziale (Nascosto TOTALMENTE 120% fuori dallo schermo durante il caricamento) */
+    transform: translateY(120%) !important;
     opacity: 0 !important;
-    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease, visibility 0.5s !important;
   }
 
-  /* Stato Attivo: Scivola in Posizione Solida dal Basso a Filo Schermo (bottom: 0, translateY: 0) */
-  #screen-welcome.active .welcome-bottom-sheet {
-    pointer-events: auto !important;
-    bottom: 0px !important;
+  /* Stato Attivo (Allo scadere dei 5 secondi o con .show / #screen-welcome.active) */
+  #screen-welcome.active .welcome-bottom-sheet,
+  .welcome-bottom-sheet.show {
     transform: translateY(0) !important;
     opacity: 1 !important;
+    pointer-events: auto !important;
+    visibility: visible !important;
+    bottom: 0px !important;
   }
 
   /* Dimensionamento Compatto per le 3 Regole */

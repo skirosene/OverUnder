@@ -823,9 +823,18 @@ function showScreen(targetScreen) {
   [el.screenWelcome, el.screenOnboarding, el.screenLobby, el.screenGameplay, el.screenResults, el.screenSummary, el.screenKicked, el.screenRoomFull, el.screenLoading].forEach(screen => {
     if (screen) screen.classList.remove('active');
   });
+
+  const sheet = document.querySelector('.welcome-bottom-sheet');
   if (targetScreen) {
     targetScreen.classList.add('active');
     try { targetScreen.scrollTop = 0; } catch (e) {}
+    if (targetScreen === el.screenWelcome && sheet) {
+      sheet.classList.add('show');
+    } else if (sheet) {
+      sheet.classList.remove('show');
+    }
+  } else if (sheet) {
+    sheet.classList.remove('show');
   }
 
   // Configura il timer counter cliccabile solo in gameplay per l'host
