@@ -3560,6 +3560,19 @@ function submitVote(voteType) {
   socket.emit('submit_vote', { voteType, roundId: state.currentRoundId });
 }
 
+function resetFromJoinLink() {
+  try {
+    sessionStorage.removeItem('overunder_pendingRoom');
+    localStorage.removeItem('overunder_pendingRoom');
+  } catch (e) {}
+
+  const joinRulesModal = document.getElementById('join-rules-modal');
+  if (joinRulesModal) {
+    joinRulesModal.style.display = 'none';
+    joinRulesModal.classList.remove('active');
+  }
+}
+
 function resetToMenu() {
   state.isHost = false;
   state.isSoloMode = false;
@@ -3598,11 +3611,17 @@ function resetToMenu() {
 
   // Resetta lo scroll e ripristina l'altezza/classi del contenitore principale
   try { window.scrollTo(0, 0); } catch (e) {}
-  const container = document.querySelector('.app-container') || document.querySelector('.phone-frame');
+  if (el.screenWelcome) {
+    try { el.screenWelcome.scrollTop = 0; } catch (e) {}
+  }
+
+  const container = document.querySelector('.app-container') || document.querySelector('.phone-frame') || document.querySelector('.main-screen');
   if (container) {
     container.style.padding = '';
     container.style.margin = '';
     container.style.height = '';
+    container.style.minHeight = '';
+    container.style.overflow = '';
   }
   
   if (state.timerRequestId) {
