@@ -219,6 +219,21 @@ input[type="submit"] {
 
 /* Responsive per smartphone (App-Native Fullscreen + Safe Areas) */
 @media (max-width: 768px) {
+  /* RESET SFONDO SCHERMATA DI CARICAMENTO & DISATTIVAZIONE BLOBS SU MOBILE */
+  .glowing-bg {
+    display: none !important;
+  }
+
+  html, body, .app-container, .phone-frame, .screen-splash, #screen-splash, #screen-welcome, #screen-onboarding {
+    background: #0d0d0d !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+    border: none !important;
+    outline: none !important;
+    overflow: hidden !important;
+  }
+
   .app-container {
     padding: 0 !important;
     margin: 0 !important;
@@ -233,7 +248,7 @@ input[type="submit"] {
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    background-color: #111111 !important;
+    background-color: #0d0d0d !important;
     padding: 0 !important;
     margin: 0 !important;
   }
@@ -268,7 +283,7 @@ input[type="submit"] {
     height: 100vh !important;
     height: 100dvh !important;
     z-index: 100 !important;
-    background: #111111 !important;
+    background: #0d0d0d !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
