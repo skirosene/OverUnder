@@ -714,6 +714,12 @@ function forceHideSplash() {
 }
 
 async function startApp() {
+  // Forziamo la scomparsa immediata dal DOM del Bottom Sheet all'avvio (0-5s)
+  const initialRulesBox = document.getElementById('welcome-bottom-sheet') || document.querySelector('.welcome-bottom-sheet');
+  if (initialRulesBox) {
+    initialRulesBox.style.setProperty('display', 'none', 'important');
+  }
+
   // Pulizia dati legacy di prova/trial dal localStorage
   localStorage.removeItem('overunder_trial_redeemed');
   localStorage.removeItem('overunder_trial_start');
@@ -824,25 +830,25 @@ function showScreen(targetScreen) {
     if (screen) screen.classList.remove('active');
   });
 
-  const sheet = document.querySelector('.welcome-bottom-sheet');
+  const rulesBox = document.getElementById('welcome-bottom-sheet') || document.querySelector('.welcome-bottom-sheet');
   if (targetScreen) {
     targetScreen.classList.add('active');
     try { targetScreen.scrollTop = 0; } catch (e) {}
     
-    if (targetScreen === el.screenWelcome && sheet) {
-      sheet.style.display = 'flex';
+    if (targetScreen === el.screenWelcome && rulesBox) {
+      rulesBox.style.setProperty('display', 'flex', 'important');
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          sheet.classList.add('show');
+          rulesBox.classList.add('show');
         });
       });
-    } else if (sheet) {
-      sheet.classList.remove('show');
-      sheet.style.display = 'none';
+    } else if (rulesBox) {
+      rulesBox.classList.remove('show');
+      rulesBox.style.setProperty('display', 'none', 'important');
     }
-  } else if (sheet) {
-    sheet.classList.remove('show');
-    sheet.style.display = 'none';
+  } else if (rulesBox) {
+    rulesBox.classList.remove('show');
+    rulesBox.style.setProperty('display', 'none', 'important');
   }
 
   // Configura il timer counter cliccabile solo in gameplay per l'host
