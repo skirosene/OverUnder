@@ -1149,16 +1149,31 @@ io.on('connection', (socket) => {
       if (reqPlayerId) player.playerId = reqPlayerId;
 
       // Se l'Host si riconnette entro il grace period (15s):
-      if (player.isHost || room.hostId === socket.id || (room.hostSessionId && room.hostSessionId === sessionId)) {
+      const isOriginalHostMatch = (room.hostDisconnectTimeout !== null) && (
+        player.isHost ||
+        room.hostId === socket.id ||
+        (room.hostSessionId && room.hostSessionId === sessionId) ||
+        (room.hostName && room.hostName.toLowerCase() === player.name.toLowerCase().trim())
+      );
+
+      if (isOriginalHostMatch) {
         if (room.hostDisconnectTimeout) {
           clearTimeout(room.hostDisconnectTimeout);
           room.hostDisconnectTimeout = null;
-          console.log(`[HOST RECONNECT] Host ${player.name} riconnesso via join_room. Grace period annullato.`);
+          console.log(`[HOST RECONNECT] Host ${player.name} riconnesso via join_room entro il grace period di 15s. Grace period annullato.`);
         }
         player.isHost = true;
         room.hostId = socket.id;
         room.hostName = player.name;
         if (sessionId) room.hostSessionId = sessionId;
+
+        io.to(code).emit('global_toast', { message: `👑 Host ${player.name} è rientrato in stanza!` });
+        io.to(code).emit('host_reconnected', { hostName: player.name });
+      } else {
+        // Se il timer era già scaduto o non era l'host, entra come normale partecipante
+        if (room.hostId !== socket.id && (!room.hostSessionId || room.hostSessionId !== sessionId)) {
+          player.isHost = false;
+        }
       }
 
       sanitizeRoomHost(room);
@@ -1175,7 +1190,7 @@ io.on('connection', (socket) => {
         isLocked: room.isLocked
       });
 
-      io.to(code).emit('player_list_update', { players: room.players });
+      broadcastRoomState(room);
       console.log(`Giocatore ${player.name} (isHost: ${player.isHost}) si è riconnesso (join_room) alla stanza ${code}`);
       return;
     }
@@ -1786,19 +1801,20 @@ io.on('connection', (socket) => {
       console.log(`[DISCONNECT] Giocatore ${player.name} contrassegnato come offline (isOnline = false).`);
     }
 
-    // Sanitizza la stanza prima di inviare l'aggiornamento
-    sanitizeRoomHost(room);
-
-    // Notifica gli altri client dell'aggiornamento (UI con indicatore offline)
-    io.to(currentRoomCode).emit('player_list_update', { players: room.players });
+    // Sanitizza la stanza ed emetti aggiornamento sincronizzato dello stato
+    broadcastRoomState(room);
 
     // Se l'host si disconnette passivamente (es. blocco schermo o cambio app), imposta un grace period di 15s
     if (room.hostId === socket.id || (player && player.isHost)) {
-      const disconnectedHostName = player ? player.name : 'L\'Host';
+      const disconnectedHostName = player ? player.name : (room.hostName || 'L\'Host');
       console.log(`[DISCONNECT] Host (${disconnectedHostName}) disconnesso dalla stanza ${currentRoomCode}. Grace period di 15s avviato.`);
       
       io.to(currentRoomCode).emit('global_toast', {
-        message: `⏳ ${disconnectedHostName} è disconnesso temporaneamente. In attesa di riconnessione (15s)...`
+        message: `⏳ ${disconnectedHostName} (Host) in riconnessione... (15s)`
+      });
+      io.to(currentRoomCode).emit('host_reconnecting', {
+        hostName: disconnectedHostName,
+        timeoutSeconds: 15
       });
 
       if (room.hostDisconnectTimeout) clearTimeout(room.hostDisconnectTimeout);
@@ -1806,7 +1822,7 @@ io.on('connection', (socket) => {
       room.hostDisconnectTimeout = setTimeout(() => {
         const checkRoom = rooms[currentRoomCode];
         if (checkRoom) {
-          const isHostStillOffline = checkRoom.players.some(p => p.isHost && (p.connected === false || p.isOnline === false));
+          const isHostStillOffline = checkRoom.players.some(p => (p.id === checkRoom.hostId || (checkRoom.hostSessionId && p.sessionId === checkRoom.hostSessionId) || p.isHost) && (p.connected === false || p.isOnline === false));
           if (isHostStillOffline) {
             console.log(`[GRACE PERIOD EXPIRED] Grace period 15s scaduto per ${disconnectedHostName} in stanza ${currentRoomCode}. Procedo con riassegnazione Host.`);
             reassignHost(checkRoom, disconnectedHostName);
@@ -1847,13 +1863,31 @@ io.on('connection', (socket) => {
         console.log(`[EXPLICIT LEAVE] L'Host ${leavingPlayer.name} ha abbandonato la stanza ${room.roomCode}. Riassegnazione immediata.`);
         reassignHost(room, leavingPlayer.name);
       } else {
-        sanitizeRoomHost(room);
-        io.to(room.roomCode).emit('player_list_update', { players: room.players });
+        broadcastRoomState(room);
         io.to(room.roomCode).emit('global_toast', { message: `${leavingPlayer.name} ha lasciato la stanza.` });
       }
     }
   });
 });
+
+/**
+ * Helper per la trasmissione centralizzata e sincronizzata dello stato della stanza a tutti i client.
+ * Garantisce l'unicità dell'Host prima di ogni trasmissione.
+ */
+function broadcastRoomState(room) {
+  if (!room) return;
+  sanitizeRoomHost(room);
+  io.to(room.roomCode).emit('player_list_update', { players: room.players });
+  io.to(room.roomCode).emit('room_state_update', {
+    roomCode: room.roomCode,
+    state: room.state,
+    players: room.players,
+    hostId: room.hostId,
+    hostName: room.hostName,
+    isLocked: room.isLocked,
+    isPremium: room.isPremium
+  });
+}
 
 /**
  * Helper per la validazione rigorosa dell'unicità dell'Host nella stanza.
@@ -1862,18 +1896,25 @@ io.on('connection', (socket) => {
 function sanitizeRoomHost(room) {
   if (!room || !Array.isArray(room.players) || room.players.length === 0) return;
 
+  // 1. Cerca l'host basandosi sul socket hostId o hostSessionId salvato
   let hostIdx = room.players.findIndex(p => p.id === room.hostId || (room.hostSessionId && p.sessionId === room.hostSessionId));
 
+  // 2. Se non trovato tramite ID, cerca chi ha isHost = true
   if (hostIdx === -1) {
     hostIdx = room.players.findIndex(p => p.isHost);
   }
-  if (hostIdx === -1) {
+
+  // 3. Se non trovato e non siamo in grace period, cerca il primo partecipante umano online
+  if (hostIdx === -1 && !room.hostDisconnectTimeout) {
     hostIdx = room.players.findIndex(p => !p.isBot && p.connected !== false && p.isOnline !== false);
   }
-  if (hostIdx === -1 && room.players.length > 0) {
+
+  // 4. Fallback: primo elemento dell'array
+  if (hostIdx === -1) {
     hostIdx = 0;
   }
 
+  // Sanitizzazione rigida dell'array: esattamente UN SOLO Host
   room.players.forEach((p, idx) => {
     if (idx === hostIdx) {
       p.isHost = true;
@@ -1916,7 +1957,7 @@ function reassignHost(room, oldHostName = 'L\'Host') {
     const toastMsg = `👑 ${oldHostName} è uscito. ${newHost.name} è il nuovo Host della stanza!`;
     io.to(room.roomCode).emit('global_toast', { message: toastMsg });
     io.to(room.roomCode).emit('host_changed', { newHostId: newHost.id, newHostName: newHost.name });
-    io.to(room.roomCode).emit('player_list_update', { players: room.players });
+    broadcastRoomState(room);
 
     const newHostSocket = io.sockets.sockets.get(newHost.id);
     if (newHostSocket) {
@@ -1925,7 +1966,8 @@ function reassignHost(room, oldHostName = 'L\'Host') {
     }
     return true;
   } else {
-    // Nessun altro partecipante umano presente in stanza: chiusura partita
+    sanitizeRoomHost(room);
+    broadcastRoomState(room);
     console.log(`[HOST REASSIGNMENT] Stanza ${room.roomCode}: Nessun altro partecipante online. Chiusura stanza.`);
     io.to(room.roomCode).emit('room_closed', `L'Host (${oldHostName}) si è disconnesso e non ci sono altri partecipanti in stanza. Partita terminata.`);
     if (room.roundTimeout) clearTimeout(room.roundTimeout);

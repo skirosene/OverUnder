@@ -2533,25 +2533,30 @@ function setupSocketListeners() {
     updateLockIcon();
   });
 
-  // 2. Ingresso in Stanza riuscito (Player)
-  socket.on('room_joined', ({ roomCode, players, isPremium, assignedName, isLocked }) => {
+  // 2. Ingresso in Stanza riuscito (Player o Host riconnesso)
+  socket.on('room_joined', ({ roomCode, players, isPremium, isHost, assignedName, isLocked }) => {
     if (state.connectionTimeout) {
       clearTimeout(state.connectionTimeout);
       state.connectionTimeout = null;
     }
     state.connectionLoadingActive = false;
 
-    state.isHost = false;
+    if (Array.isArray(players)) {
+      sanitizeClientHostUnicity(players);
+      state.players = players;
+    }
+
+    const me = players ? players.find(p => p.id === socket.id || (p.name && p.name.toLowerCase() === (assignedName || state.playerName || '').toLowerCase())) : null;
+    state.isHost = (typeof isHost === 'boolean') ? isHost : (me ? !!me.isHost : false);
     state.roomCode = roomCode;
-    state.players = players;
-    state.playerName = assignedName || safeSessionStorage.getItem('overunder_playerName') || 'Giocatore';
+    state.playerName = assignedName || (me ? me.name : safeSessionStorage.getItem('overunder_playerName')) || 'Giocatore';
     state.roomIsPremium = !!isPremium;
     state.roomIsLocked = !!isLocked;
     state.gameplayStarted = false;
     state.hasSubmittedPremiumCards = false;
     state.localPremiumCards = [];
 
-    saveRoomSession(roomCode, state.playerName, false, state.playerAvatarUrl);
+    saveRoomSession(roomCode, state.playerName, state.isHost, state.playerAvatarUrl);
 
     setupLobbyUI();
     updateLockIcon();
@@ -2601,26 +2606,34 @@ function setupSocketListeners() {
     showToast(message, 5000);
   });
 
-  // 4. Aggiornamento lista partecipanti lobby e stato host dinamico
+  // 4. Aggiornamento lista partecipanti lobby e stato host dinamico con Unicità Host
   socket.on('player_list_update', ({ players }) => {
+    if (!Array.isArray(players)) return;
+    
+    // Controllo client-side dell'unicità dell'Host
+    sanitizeClientHostUnicity(players);
     state.players = players;
     
-    // Rileva dinamicamente se siamo diventati Host (failover)
-    const me = players.find(p => p.name === state.playerName);
+    // Rileva dinamicamente se siamo diventati Host
+    const me = players.find(p => p.id === socket.id || (state.playerName && p.name.toLowerCase() === state.playerName.toLowerCase()));
     if (me) {
       const wasHost = state.isHost;
       state.isHost = !!me.isHost;
       safeSessionStorage.setItem('overunder_isHost', state.isHost ? 'true' : 'false');
       
       if (state.isHost && !wasHost) {
-        showToast("Sei diventato l'Host della stanza!");
+        showToast("👑 Sei diventato l'Host della stanza!");
         if (el.screenLobby.classList.contains('active')) {
           setupLobbyUI();
         } else if (el.screenGameplay.classList.contains('active')) {
           if (state.roundEndActive) {
-            el.btnNextOverlay.style.display = 'block';
-            el.roundEndPlayerWait.style.display = 'none';
+            if (el.btnNextOverlay) el.btnNextOverlay.style.display = 'block';
+            if (el.roundEndPlayerWait) el.roundEndPlayerWait.style.display = 'none';
           }
+        }
+      } else if (!state.isHost && wasHost) {
+        if (el.screenLobby.classList.contains('active')) {
+          setupLobbyUI();
         }
       }
     }
@@ -2630,6 +2643,25 @@ function setupSocketListeners() {
     if (state.isPlayerListOpen) {
       renderPlayerListModalContent();
     }
+  });
+
+  // 4a. Sincronizzazione Rigorosa dello Stato Stanza (Validazione Server-Client)
+  socket.on('room_state_update', ({ roomCode, state: roomState, players, hostId, hostName, isLocked, isPremium }) => {
+    if (!Array.isArray(players)) return;
+    sanitizeClientHostUnicity(players, hostId);
+    state.players = players;
+    if (typeof isLocked === 'boolean') state.roomIsLocked = isLocked;
+    if (typeof isPremium === 'boolean') state.roomIsPremium = isPremium;
+
+    const me = players.find(p => p.id === socket.id || (state.playerName && p.name.toLowerCase() === state.playerName.toLowerCase()));
+    if (me) {
+      state.isHost = !!me.isHost;
+      safeSessionStorage.setItem('overunder_isHost', state.isHost ? 'true' : 'false');
+    }
+
+    renderLobbyPlayers();
+    renderGameplayAvatars();
+    updateLockIcon();
   });
 
   // 4b. Evento cambio Host
@@ -2647,6 +2679,11 @@ function setupSocketListeners() {
     if (el.screenLobby && el.screenLobby.classList.contains('active')) {
       setupLobbyUI();
     }
+  });
+
+  // 4c. Notifiche Grace Period Host
+  socket.on('host_reconnecting', ({ hostName, timeoutSeconds }) => {
+    showToast(`⏳ ${hostName} (Host) in riconnessione (${timeoutSeconds}s)...`, 4000);
   });
 
   // 5. Partita Avviata
@@ -2915,6 +2952,29 @@ function setupSocketListeners() {
   if (savedToken) {
     socket.connect();
   }
+}
+
+/**
+ * Helper client-side di sicurezza: Valida l'unicità dell'Host nell'array dei giocatori.
+ * Garantisce che esattamente un solo elemento abbia isHost: true.
+ */
+function sanitizeClientHostUnicity(players, officialHostId = null) {
+  if (!Array.isArray(players) || players.length === 0) return;
+  
+  let hostIdx = -1;
+  if (officialHostId) {
+    hostIdx = players.findIndex(p => p.id === officialHostId);
+  }
+  if (hostIdx === -1) {
+    hostIdx = players.findIndex(p => p.isHost);
+  }
+  if (hostIdx === -1) {
+    hostIdx = 0;
+  }
+  
+  players.forEach((p, idx) => {
+    p.isHost = (idx === hostIdx);
+  });
 }
 
 // ==========================================================================
