@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=451">
+  <link rel="stylesheet" href="/style.css?v=452">
 </head>
 
 <body>
@@ -66,7 +66,7 @@
       <!-- SCHERMATA 0: BENVENUTO / INTRO -->
       <section id="screen-welcome" class="screen">
         <div class="logo-area"
-          style="animation: float-logo 4s ease-in-out infinite; margin-top: 10px; margin-bottom: 15px;">
+          style="animation: float-logo 4s ease-in-out infinite;">
           <div class="logo-title">
             <span class="logo-over">OVER</span>
             <div class="logo-divider"></div>
@@ -75,45 +75,48 @@
           <p class="logo-tagline">Sopravvalutato o Sottovalutato?</p>
         </div>
 
-        <!-- Card delle Regole/Intro -->
-        <div class="welcome-card glass-panel">
-          <h2 class="welcome-section-title">Come Si Gioca?</h2>
+        <!-- Pannello Bottom Sheet (Mobile) / Container Intro -->
+        <div class="welcome-bottom-sheet">
+          <!-- Card delle Regole/Intro -->
+          <div class="welcome-card glass-panel">
+            <h2 class="welcome-section-title">Come Si Gioca?</h2>
 
-          <div class="rule-item" style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
-            <span style="font-size: 1.3rem; line-height: 1;">💡</span>
-            <div>
-              <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 2px;">La Carta</h4>
-              <p style="font-size: 0.72rem; color: var(--color-text-secondary); line-height: 1.3;">Ti verrà mostrata una
-                carta casuale: ogni carta nasconde un'entità diversa, dalla più iconica alla più inaspettata...</p>
+            <div class="rule-item" style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+              <span style="font-size: 1.3rem; line-height: 1;">💡</span>
+              <div>
+                <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 2px;">La Carta</h4>
+                <p style="font-size: 0.72rem; color: var(--color-text-secondary); line-height: 1.3;">Ti verrà mostrata una
+                  carta casuale: ogni carta nasconde un'entità diversa, dalla più iconica alla più inaspettata...</p>
+              </div>
+            </div>
+
+            <div class="rule-item" style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+              <span style="font-size: 1.3rem; line-height: 1;">🤔</span>
+              <div>
+                <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 2px;">La Scelta</h4>
+                <p style="font-size: 0.72rem; color: var(--color-text-secondary); line-height: 1.3;">Sputa il rospo. È
+                  sopravvalutato (OVER) o sottovalutato (UNDER) ? Vota di pancia senza farti spiare.</p>
+              </div>
+            </div>
+
+            <div class="rule-item" style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+              <span style="font-size: 1.3rem; line-height: 1;">📊</span>
+              <div>
+                <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 2px;">Il Verdetto</h4>
+                <p style="font-size: 0.72rem; color: var(--color-text-secondary); line-height: 1.3;">Scatena il dibattito.
+                  Scopri chi la pensa come te e individua immediatamente il caso umano del gruppo.</p>
+              </div>
             </div>
           </div>
 
-          <div class="rule-item" style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
-            <span style="font-size: 1.3rem; line-height: 1;">🤔</span>
-            <div>
-              <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 2px;">La Scelta</h4>
-              <p style="font-size: 0.72rem; color: var(--color-text-secondary); line-height: 1.3;">Sputa il rospo. È
-                sopravvalutato (OVER) o sottovalutato (UNDER) ? Vota di pancia senza farti spiare.</p>
-            </div>
-          </div>
-
-          <div class="rule-item" style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
-            <span style="font-size: 1.3rem; line-height: 1;">📊</span>
-            <div>
-              <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 2px;">Il Verdetto</h4>
-              <p style="font-size: 0.72rem; color: var(--color-text-secondary); line-height: 1.3;">Scatena il dibattito.
-                Scopri chi la pensa come te e individua immediatamente il caso umano del gruppo.</p>
-            </div>
-          </div>
+          <button id="btn-welcome-start" class="btn btn-pulse-premium" style="width: 100%;">
+            <span>INIZIA A GIOCARE</span>
+            <svg class="btn-icon" viewBox="0 0 24 24">
+              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round" fill="none" />
+            </svg>
+          </button>
         </div>
-
-        <button id="btn-welcome-start" class="btn btn-pulse-premium" style="width: 100%;">
-          <span>INIZIA A GIOCARE</span>
-          <svg class="btn-icon" viewBox="0 0 24 24">
-            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-              stroke-linejoin="round" fill="none" />
-          </svg>
-        </button>
       </section>
 
       <!-- SCHERMATA 1: ONBOARDING / SETUP (CREA O ENTRA STANZA) -->
@@ -1372,7 +1375,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=451"></script>
+  <script src="/app.js?v=452"></script>
 </body>
 
 </html>
