@@ -239,7 +239,7 @@ input[type="submit"] {
     padding-right: max(12px, env(safe-area-inset-right));
   }
 
-  /* 1. LAYOUT SINGLE-SCREEN (Altezza Fissa 100dvh & Zero Scroll) */
+  /* 1. LAYOUT SINGLE-SCREEN FISSATO (Altezza Fissa 100dvh & Zero Scroll) */
   #screen-welcome {
     display: flex !important;
     flex-direction: column !important;
@@ -252,6 +252,28 @@ input[type="submit"] {
     padding: 0 !important;
     position: relative !important;
     overflow: hidden !important;
+  }
+
+  /* 2. FASE DI CARICAMENTO (Fading Spinner) */
+  .screen-splash {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 100 !important;
+    background: #111111 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    opacity: 1 !important;
+    transition: opacity 0.4s ease !important;
+  }
+
+  .screen-splash.fade-out {
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
 
   /* Testata Fissa in Alto (Logo "OVER UNDER" + Sottotitolo) */
@@ -268,35 +290,33 @@ input[type="submit"] {
     pointer-events: none !important;
   }
 
-  /* 3. PANNELLO "COME SI GIOCA?" (Bottom Sheet Animato & COMPATTO) */
+  /* 3. PANNELLO "COME SI GIOCA?" (Bottom Sheet Solido & COMPATTO) */
   .welcome-bottom-sheet {
     position: absolute !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    max-height: 68vh !important;
-    max-height: 68dvh !important;
-    background: #121212 !important;
+    max-height: 70vh !important;
+    max-height: 70dvh !important;
+    background: #141416 !important;
     border-radius: 24px 24px 0 0 !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.16) !important;
-    border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
-    padding: 18px 16px max(14px, env(safe-area-inset-bottom)) 16px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+    padding: 20px 18px calc(16px + env(safe-area-inset-bottom)) 18px !important;
     box-sizing: border-box !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
-    gap: 10px !important;
+    gap: 12px !important;
     z-index: 10 !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
-    box-shadow: 0 -15px 40px rgba(0, 0, 0, 0.85) !important;
+    box-shadow: 0 -15px 45px rgba(0, 0, 0, 0.95) !important;
 
     /* 4. TRANSITIONS & KEYFRAMES (Stato iniziale: nascosto in basso) */
     transform: translateY(100%) !important;
     opacity: 0 !important;
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease !important;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease !important;
   }
 
   /* Stato Attivo (.show / #screen-welcome.active): Scivola in Posizione dal Basso */
@@ -313,7 +333,7 @@ input[type="submit"] {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     padding: 0 !important;
-    gap: 8px !important;
+    gap: 10px !important;
     margin: 0 !important;
     width: 100% !important;
   }
@@ -321,7 +341,7 @@ input[type="submit"] {
   #screen-welcome .welcome-card .welcome-section-title {
     font-size: 0.98rem !important;
     font-weight: 800 !important;
-    margin-bottom: 2px !important;
+    margin-bottom: 4px !important;
     color: #ff3c8e !important;
     text-transform: uppercase !important;
     letter-spacing: 0.5px !important;
@@ -332,11 +352,13 @@ input[type="submit"] {
     gap: 10px !important;
     align-items: flex-start !important;
     text-align: left !important;
+    margin-bottom: 2px !important;
   }
 
   #screen-welcome .rule-item span {
     font-size: 1.1rem !important;
     line-height: 1 !important;
+    flex-shrink: 0 !important;
   }
 
   #screen-welcome .rule-item h4 {
@@ -356,11 +378,12 @@ input[type="submit"] {
   /* Pulsante INIZIA A GIOCARE interamente dentro il pannello */
   #screen-welcome #btn-welcome-start {
     width: 100% !important;
-    margin: 6px 0 max(4px, env(safe-area-inset-bottom)) 0 !important;
+    margin: 8px 0 max(4px, env(safe-area-inset-bottom)) 0 !important;
     padding: 13px 20px !important;
     font-size: 0.92rem !important;
     font-weight: 800 !important;
     flex-shrink: 0 !important;
+    box-sizing: border-box !important;
   }
 }
 

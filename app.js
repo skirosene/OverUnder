@@ -790,17 +790,13 @@ function runSplashScreen(skipSplash = false) {
     el.screenSplash.classList.remove('fade-out');
   }
 
-  // FASE 2: Fading spinner di caricamento dopo 2.0s
+  // FASE 2: Fading spinner di caricamento dopo ESATTAMENTE 5.0 secondi
   setTimeout(() => {
     if (el.screenSplash) {
       el.screenSplash.classList.add('fade-out');
     }
-  }, 2000);
 
-  // FASE 3: Nascondi splash screen a 2.3s e mostra la schermata iniziale col Bottom Sheet animato
-  setTimeout(() => {
-    forceHideSplash();
-    
+    // Contemporaneamente allo scadere dei 5s, mostra la schermata iniziale col Bottom Sheet animato dal basso
     const screens = [
       el.screenWelcome,
       el.screenOnboarding,
@@ -809,12 +805,17 @@ function runSplashScreen(skipSplash = false) {
       el.screenResults,
       el.screenSummary
     ];
-    const anyActive = screens.some(s => s && s.classList.contains('active'));
+    const anyActive = screens.some(s => s && s.classList.contains('active') && s !== el.screenSplash);
     
     if (!anyActive) {
       showScreen(el.screenWelcome);
     }
-  }, 2300);
+  }, 5000);
+
+  // FASE 3: Rimozione completa dello splash screen dopo il completamento del fade-out (5.4 secondi)
+  setTimeout(() => {
+    forceHideSplash();
+  }, 5400);
 }
 
 function showScreen(targetScreen) {
