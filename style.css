@@ -240,7 +240,7 @@ input[type="submit"] {
   }
 }
 
-/* Responsive Mobile per Schermata Benvenuto "Come si gioca?" (Box Compatto & Distanziamento Esterno) */
+/* Responsive Mobile per Schermata Benvenuto "Come si gioca?" (Layout Distribuito ed Equilibrato) */
 @media (max-width: 768px) {
   #screen-welcome.active {
     display: flex !important;
@@ -250,40 +250,38 @@ input[type="submit"] {
     text-align: center !important;
     min-height: 100dvh !important;
     height: 100dvh !important;
-    max-height: 100dvh !important;
-    padding: max(24px, calc(16px + env(safe-area-inset-top))) 18px calc(24px + env(safe-area-inset-bottom)) 18px !important;
+    padding: max(28px, calc(16px + env(safe-area-inset-top))) 20px calc(24px + env(safe-area-inset-bottom)) 20px !important;
     box-sizing: border-box !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
   }
 
   #screen-welcome .logo-area {
-    margin: 0 !important;
+    margin-top: 10px !important;
+    margin-bottom: 0 !important;
     flex-shrink: 0 !important;
   }
 
   #screen-welcome .welcome-card {
-    padding: 18px 16px !important;
+    padding: 24px 20px !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 8px !important;
+    gap: 14px !important;
     height: auto !important;
     min-height: auto !important;
-    flex: 0 1 auto !important;
-    margin: 0 !important;
+    flex: 0 0 auto !important;
+    margin: auto 0 !important;
     width: 100% !important;
     box-sizing: border-box !important;
   }
 
   #screen-welcome .rule-item {
-    gap: 8px !important;
+    gap: 12px !important;
     margin-bottom: 0 !important;
   }
 
   #screen-welcome #btn-welcome-start {
     width: 100% !important;
-    margin-top: auto !important;
-    margin-bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
     flex-shrink: 0 !important;
     z-index: 10 !important;
   }
