@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=1400">
+  <link rel="stylesheet" href="/style.css?v=1500">
 </head>
 
 <body>
@@ -65,9 +65,11 @@
 
       <!-- SCHERMATA 0: BENVENUTO / INTRO -->
       <section id="screen-welcome" class="screen"
-        style="justify-content: flex-start; align-items: center; text-align: center; gap: 8px; height: 100%; padding-top: 52px; padding-bottom: 16px;">
-        <div class="logo-area"
-          style="animation: float-logo 4s ease-in-out infinite; margin-top: 10px; margin-bottom: 15px;">
+        style="justify-content: center; align-items: center; text-align: center; gap: 0; height: 100%; position: relative; overflow: hidden; padding: 0;">
+        
+        <!-- Logo Centrato (sempre visibile) -->
+        <div class="logo-area welcome-logo-area"
+          style="animation: float-logo 4s ease-in-out infinite; flex-shrink: 0;">
           <div class="logo-title">
             <span class="logo-over">OVER</span>
             <div class="logo-divider"></div>
@@ -76,9 +78,14 @@
           <p class="logo-tagline">Sopravvalutato o Sottovalutato?</p>
         </div>
 
-        <!-- Card delle Regole/Intro -->
-        <div class="welcome-card glass-panel"
-          style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; width: 100%;">
+        <!-- Spinner di caricamento (visibile durante loading, poi sfuma) -->
+        <div id="welcome-loader" class="welcome-loader-container">
+          <div class="splash-spinner"></div>
+          <span class="splash-loading-text">Caricamento</span>
+        </div>
+
+        <!-- Card "COME SI GIOCA?" (Pannello slide-up dal basso) -->
+        <div id="welcome-rules-card" class="onboarding-rules-card glass-panel" style="display: none;">
           <h2 class="welcome-section-title">Come Si Gioca?</h2>
 
           <div class="rule-item" style="display: flex; align-items: flex-start; gap: 12px; text-align: left;">
@@ -107,15 +114,15 @@
                 Scopri chi la pensa come te e individua immediatamente il caso umano del gruppo.</p>
             </div>
           </div>
-        </div>
 
-        <button id="btn-welcome-start" class="btn btn-pulse-premium" style="width: 100%;">
-          <span>INIZIA A GIOCARE</span>
-          <svg class="btn-icon" viewBox="0 0 24 24">
-            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-              stroke-linejoin="round" fill="none" />
-          </svg>
-        </button>
+          <button id="btn-welcome-start" class="btn btn-pulse-premium" style="width: 100%; margin-top: 4px;">
+            <span>INIZIA A GIOCARE</span>
+            <svg class="btn-icon" viewBox="0 0 24 24">
+              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round" fill="none" />
+            </svg>
+          </button>
+        </div>
       </section>
 
       <!-- SCHERMATA 1: ONBOARDING / SETUP (CREA O ENTRA STANZA) -->

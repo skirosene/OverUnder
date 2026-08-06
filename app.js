@@ -486,6 +486,8 @@ const el = {
   screenGameplay: document.getElementById('screen-gameplay'),
   screenResults: document.getElementById('screen-results'),
   screenSummary: document.getElementById('screen-summary'),
+  welcomeLoader: document.getElementById('welcome-loader'),
+  welcomeRulesCard: document.getElementById('welcome-rules-card'),
   btnWelcomeStart: document.getElementById('btn-welcome-start'),
   btnBackOnboarding: document.getElementById('btn-back-onboarding'),
   btnBackLobby: document.getElementById('btn-back-lobby'),
@@ -762,6 +764,18 @@ setTimeout(() => {
     if (welcome && !document.querySelector('.screen.active')) {
       welcome.classList.add('active');
     }
+    // Safety: mostra la card regole e nascondi il loader
+    const welcomeLoader = document.getElementById('welcome-loader');
+    const welcomeRulesCard = document.getElementById('welcome-rules-card');
+    if (welcomeLoader) {
+      welcomeLoader.style.display = 'none';
+      welcomeLoader.classList.add('fade-out');
+    }
+    if (welcomeRulesCard) {
+      welcomeRulesCard.style.display = 'flex';
+      welcomeRulesCard.offsetHeight;
+      welcomeRulesCard.classList.add('show');
+    }
   }
 }, 7000);
 
@@ -782,7 +796,24 @@ function runSplashScreen(skipSplash = false) {
   if (skipSplash) {
     console.log('[INVITE] Splash screen saltato per invite link');
     forceHideSplash();
+    // Nascondi loader e mostra card immediatamente per invite
+    if (el.welcomeLoader) el.welcomeLoader.style.display = 'none';
+    if (el.welcomeRulesCard) {
+      el.welcomeRulesCard.style.display = 'none';
+    }
     return;
+  }
+
+  // Assicurati che la card regole sia nascosta durante il loading
+  if (el.welcomeRulesCard) {
+    el.welcomeRulesCard.style.display = 'none';
+    el.welcomeRulesCard.classList.remove('show');
+  }
+
+  // Mostra il loader nella welcome screen
+  if (el.welcomeLoader) {
+    el.welcomeLoader.style.display = 'flex';
+    el.welcomeLoader.classList.remove('fade-out');
   }
 
   // Assicurati che lo splash screen sia visibile all'avvio
@@ -815,6 +846,28 @@ function runSplashScreen(skipSplash = false) {
     
     if (!anyActive) {
       showScreen(el.screenWelcome);
+
+      // FASE 2: Sfuma il loader e anima la card regole con slide-up
+      setTimeout(() => {
+        // 1. Sfuma il loader
+        if (el.welcomeLoader) {
+          el.welcomeLoader.classList.add('fade-out');
+        }
+
+        // 2. Dopo la sfumatura del loader, mostra la card con slide-up
+        setTimeout(() => {
+          if (el.welcomeLoader) {
+            el.welcomeLoader.style.display = 'none';
+          }
+
+          if (el.welcomeRulesCard) {
+            el.welcomeRulesCard.style.display = 'flex';
+            // Force reflow per attivare la transizione
+            el.welcomeRulesCard.offsetHeight;
+            el.welcomeRulesCard.classList.add('show');
+          }
+        }, 350);
+      }, 400);
     }
   }, 5500);
 }
@@ -827,6 +880,21 @@ function showScreen(targetScreen) {
   if (targetScreen) {
     targetScreen.classList.add('active');
     try { targetScreen.scrollTop = 0; } catch (e) {}
+  }
+
+  // Gestione pannello regole nella welcome screen
+  if (targetScreen === el.screenWelcome) {
+    // Nascondi il loader e mostra la card regole immediatamente al ritorno
+    if (el.welcomeLoader) {
+      el.welcomeLoader.style.display = 'none';
+      el.welcomeLoader.classList.add('fade-out');
+    }
+    if (el.welcomeRulesCard) {
+      el.welcomeRulesCard.style.display = 'flex';
+      // Force reflow per attivare la transizione
+      el.welcomeRulesCard.offsetHeight;
+      el.welcomeRulesCard.classList.add('show');
+    }
   }
 
   // Configura il timer counter cliccabile solo in gameplay per l'host
