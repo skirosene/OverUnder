@@ -714,12 +714,6 @@ function forceHideSplash() {
 }
 
 async function startApp() {
-  // Forziamo la scomparsa immediata dal DOM del Bottom Sheet all'avvio (0-5s)
-  const initialRulesBox = document.getElementById('welcome-bottom-sheet') || document.querySelector('.welcome-bottom-sheet');
-  if (initialRulesBox) {
-    initialRulesBox.style.setProperty('display', 'none', 'important');
-  }
-
   // Pulizia dati legacy di prova/trial dal localStorage
   localStorage.removeItem('overunder_trial_redeemed');
   localStorage.removeItem('overunder_trial_start');
@@ -796,13 +790,17 @@ function runSplashScreen(skipSplash = false) {
     el.screenSplash.classList.remove('fade-out');
   }
 
-  // FASE 2: Fading spinner di caricamento dopo ESATTAMENTE 5.0 secondi
+  // Mostra il caricamento dello splash screen per 5 secondi e poi avvia il fade-out
   setTimeout(() => {
     if (el.screenSplash) {
       el.screenSplash.classList.add('fade-out');
     }
+  }, 5000);
 
-    // Contemporaneamente allo scadere dei 5s, mostra la schermata iniziale col Bottom Sheet animato dal basso
+  // Nascondi lo splash screen a 5.5 secondi e mostra la schermata iniziale di benvenuto
+  setTimeout(() => {
+    forceHideSplash();
+    
     const screens = [
       el.screenWelcome,
       el.screenOnboarding,
@@ -811,17 +809,12 @@ function runSplashScreen(skipSplash = false) {
       el.screenResults,
       el.screenSummary
     ];
-    const anyActive = screens.some(s => s && s.classList.contains('active') && s !== el.screenSplash);
+    const anyActive = screens.some(s => s && s.classList.contains('active'));
     
     if (!anyActive) {
       showScreen(el.screenWelcome);
     }
-  }, 5000);
-
-  // FASE 3: Rimozione completa dello splash screen dopo il completamento del fade-out (5.4 secondi)
-  setTimeout(() => {
-    forceHideSplash();
-  }, 5400);
+  }, 5500);
 }
 
 function showScreen(targetScreen) {
@@ -829,26 +822,9 @@ function showScreen(targetScreen) {
   [el.screenWelcome, el.screenOnboarding, el.screenLobby, el.screenGameplay, el.screenResults, el.screenSummary, el.screenKicked, el.screenRoomFull, el.screenLoading].forEach(screen => {
     if (screen) screen.classList.remove('active');
   });
-
-  const rulesBox = document.getElementById('welcome-bottom-sheet') || document.querySelector('.welcome-bottom-sheet');
   if (targetScreen) {
     targetScreen.classList.add('active');
     try { targetScreen.scrollTop = 0; } catch (e) {}
-    
-    if (targetScreen === el.screenWelcome && rulesBox) {
-      rulesBox.style.setProperty('display', 'flex', 'important');
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          rulesBox.classList.add('show');
-        });
-      });
-    } else if (rulesBox) {
-      rulesBox.classList.remove('show');
-      rulesBox.style.setProperty('display', 'none', 'important');
-    }
-  } else if (rulesBox) {
-    rulesBox.classList.remove('show');
-    rulesBox.style.setProperty('display', 'none', 'important');
   }
 
   // Configura il timer counter cliccabile solo in gameplay per l'host

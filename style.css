@@ -218,209 +218,25 @@ input[type="submit"] {
 }
 
 /* Responsive per smartphone (App-Native Fullscreen + Safe Areas) */
-@media (max-width: 768px) {
-  /* RESET SFONDO SCHERMATA DI CARICAMENTO & DISATTIVAZIONE BLOBS SU MOBILE */
-  .glowing-bg {
-    display: none !important;
-  }
-
-  html, body, .app-container, .phone-frame, .screen-splash, #screen-splash, #screen-welcome, #screen-onboarding {
-    background: #0d0d0d !important;
-    background-image: none !important;
-    box-shadow: none !important;
-    filter: none !important;
-    border: none !important;
-    outline: none !important;
-    overflow: hidden !important;
-  }
-
+@media (max-width: 480px) {
   .app-container {
-    padding: 0 !important;
-    margin: 0 !important;
+    padding: 0;
   }
   .phone-frame {
-    width: 100vw !important;
-    width: 100dvw !important;
-    height: 100vh !important;
-    height: 100dvh !important;
-    max-height: 100vh !important;
-    max-height: 100dvh !important;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    background-color: #0d0d0d !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-
-  /* 1. LAYOUT SINGLE-SCREEN FISSATO (Altezza Fissa 100dvh & Zero Scroll) */
-  #screen-welcome {
-    display: none !important;
-    flex-direction: column !important;
-    justify-content: flex-start !important;
-    align-items: center !important;
-    text-align: center !important;
-    height: 100% !important;
-    min-height: 100dvh !important;
-    max-height: 100dvh !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    position: relative !important;
-    overflow: hidden !important;
-  }
-
-  #screen-welcome.active {
-    display: flex !important;
-  }
-
-  /* 2. FASE DI CARICAMENTO (Fading Spinner) */
-  .screen-splash {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    width: 100dvw !important;
-    height: 100vh !important;
-    height: 100dvh !important;
-    z-index: 100 !important;
-    background: #0d0d0d !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: center !important;
-    align-items: center !important;
-    opacity: 1 !important;
-    transition: opacity 0.4s ease !important;
-    pointer-events: auto !important;
-    overflow: hidden !important;
-  }
-
-  .screen-splash.fade-out {
-    opacity: 0 !important;
-    pointer-events: none !important;
-  }
-
-  /* Testata Fissa in Alto (Logo "OVER UNDER" + Sottotitolo) */
-  #screen-welcome .logo-area {
-    position: absolute !important;
-    top: max(4%, calc(12px + env(safe-area-inset-top))) !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    width: 100% !important;
-    text-align: center !important;
-    z-index: 2 !important;
-    margin: 0 !important;
-    padding: 0 16px !important;
-    pointer-events: none !important;
-  }
-
-  /* 3. PANNELLO "COME SI GIOCA?" (Bottom Sheet - display:none di base per zero pixel/aloni in loading) */
-  .welcome-bottom-sheet {
-    display: none !important;
-    position: fixed !important;
-    bottom: 0px !important;
-    left: 0px !important;
-    right: 0px !important;
-    width: 100% !important;
-    width: 100vw !important;
-    width: 100dvw !important;
-    max-height: 72vh !important;
-    max-height: 72dvh !important;
-    background: rgba(18, 18, 22, 0.96) !important;
-    border-radius: 24px 24px 0 0 !important; /* Arrotondamento ESCLUSIVAMENTE in alto */
-    border-top: 1px solid rgba(255, 255, 255, 0.18) !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-bottom: none !important;
-    padding: 22px 18px calc(18px + env(safe-area-inset-bottom)) 18px !important;
-    box-sizing: border-box !important;
-    flex-direction: column !important;
-    justify-content: space-between !important;
-    gap: 12px !important;
-    margin: 0 !important;
-    margin-bottom: 0 !important;
-    z-index: 10 !important;
-
-    /* Glow Neon elegante orientato verso l'alto (Y negativo, asse superiore) */
-    box-shadow: 0px -12px 35px rgba(189, 51, 255, 0.35), 0px -4px 15px rgba(0, 168, 232, 0.25) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
-
-    /* Stato Preparatorio Animazione (Traslato 100% in basso) */
-    transform: translateY(100%);
-    opacity: 0;
-    pointer-events: none;
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
-  }
-
-  /* Stato Attivo (Allo scadere dei 5 secondi): Rendibile e Animato dal Basso */
-  #screen-welcome.active .welcome-bottom-sheet.show,
-  .welcome-bottom-sheet.show {
-    display: flex !important;
-    transform: translateY(0) !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    bottom: 0px !important;
-  }
-
-  /* Dimensionamento Compatto per le 3 Regole */
-  #screen-welcome .welcome-card {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    padding: 0 !important;
-    gap: 10px !important;
-    margin: 0 !important;
-    width: 100% !important;
-  }
-
-  #screen-welcome .welcome-card .welcome-section-title {
-    font-size: 1rem !important;
-    font-weight: 800 !important;
-    margin-bottom: 4px !important;
-    color: #ff3c8e !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    text-align: center !important;
-  }
-
-  #screen-welcome .rule-item {
-    gap: 10px !important;
-    align-items: flex-start !important;
-    text-align: left !important;
-    margin-bottom: 2px !important;
-  }
-
-  #screen-welcome .rule-item span {
-    font-size: 1.15rem !important;
-    line-height: 1 !important;
-    flex-shrink: 0 !important;
-  }
-
-  #screen-welcome .rule-item h4 {
-    font-size: 0.82rem !important;
-    font-weight: 700 !important;
-    margin-bottom: 1px !important;
-    color: #ffffff !important;
-  }
-
-  #screen-welcome .rule-item p {
-    font-size: 0.74rem !important;
-    color: var(--color-text-secondary) !important;
-    line-height: 1.3 !important;
-    margin: 0 !important;
-  }
-
-  /* Pulsante INIZIA A GIOCARE a filo nel pannello con padding safe-area */
-  #screen-welcome #btn-welcome-start {
-    width: 100% !important;
-    margin: 8px 0 max(4px, env(safe-area-inset-bottom)) 0 !important;
-    padding: 14px 20px !important;
-    font-size: 0.95rem !important;
-    font-weight: 800 !important;
-    flex-shrink: 0 !important;
-    box-sizing: border-box !important;
+    width: 100vw;
+    width: 100dvw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background-color: #111111;
+    padding-top: max(28px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
   }
 }
 
@@ -460,26 +276,6 @@ input[type="submit"] {
 
 .screen::-webkit-scrollbar {
   width: 0px;
-}
-
-/* Schermata Welcome / Benvenuto ("Come Si Gioca?") - Desktop / Base */
-#screen-welcome {
-  justify-content: flex-start;
-  align-items: center;
-  text-align: center;
-  gap: 8px;
-  height: 100%;
-  padding-top: 52px;
-  padding-bottom: 16px;
-}
-
-#screen-welcome .welcome-card {
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 12px;
-  width: 100%;
 }
 
 /* ==========================================================================
