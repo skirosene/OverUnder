@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=1900">
+  <link rel="stylesheet" href="/style.css?v=1950">
 </head>
 
 <body>
@@ -1352,10 +1352,12 @@
             <span class="sidebar-section-icon">✉️</span>
             <div class="sidebar-section-text">
               <div class="sidebar-item-title">Hai bisogno di aiuto? Contattaci</div>
-              <div class="sidebar-item-sub">support@wwwoverunder-game.com</div>
+              <div class="sidebar-item-sub">
+                <a href="mailto:support@overunder-game.com?subject=Supporto%20OverUnder%20Game" class="sidebar-email-link">support@overunder-game.com</a>
+              </div>
             </div>
           </div>
-          <a href="mailto:support@wwwoverunder-game.com?subject=Supporto%20OverUnder%20Game" class="sidebar-action-btn sidebar-link-btn" target="_blank" rel="noopener noreferrer">
+          <a href="mailto:support@overunder-game.com?subject=Supporto%20OverUnder%20Game" class="sidebar-action-btn sidebar-link-btn" target="_blank" rel="noopener noreferrer">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
               <polyline points="22,6 12,13 2,6"></polyline>
@@ -1367,14 +1369,34 @@
 
       <!-- Footer Info -->
       <div class="sidebar-footer">
-        OverUnder Game &copy; 2026
+        <div class="sidebar-legal-links">
+          <a href="#" id="link-privacy-policy" class="sidebar-legal-link">Privacy Policy</a>
+          <span class="sidebar-legal-separator">•</span>
+          <a href="#" id="link-terms-service" class="sidebar-legal-link">Termini di Servizio</a>
+        </div>
+        <div class="sidebar-copyright">
+          OverUnder Game &copy; 2026
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE INFORMATIVA LEGALE (Privacy Policy & Termini) -->
+  <div id="legal-modal-backdrop" class="legal-modal-backdrop hidden">
+    <div class="legal-modal-content">
+      <div class="legal-modal-header">
+        <h3 id="legal-modal-title" class="legal-modal-title">Privacy Policy</h3>
+        <button id="btn-close-legal-modal" class="sidebar-close-btn" aria-label="Chiudi">&times;</button>
+      </div>
+      <div id="legal-modal-body" class="legal-modal-body">
+        <!-- Popolato dinamicamente via JS -->
       </div>
     </div>
   </div>
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=1800"></script>
+  <script src="/app.js?v=1950"></script>
 </body>
 
 </html>

@@ -955,7 +955,7 @@ function initSettingsSidebar() {
       const shareData = {
         title: 'OverUnder - Il Gioco',
         text: 'Vieni a provare OverUnder, il gioco del momento! 🔥',
-        url: 'https://wwwoverunder-game.com'
+        url: 'https://overunder-game.com'
       };
 
       if (navigator.share) {
@@ -970,6 +970,71 @@ function initSettingsSidebar() {
         }
       } else {
         copyToClipboardFallback(shareData.url);
+      }
+    });
+  }
+
+  // --- Handling Legal Modal (Privacy Policy & Termini di Servizio) ---
+  const linkPrivacy = document.getElementById('link-privacy-policy');
+  const linkTerms = document.getElementById('link-terms-service');
+  const legalModal = document.getElementById('legal-modal-backdrop');
+  const legalTitle = document.getElementById('legal-modal-title');
+  const legalBody = document.getElementById('legal-modal-body');
+  const btnCloseLegal = document.getElementById('btn-close-legal-modal');
+
+  const privacyText = `
+    <p><strong>OverUnder Game</strong> rispetta la tua privacy e si impegna a proteggere i dati degli utenti.</p>
+    <p><strong>Dati Raccolti:</strong> Non raccogliamo dati personali identificabili. I dati temporanei di sessione (es. nickname e risposte di gioco) vengono utilizzati esclusivamente per consentire il corretto funzionamento delle partite multiplayer in tempo reale e cancellati al termine della sessione.</p>
+    <p><strong>Storage Locale:</strong> Utilizziamo unicamente la memoria locale del browser (localStorage) per salvare preferenze di gioco (audio, preferenze grafiche) senza tracciare la tua navigazione.</p>
+    <p><strong>Contatti e Supporto:</strong> Per qualsiasi domanda riguardante la privacy o il servizio, puoi scriverci a <a href="mailto:support@overunder-game.com" style="color: #00f0ff; text-decoration: underline;">support@overunder-game.com</a>.</p>
+  `;
+
+  const termsText = `
+    <p><strong>Termini di Servizio - OverUnder Game</strong></p>
+    <p><strong>1. Accettazione dei Termini:</strong> Accedendo e utilizzando OverUnder Game, l'utente accetta di rispettare le regole della community e i presenti Termini di Servizio.</p>
+    <p><strong>2. Condotta dell'Utente:</strong> È vietato utilizzare nickname o contenuti offensivi, diffamatori o discriminatori, nonché tentare di manomettere il servizio o i server di gioco.</p>
+    <p><strong>3. Limitazione di Responsabilità:</strong> Il servizio viene fornito "così com'è". Ci riserviamo il diritto di sospendere l'accesso agli utenti che violano i termini della community.</p>
+    <p><strong>4. Contatti:</strong> Per maggiori informazioni o assistenza: <a href="mailto:support@overunder-game.com" style="color: #00f0ff; text-decoration: underline;">support@overunder-game.com</a>.</p>
+  `;
+
+  function openLegalModal(title, content) {
+    if (legalTitle) legalTitle.textContent = title;
+    if (legalBody) legalBody.innerHTML = content;
+    if (legalModal) {
+      legalModal.classList.remove('hidden');
+      legalModal.classList.add('active');
+    }
+  }
+
+  function closeLegalModal() {
+    if (legalModal) {
+      legalModal.classList.add('hidden');
+      legalModal.classList.remove('active');
+    }
+  }
+
+  if (linkPrivacy) {
+    linkPrivacy.addEventListener('click', (e) => {
+      e.preventDefault();
+      openLegalModal('Privacy Policy', privacyText);
+    });
+  }
+
+  if (linkTerms) {
+    linkTerms.addEventListener('click', (e) => {
+      e.preventDefault();
+      openLegalModal('Termini di Servizio', termsText);
+    });
+  }
+
+  if (btnCloseLegal) {
+    btnCloseLegal.addEventListener('click', closeLegalModal);
+  }
+
+  if (legalModal) {
+    legalModal.addEventListener('click', (e) => {
+      if (e.target === legalModal) {
+        closeLegalModal();
       }
     });
   }
