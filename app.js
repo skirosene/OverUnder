@@ -175,9 +175,12 @@ async function authenticateGuest(roomCode, playerName) {
 const AudioSynth = {
   ctx: null,
   isMuted: localStorage.getItem('overunder_muted') === 'true',
+  _unlocked: false,
 
   init() {
-    if (this.isMuted) return;
+    // Crea sempre l'AudioContext anche se l'utente è in mute.
+    // Il mute viene gestito esclusivamente nelle funzioni play*.
+    // Questo garantisce che iOS/Safari non blocchi l'audio al primo tap.
     try {
       if (!this.ctx) {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -187,6 +190,9 @@ const AudioSynth = {
       }
       if (this.ctx && this.ctx.state === 'suspended') {
         this.ctx.resume().catch(() => {});
+      }
+      if (this.ctx && this.ctx.state === 'running') {
+        this._unlocked = true;
       }
     } catch (e) {
       console.warn("AudioSynth init error:", e);
@@ -387,16 +393,23 @@ const AudioSynth = {
   }
 };
 
-// Sblocco automatico di AudioContext al primissimo tocco dell'utente (iOS / Android Autoplay Policy)
-['pointerdown', 'touchstart', 'click'].forEach(evtType => {
-  window.addEventListener(evtType, () => {
-    try {
-      AudioSynth.init();
-      if (AudioSynth.ctx && AudioSynth.ctx.state === 'suspended') {
-        AudioSynth.ctx.resume();
-      }
-    } catch (e) {}
-  }, { passive: true });
+// Sblocco automatico di AudioContext al primissimo tocco dell'utente (iOS / Android / Safari Autoplay Policy)
+// Utilizza { once: false } perché iOS potrebbe richiedere più tentativi per sbloccare.
+function _unlockAudioContext() {
+  try {
+    AudioSynth.init();
+    if (AudioSynth.ctx && AudioSynth.ctx.state === 'suspended') {
+      AudioSynth.ctx.resume().then(() => {
+        AudioSynth._unlocked = true;
+        console.log('[AUDIO] AudioContext sbloccato con successo.');
+      }).catch(() => {});
+    } else if (AudioSynth.ctx && AudioSynth.ctx.state === 'running') {
+      AudioSynth._unlocked = true;
+    }
+  } catch (e) {}
+}
+['pointerdown', 'touchstart', 'click', 'keydown'].forEach(evtType => {
+  window.addEventListener(evtType, _unlockAudioContext, { passive: true });
 });
 
 // ==========================================================================
@@ -1185,7 +1198,9 @@ function setupEventListeners() {
   if (el.btnBackLobby) {
     el.btnBackLobby.addEventListener('click', () => {
       AudioSynth.playConfirm(false);
+      // Disconnessione pulita dalla stanza attuale
       if (socket && socket.connected) {
+        socket.emit('leave_room');
         socket.disconnect();
         socket.connect();
       }
@@ -1204,7 +1219,25 @@ function setupEventListeners() {
     });
   }
 
+/**
+ * Verifica se l'utente si trova attualmente dentro una stanza attiva (lobby, gioco, risultati).
+ * Se true, qualsiasi pop-up di acquisto/paywall deve essere SEVERAMENTE BLOCCATO.
+ */
+function isUserInActiveRoom() {
+  return !!(state.roomCode && (
+    (el.screenLobby && el.screenLobby.classList.contains('active')) ||
+    (el.screenGameplay && el.screenGameplay.classList.contains('active')) ||
+    (el.screenResults && el.screenResults.classList.contains('active')) ||
+    state.gameplayStarted
+  ));
+}
+
 function showPurchaseModal() {
+  // BLOCK CRITICO: Non mostrare MAI il pop-up di acquisto se l'utente è in una stanza attiva.
+  if (isUserInActiveRoom()) {
+    console.warn('[PAYWALL BLOCK] Modale di acquisto bloccata: utente in stanza attiva.');
+    return;
+  }
   const standardModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
   if (standardModal) {
     standardModal.style.display = 'flex';
@@ -2564,6 +2597,12 @@ function setupSocketListeners() {
 
   // 3. Errore durante onboarding (Richiede acquisto o ripristino Premium)
   socket.on('trial_expired_error', ({ message }) => {
+    // BLOCK CRITICO: Se l'utente è GIÀ in una stanza Premium (come partecipante),
+    // ignora completamente l'evento. I partecipanti ereditano lo sblocco dall'Host.
+    if (isUserInActiveRoom()) {
+      console.warn('[PAYWALL BLOCK] trial_expired_error ignorato: utente in stanza attiva.');
+      return;
+    }
     if (state.connectionLoadingActive) {
       if (state.connectionTimeout) {
         clearTimeout(state.connectionTimeout);
@@ -2580,11 +2619,7 @@ function setupSocketListeners() {
       el.nameErrorMsg.style.display = 'none';
       el.nameErrorMsg.textContent = '';
     }
-    const paywallModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
-    if (paywallModal) {
-      paywallModal.style.display = 'flex';
-      paywallModal.classList.add('active');
-    }
+    showPurchaseModal();
   });
 
   socket.on('room_error', (message) => {
@@ -2687,7 +2722,7 @@ function setupSocketListeners() {
   });
 
   // 5. Partita Avviata
-  socket.on('game_started', ({ deckName, totalCards }) => {
+  socket.on('game_started', ({ deckName, totalCards, imageUrls }) => {
     state.currentDeckName = deckName;
     state.totalCards = totalCards;
     state.gameplayStarted = true;
@@ -2698,6 +2733,11 @@ function setupSocketListeners() {
 
     if (state.roomIsPremium) {
       showToast(`${totalCards} carte aggiunte`);
+    }
+
+    // PRELOADING: Pre-carica tutte le immagini del mazzo prima dell'inizio del round
+    if (imageUrls && Array.isArray(imageUrls)) {
+      preloadDeckImages(imageUrls);
     }
 
     showScreen(el.screenGameplay);
@@ -2977,6 +3017,35 @@ function sanitizeClientHostUnicity(players, officialHostId = null) {
   });
 }
 
+/**
+ * Pre-carica tutte le immagini del mazzo in memoria prima dell'inizio del gioco.
+ * Questo garantisce visualizzazione istantanea e zero schermate nere su qualsiasi dispositivo (iOS/Safari inclusi).
+ */
+function preloadDeckImages(imageUrls) {
+  if (!Array.isArray(imageUrls)) return;
+  let loaded = 0;
+  const total = imageUrls.filter(u => u && typeof u === 'string' && u.length > 5).length;
+  imageUrls.forEach(url => {
+    if (url && typeof url === 'string' && url.length > 5) {
+      const img = new Image();
+      img.onload = () => {
+        loaded++;
+        if (loaded === total) {
+          console.log(`[PRELOAD] Tutte le ${total} immagini del mazzo pre-caricate con successo.`);
+        }
+      };
+      img.onerror = () => {
+        loaded++;
+        console.warn(`[PRELOAD] Errore nel pre-caricamento dell'immagine: ${url.substring(0, 80)}...`);
+      };
+      img.src = url;
+    }
+  });
+  if (total > 0) {
+    console.log(`[PRELOAD] Avviato pre-caricamento di ${total} immagini del mazzo.`);
+  }
+}
+
 // ==========================================================================
 // FUNZIONI DI SUPPORTO UI LOBBY & GAMEPLAY
 // ==========================================================================
@@ -3046,12 +3115,12 @@ function renderLobbyPlayers() {
       `;
     }
 
-    const hasAvatar = (player.avatar && typeof player.avatar === 'string' && player.avatar.trim().length > 15 && !player.avatar.includes('broken'));
+    const hasAvatar = (player.avatar && typeof player.avatar === 'string' && player.avatar.trim().length > 15 && !player.avatar.includes('broken') && !player.avatar.includes('undefined') && (player.avatar.startsWith('data:image') || player.avatar.startsWith('http') || player.avatar.startsWith('/')));
     const avatarBg = getAvatarBgColor(player.name);
     const initials = player.name ? player.name.substring(0, 2).toUpperCase() : '??';
 
     const avatarHtml = hasAvatar
-      ? `<img class="lobby-avatar" src="${player.avatar}" style="cursor: pointer;" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+      ? `<img class="lobby-avatar" src="${player.avatar}" style="cursor: pointer;" loading="lazy" onerror="this.style.display='none'; this.onerror=null; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
          <div class="lobby-avatar-fallback" style="display:none; background-color: ${avatarBg}; cursor: pointer;">${initials}</div>`
       : `<div class="lobby-avatar-fallback" style="background-color: ${avatarBg}; cursor: pointer;">${initials}</div>`;
 
@@ -4993,10 +5062,12 @@ function setupPremiumCreatorEvents() {
     el.btnCropperConfirm.addEventListener('click', async () => {
       if (!activeCropper) return;
 
-      // Compressione HD Client-Side: 800x800 pixel
+      // Compressione HD Client-Side: 1080px per carte, 256px per avatar
+      const isAvatar = state.cropperTarget === 'avatar';
+      const maxSize = isAvatar ? 256 : 1080;
       const canvas = activeCropper.getCroppedCanvas({
-        width: 800,
-        height: 800,
+        width: maxSize,
+        height: maxSize,
         imageSmoothingEnabled: true,
         imageSmoothingQuality: 'high'
       });

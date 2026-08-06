@@ -1199,6 +1199,8 @@ io.on('connection', (socket) => {
     socket.emit('auth_completed');
 
     if (room.state !== 'lobby') {
+      // Il gioco è già iniziato ma potrebbe essere un nuovo giocatore che cerca di unirsi
+      // (NON un partecipante registrato che si riconnette — quelli sono gestiti sopra).
       socket.emit('room_error', "Il gioco è già iniziato in questa stanza!");
       return;
     }
@@ -1336,7 +1338,8 @@ io.on('connection', (socket) => {
 
     io.to(room.roomCode).emit('game_started', {
       deckName: room.deck.deck_name,
-      totalCards: room.gameLength
+      totalCards: room.gameLength,
+      imageUrls: (room.deck.cards || []).map(c => c.image).filter(Boolean)
     });
 
     startNewRound(room);
@@ -1627,7 +1630,8 @@ io.on('connection', (socket) => {
       // Notifica avvio partita classica
       io.to(room.roomCode).emit('game_started', {
         deckName: room.deck.deck_name,
-        totalCards: room.gameLength
+        totalCards: room.gameLength,
+        imageUrls: (room.deck.cards || []).map(c => c.image).filter(Boolean)
       });
 
       // Avvia immediatamente il primo round

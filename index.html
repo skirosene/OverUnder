@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=304">
+  <link rel="stylesheet" href="/style.css?v=450">
 </head>
 
 <body>
@@ -948,25 +948,37 @@
   <!-- Modal Guida Inserimento Carte -->
   <div id="input-help-modal" class="custom-modal-overlay" style="display: none;">
     <div class="custom-modal-box glass-panel"
-      style="max-width: 90%; width: 320px; padding: 24px; text-align: center; gap: 18px;">
+      style="max-width: 90%; width: 340px; padding: 24px; text-align: left; gap: 14px;">
 
       <!-- Intestazione -->
       <h3
-        style="font-family: var(--font-title); font-weight: 800; font-size: 1.05rem; color: white; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">
-        GUIDA</h3>
+        style="font-family: var(--font-title); font-weight: 800; font-size: 1.05rem; color: white; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; text-align: center;">
+        COME CREARE LE CARTE</h3>
 
-      <!-- Contenuto -->
-      <p
-        style="font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.45; margin: 0; text-align: center;">
-        Scrivi una frase, aggiungi un'immagine se vuoi e premi il tasto <span
-          style="color: var(--color-underrated); font-weight: 800; font-size: 1rem;">+</span> per salvare la carta nella
-        tua lista.
-      </p>
+      <!-- Contenuto Passo-Passo -->
+      <div style="font-size: 0.82rem; color: var(--color-text-secondary); line-height: 1.55; margin: 0;">
+        <p style="margin: 0 0 10px 0;">
+          <span style="color: var(--color-underrated); font-weight: 800; font-size: 1rem;">1.</span>
+          <strong style="color: white;">Scegli un'immagine</strong> dal rullino o scattane una nuova con la fotocamera. Ritaglia l'area desiderata.
+        </p>
+        <p style="margin: 0 0 10px 0;">
+          <span style="color: var(--color-underrated); font-weight: 800; font-size: 1rem;">2.</span>
+          <strong style="color: white;">Scrivi la didascalia</strong> per ogni carta e premi il tasto
+          <span style="color: var(--color-underrated); font-weight: 800; font-size: 1.1rem;">+</span> per aggiungerla alla tua lista.
+        </p>
+        <p style="margin: 0 0 6px 0;">
+          <span style="color: var(--color-underrated); font-weight: 800; font-size: 1rem;">3.</span>
+          <strong style="color: white;">Premi "INVIA CARTE"</strong> per confermare e inviare le tue carte alla lobby.
+        </p>
+        <p style="margin: 8px 0 0 0; padding: 8px 10px; background: rgba(255,60,60,0.12); border-radius: 8px; border-left: 3px solid var(--color-overrated); color: var(--color-overrated); font-weight: 700; font-size: 0.78rem;">
+          ⚠️ Le carte NON saranno visibili agli altri giocatori finché non premi "INVIA CARTE". Questo passaggio è obbligatorio.
+        </p>
+      </div>
 
       <!-- Pulsante di Chiusura -->
       <div style="display: flex; justify-content: center; width: 100%; margin-top: 5px;">
         <button id="btn-input-help-close" class="btn-modal-cancel"
-          style="flex: 0 1 auto; min-width: 100px; padding: 10px 20px; font-weight: 700; font-family: var(--font-title); font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">CHIUDI</button>
+          style="flex: 0 1 auto; min-width: 100px; padding: 10px 20px; font-weight: 700; font-family: var(--font-title); font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">HO CAPITO</button>
       </div>
 
     </div>
@@ -1362,7 +1374,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=304"></script>
+  <script src="/app.js?v=450"></script>
 </body>
 
 </html>
