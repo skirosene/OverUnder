@@ -1951,11 +1951,14 @@ function showPurchaseModal() {
   if (el.btnBackLobby) {
     el.btnBackLobby.addEventListener('click', () => {
       AudioSynth.playConfirm(false);
-      if (!state.isSoloMode) {
+      if (!state.isSoloMode && socket && socket.connected) {
+        socket.emit('leave_room');
         socket.disconnect();
         socket.connect();
       }
+      clearSession();
       resetToMenu();
+      showScreen(el.screenWelcome);
     });
   }
 
@@ -2008,7 +2011,8 @@ function showPurchaseModal() {
         el.exitModal.classList.remove('active');
         el.exitModal.style.display = 'none';
       }
-      if (!state.isSoloMode) {
+      if (!state.isSoloMode && socket && socket.connected) {
+        socket.emit('leave_room');
         socket.disconnect();
         socket.connect();
       }
@@ -2625,6 +2629,23 @@ function setupSocketListeners() {
     renderGameplayAvatars();
     if (state.isPlayerListOpen) {
       renderPlayerListModalContent();
+    }
+  });
+
+  // 4b. Evento cambio Host
+  socket.on('host_changed', ({ newHostId, newHostName }) => {
+    console.log(`[HOST CHANGED] Nuovo Host nella stanza: ${newHostName} (${newHostId})`);
+    if (newHostId === socket.id || (state.playerName && state.playerName.toLowerCase() === (newHostName || '').toLowerCase())) {
+      state.isHost = true;
+      safeSessionStorage.setItem('overunder_isHost', 'true');
+      showToast("👑 Sei il nuovo Host della stanza!");
+    } else {
+      state.isHost = false;
+      safeSessionStorage.setItem('overunder_isHost', 'false');
+      showToast(`👑 ${newHostName} è il nuovo Host della stanza.`);
+    }
+    if (el.screenLobby && el.screenLobby.classList.contains('active')) {
+      setupLobbyUI();
     }
   });
 
