@@ -3866,14 +3866,23 @@ function startSoloGame(length = 30) {
     return;
   }
 
-  // Clona il mazzo e seleziona 'length' carte casuali
+  const isInfinite = (length >= 9999 || length === '∞');
+  state.isInfiniteMode = isInfinite;
+
   const clonedDeck = JSON.parse(JSON.stringify(deck));
   const shuffledCards = clonedDeck.cards.sort(() => 0.5 - Math.random());
-  clonedDeck.cards = shuffledCards.slice(0, Math.min(length, shuffledCards.length));
+
+  if (isInfinite) {
+    clonedDeck.cards = shuffledCards;
+    state.totalCards = 9999;
+  } else {
+    const numCards = typeof length === 'number' ? length : (parseInt(length) || 30);
+    clonedDeck.cards = shuffledCards.slice(0, Math.min(numCards, shuffledCards.length));
+    state.totalCards = clonedDeck.cards.length;
+  }
 
   state.soloDeck = clonedDeck;
   state.currentDeckName = deck.deck_name || "Over Under";
-  state.totalCards = clonedDeck.cards.length;
   state.soloCardIndex = 0;
   state.soloResponses = [];
   state.soloStreakType = null;
@@ -3890,26 +3899,31 @@ function startSoloGame(length = 30) {
 }
 
 function showSoloCard() {
-  const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : 0;
-  if (!state.soloDeck || !state.soloDeck.cards || state.soloCardIndex >= totalCards) {
-    renderSoloGameOver();
-    return;
+  const isInfinite = !!state.isInfiniteMode;
+  let card = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards[state.soloCardIndex] : null;
+  
+  if (!card && isInfinite && state.soloDeck && state.soloDeck.cards && state.soloDeck.cards.length > 0) {
+    const originalCards = state.soloAvailableDecks && state.soloAvailableDecks[0] ? state.soloAvailableDecks[0].cards : state.soloDeck.cards;
+    const extraCards = JSON.parse(JSON.stringify(originalCards)).sort(() => 0.5 - Math.random());
+    state.soloDeck.cards.push(...extraCards);
+    card = state.soloDeck.cards[state.soloCardIndex];
   }
-  const card = state.soloDeck.cards[state.soloCardIndex];
+
+  // Guard check: Se la carta non esiste e non siamo in modalità infinite, forza l'uscita ai risultati per evitare crash
   if (!card) {
     renderSoloGameOver();
     return;
   }
+
   state.userHasVoted = false;
   const promptStr = card.prompt || card.text || card.promptText || '';
   state.currentPromptText = promptStr;
-  state.currentCardIndex = state.soloCardIndex;
   state.currentCardIndex = state.soloCardIndex;
 
   el.currentDeckName.textContent = state.currentDeckName;
   updateGameplayCardMedia(promptStr, card.image);
   
-  const totalDisplay = (state.totalCards == 9999 || state.totalCards === '∞') ? '∞' : state.totalCards;
+  const totalDisplay = (state.isInfiniteMode || state.totalCards >= 9999 || state.totalCards === '∞') ? '∞' : state.totalCards;
   el.deckProgress.textContent = `Carta ${state.soloCardIndex + 1} / ${totalDisplay}`;
 
   el.btnUnderrated.classList.remove('disabled', 'pulse-active');
@@ -4043,10 +4057,22 @@ function handleSoloVote(voteType) {
 }
 
 function advanceSoloGame() {
+  const isInfinite = !!state.isInfiniteMode;
   const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : 0;
   
-  // CONTROLLO DI FINE PARTITA PRIORITARIO:
-  // Se l'indice della carta corrente ha raggiunto l'ultima carta del mazzo, interrompi subito e mostra i risultati finali
+  // GESTIONE CASO SPECIALE "CARTE INFINITE" (∞)
+  if (isInfinite) {
+    state.soloCardIndex++;
+    if (state.soloCardIndex >= state.soloDeck.cards.length) {
+      const originalCards = state.soloAvailableDecks && state.soloAvailableDecks[0] ? state.soloAvailableDecks[0].cards : state.soloDeck.cards;
+      const extraCards = JSON.parse(JSON.stringify(originalCards)).sort(() => 0.5 - Math.random());
+      state.soloDeck.cards.push(...extraCards);
+    }
+    showSoloCard();
+    return;
+  }
+
+  // CONTROLLO FINE MAZZO DINAMICO (Mazzi a termine: 30, 50, 100 carte):
   if (state.soloCardIndex + 1 >= totalCards) {
     renderSoloGameOver();
     return;
