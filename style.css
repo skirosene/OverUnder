@@ -1412,6 +1412,126 @@ input[type="submit"] {
   opacity: 0.35;
 }
 
+/* ==========================================================================
+   OTTIMIZZAZIONE SCHERMATA SINGLE PLAYER (GIOCA DA SOLO)
+   ========================================================================== */
+#screen-gameplay.is-solo-mode {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  height: 100% !important;
+  height: 100dvh !important;
+  padding: 0.75rem 0.95rem max(16px, env(safe-area-inset-bottom)) 0.95rem !important;
+  box-sizing: border-box !important;
+}
+
+#screen-gameplay.is-solo-mode .gameplay-header {
+  flex: 0 0 auto !important;
+  margin-bottom: 4px !important;
+}
+
+#screen-gameplay.is-solo-mode .timer-area {
+  flex: 0 0 auto !important;
+  margin-top: 2px !important;
+  margin-bottom: 8px !important;
+}
+
+#screen-gameplay.is-solo-mode .prompt-container-wrapper {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  margin: 0.6rem 0 !important;
+  min-height: 0 !important;
+  width: 100% !important;
+}
+
+#screen-gameplay.is-solo-mode .prompt-card {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 520px !important;
+  padding: 2.2rem 1.4rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  border-radius: 26px !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6), 0 0 25px rgba(255, 255, 255, 0.04) !important;
+}
+
+#screen-gameplay.is-solo-mode #current-prompt-text,
+#screen-gameplay.is-solo-mode .prompt-text {
+  font-size: clamp(1.4rem, 6.5vw, 2.1rem) !important;
+  line-height: 1.45 !important;
+  font-weight: 800 !important;
+  max-width: 98% !important;
+}
+
+#screen-gameplay.is-solo-mode .gameplay-footer {
+  flex: 0 0 auto !important;
+  margin-top: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.4rem !important;
+}
+
+#screen-gameplay.is-solo-mode .voter-actions {
+  gap: 0.75rem !important;
+}
+
+#screen-gameplay.is-solo-mode .btn-vote {
+  min-height: 78px !important;
+  padding: 12px 10px !important;
+  border-radius: 18px !important;
+}
+
+#screen-gameplay.is-solo-mode .btn-vote-label {
+  font-size: 0.88rem !important;
+  font-weight: 800 !important;
+}
+
+#screen-gameplay.is-solo-mode .btn-vote-sub {
+  font-size: 0.65rem !important;
+}
+
+/* Pop-up Personalità / Streak per Single Player */
+.solo-personality-popup {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: rgba(18, 18, 24, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 15px rgba(255, 255, 255, 0.05);
+  text-align: center;
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #ffffff;
+  margin-bottom: 0.25rem;
+  animation: solo-popup-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform-origin: bottom center;
+}
+
+.solo-personality-popup.streak-under {
+  border-color: rgba(0, 168, 232, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px var(--color-underrated-glow);
+}
+
+.solo-personality-popup.streak-over {
+  border-color: rgba(255, 179, 0, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px var(--color-overrated-glow);
+}
+
+@keyframes solo-popup-pop {
+  0% { opacity: 0; transform: translateY(10px) scale(0.92); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* Overlay "PROSSIMA CARTA..." - Appare quando finisce il tempo */
 .round-end-overlay {
   position: absolute;

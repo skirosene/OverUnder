@@ -103,6 +103,12 @@ function clearSession() {
 
 function resetToMenu() {
   clearSession();
+  state.soloStreakType = null;
+  state.soloStreakCount = 0;
+  hideSoloPersonalityPopup();
+  if (el.screenGameplay) {
+    el.screenGameplay.classList.remove('is-solo-mode');
+  }
   if (state.timerRequestId) {
     cancelAnimationFrame(state.timerRequestId);
     state.timerRequestId = null;
@@ -439,6 +445,9 @@ const state = {
   soloDeck: null,
   soloCardIndex: 0,
   soloResponses: [],
+  soloStreakType: null,
+  soloStreakCount: 0,
+  soloPersonalityTimer: null,
   pendingLengthStartMode: null,
   soloTimeoutId: null,
   isWorldStatsVisible: false,
@@ -832,9 +841,19 @@ function showScreen(targetScreen) {
   // Configura il timer counter cliccabile solo in gameplay per l'host
   if (targetScreen === el.screenGameplay) {
     setupTimerCounterClickable();
+    if (state.isSoloMode) {
+      el.screenGameplay.classList.add('is-solo-mode');
+    } else {
+      el.screenGameplay.classList.remove('is-solo-mode');
+      hideSoloPersonalityPopup();
+    }
   } else {
     stopTimerLoop();
     closeTimerPicker();
+    if (el.screenGameplay) {
+      el.screenGameplay.classList.remove('is-solo-mode');
+    }
+    hideSoloPersonalityPopup();
   }
 }
 
@@ -3857,6 +3876,13 @@ function startSoloGame(length = 30) {
   state.totalCards = clonedDeck.cards.length;
   state.soloCardIndex = 0;
   state.soloResponses = [];
+  state.soloStreakType = null;
+  state.soloStreakCount = 0;
+  hideSoloPersonalityPopup();
+
+  if (el.screenGameplay) {
+    el.screenGameplay.classList.add('is-solo-mode');
+  }
 
   AudioSynth.playConfirm(true);
   showScreen(el.screenGameplay);
@@ -3907,12 +3933,87 @@ function showSoloCard() {
   state.timerRequestId = requestAnimationFrame(gameLoop);
 }
 
+function updateSoloPersonalityStreak(voteType) {
+  if (!state.isSoloMode) return;
+  if (voteType !== 'overrated' && voteType !== 'underrated') return;
+
+  const popupEl = document.getElementById('solo-personality-popup');
+  const textEl = document.getElementById('solo-personality-text');
+  if (!popupEl || !textEl) return;
+
+  if (state.soloPersonalityTimer) {
+    clearTimeout(state.soloPersonalityTimer);
+    state.soloPersonalityTimer = null;
+  }
+
+  if (state.soloStreakType === voteType) {
+    state.soloStreakCount = (state.soloStreakCount || 1) + 1;
+  } else {
+    // Scomparire immediatamente se l'utente cambia scelta (preme il pulsante opposto)
+    state.soloStreakType = voteType;
+    state.soloStreakCount = 1;
+    hideSoloPersonalityPopup();
+    return;
+  }
+
+  if (state.soloStreakCount >= 3) {
+    let msg = '';
+    if (voteType === 'underrated') {
+      const underMsgs = [
+        "Wow, sei un sottovalutatore cronico! 📉",
+        "Tutto troppo gonfio per te, eh? 🎈",
+        "Ma che ti hanno fatto le cose? 🧐",
+        "Scetticismo ai massimi storici! 🔍",
+        "Sottovaluteresti anche l'aria che respiri! 🌬️"
+      ];
+      const idx = Math.min(state.soloStreakCount - 3, underMsgs.length - 1);
+      msg = underMsgs[idx];
+      popupEl.className = 'solo-personality-popup glass-panel streak-under';
+    } else {
+      const overMsgs = [
+        "Un vero sognatore, eh? 🚀",
+        "Ottimismo stellare! 🌟",
+        "Ma secondo te tutto vale di più? 💎",
+        "Generosità di votazione al 100%! 🔥",
+        "Sopravvaluteresti persino un sasso! 🗿"
+      ];
+      const idx = Math.min(state.soloStreakCount - 3, overMsgs.length - 1);
+      msg = overMsgs[idx];
+      popupEl.className = 'solo-personality-popup glass-panel streak-over';
+    }
+
+    textEl.textContent = msg;
+    popupEl.style.display = 'flex';
+
+    state.soloPersonalityTimer = setTimeout(() => {
+      hideSoloPersonalityPopup();
+    }, 2800);
+  } else {
+    hideSoloPersonalityPopup();
+  }
+}
+
+function hideSoloPersonalityPopup() {
+  const popupEl = document.getElementById('solo-personality-popup');
+  if (popupEl) {
+    popupEl.style.display = 'none';
+    popupEl.className = 'solo-personality-popup glass-panel';
+  }
+  if (state.soloPersonalityTimer) {
+    clearTimeout(state.soloPersonalityTimer);
+    state.soloPersonalityTimer = null;
+  }
+}
+
 function handleSoloVote(voteType) {
   // Ferma il timer
   if (state.timerRequestId) {
     cancelAnimationFrame(state.timerRequestId);
     state.timerRequestId = null;
   }
+
+  // Traccia le scelte consecutive e gestisce i pop-up di personalità
+  updateSoloPersonalityStreak(voteType);
 
   const card = state.soloDeck.cards[state.soloCardIndex];
   const votes = [{ player: state.playerName, vote: voteType }];

@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=2800">
+  <link rel="stylesheet" href="/style.css?v=2900">
 </head>
 
 <body>
@@ -592,6 +592,11 @@
             <div id="gameplay-players-status" class="gameplay-players-status">
               <!-- Matteo: ✔️ Votato, Giulia: 🤔 Decisione... -->
             </div>
+          </div>
+
+          <!-- Pop-up Personalità / Streak (Solo Single Player) -->
+          <div id="solo-personality-popup" class="solo-personality-popup glass-panel" style="display: none;">
+            <span id="solo-personality-text"></span>
           </div>
 
           <!-- Pulsanti di Voto -->
@@ -1398,7 +1403,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=2800"></script>
+  <script src="/app.js?v=2900"></script>
 </body>
 
 </html>
