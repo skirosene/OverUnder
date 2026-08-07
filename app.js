@@ -99,6 +99,8 @@ function clearSession() {
   state.isHost = false;
   state.players = [];
   state.gameplayStarted = false;
+  state.socketAuthenticated = false;
+  state.authenticatedToken = null;
 }
 
 function resetToMenu() {
@@ -488,6 +490,7 @@ const state = {
   activeResultsFilter: 'all',
   activeOverlayFilter: 'all',
   socketAuthenticated: false,
+  authenticatedToken: null,
   pendingSocketAction: null
 };
 
@@ -2460,8 +2463,6 @@ function showError(msg) {
 function executePendingSocketAction() {
   if (!state.pendingSocketAction) return;
 
-  const action = state.pendingSocketAction;
-
   if (!socket.connected) {
     console.log("[SOCKET QUEUE] Socket non ancora connesso. Avvio socket.connect()...");
     socket.connect();
@@ -2469,11 +2470,14 @@ function executePendingSocketAction() {
   }
 
   const token = safeSessionStorage.getItem('overunder_token');
-  if (token && !state.socketAuthenticated) {
-    console.log("[SOCKET QUEUE] Socket connesso: invio token AUTH...");
+  if (token && (!state.socketAuthenticated || state.authenticatedToken !== token)) {
+    console.log("[SOCKET QUEUE] Socket connesso: invio token AUTH e attendo AUTH_SUCCESS...");
+    state.socketAuthenticated = false;
     socket.emit('AUTH', { token });
+    return;
   }
 
+  const action = state.pendingSocketAction;
   console.log("[SOCKET QUEUE] Esecuzione immediata dell'azione in coda:", action.type);
   state.pendingSocketAction = null;
 
@@ -2491,6 +2495,7 @@ function setupSocketListeners() {
   socket.on('connect', () => {
     console.log("Connesso al server. ID Socket:", socket.id);
     state.socketAuthenticated = false;
+    state.authenticatedToken = null;
 
     const savedToken = safeSessionStorage.getItem('overunder_token');
     if (savedToken) {
@@ -2508,10 +2513,15 @@ function setupSocketListeners() {
   socket.on('disconnect', (reason) => {
     console.warn("[SOCKET] Socket disconnesso:", reason);
     state.socketAuthenticated = false;
+    state.authenticatedToken = null;
   });
 
   socket.on('AUTH_SUCCESS', () => {
     state.socketAuthenticated = true;
+    const savedToken = safeSessionStorage.getItem('overunder_token');
+    if (savedToken) {
+      state.authenticatedToken = savedToken;
+    }
     console.log("Socket autenticato con successo!");
     updatePremiumUI();
 
@@ -3830,6 +3840,8 @@ function clearSession() {
   safeSessionStorage.removeItem('overunder_isHost');
   safeSessionStorage.removeItem('overunder_token');
   safeSessionStorage.removeItem('overunder_pendingRoom');
+  state.socketAuthenticated = false;
+  state.authenticatedToken = null;
 }
 
 // ==========================================================================
