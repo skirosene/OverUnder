@@ -3276,6 +3276,12 @@ input[type="submit"] {
    STILI AVATAR E LISTA PARTECIPANTI (HD & RESPONSIVE)
    ========================================================================== */
 
+.avatar-preview-box {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
 .avatar-preview-box.has-image {
   border-color: var(--color-underrated) !important;
   box-shadow: 0 0 15px var(--color-underrated-glow);

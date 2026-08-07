@@ -5635,8 +5635,8 @@ async function uploadImage(dataUrl, filename) {
 // SEZIONE AVATAR E PARTECIPANTI (DEFINIZIONI MANCANTI)
 // ==========================================================================
 
-function getDefaultAvatarSvg(size = '60%', color = 'rgba(255, 255, 255, 0.65)') {
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:${size}; height:${size}; display:block; flex-shrink:0;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+function getDefaultAvatarSvg(size = '55%', color = 'rgba(255,255,255,0.6)') {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: ${size}; height: ${size}; color: ${color}; opacity: 0.85; display: block; flex-shrink: 0;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
 }
 
 function getAvatarBgColor(name) {
