@@ -954,7 +954,7 @@ function initSettingsSidebar() {
     btnShare.addEventListener('click', async () => {
       const shareData = {
         title: 'Over Under - Party Game',
-        text: 'Vieni a provare Over Under, il gioco del momento! 🔥',
+        text: 'Unisciti alla mia stanza e gioca a Over Under! 🔥',
         url: window.location.origin
       };
 
@@ -1826,7 +1826,7 @@ function showPurchaseModal() {
     if (!state.roomCode) return;
     const inviteLink = window.location.origin + '/?room=' + encodeURIComponent(state.roomCode);
     const shareTitle = 'Over Under - Party Game';
-    const shareText = `Unisciti alla mia stanza su Over Under! 🔥`;
+    const shareText = `Unisciti alla mia stanza e gioca a Over Under! 🔥`;
 
     if (navigator.share) {
       try {
