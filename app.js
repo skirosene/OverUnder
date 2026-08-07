@@ -117,10 +117,9 @@ function resetToMenu() {
   if (el.screenGameplay) {
     el.screenGameplay.classList.remove('is-solo-mode');
   }
-  const singleModal = document.getElementById('single-player-results-modal');
-  if (singleModal) {
-    singleModal.style.setProperty('display', 'none', 'important');
-    singleModal.classList.remove('active');
+  const endScreen = document.getElementById('single-player-end-screen');
+  if (endScreen) {
+    endScreen.style.display = 'none';
   }
   clearSession();
   showScreen(el.screenWelcome);
@@ -3933,10 +3932,9 @@ function startSoloGame(length = 30) {
   state.soloStreakCount = 0;
   hideSoloPersonalityPopup();
 
-  const singleModal = document.getElementById('single-player-results-modal');
-  if (singleModal) {
-    singleModal.style.setProperty('display', 'none', 'important');
-    singleModal.classList.remove('active');
+  const endScreen = document.getElementById('single-player-end-screen');
+  if (endScreen) {
+    endScreen.style.display = 'none';
   }
 
   if (el.screenGameplay) {
@@ -4228,9 +4226,12 @@ function showSinglePlayerResults() {
   checkMatchEndTrialExpiration();
   try { AudioSynth.playGong(); } catch (e) {}
 
-  // 1. FORCE HIDE DEGLI ELEMENTI LOBBY MULTIPLAYER & SCHERMATE DI GIOCO
+  // 1. NASCONDI TASSATIVAMENTE SCHERMATA DI GIOCO E QUALSIASI CONTENITORE MULTIPLAYER
   [el.screenGameplay, el.screenResults, el.screenSummary, el.screenLobby].forEach(s => {
-    if (s) s.classList.remove('active', 'is-solo-mode');
+    if (s) {
+      s.classList.remove('active', 'is-solo-mode');
+      s.style.display = 'none';
+    }
   });
 
   if (el.summaryPlayerWaiting) {
@@ -4240,7 +4241,7 @@ function showSinglePlayerResults() {
     el.resultsPlayerWaitingConfluent.style.setProperty('display', 'none', 'important');
   }
 
-  // 2. GENERAZIONE SCHERMATA FINALE INLINE (SINGLE PLAYER)
+  // 2. MOSTRA ESCLUSIVAMENTE IL NUOVO BLOCCO DEDICATO SINGLE PLAYER (#single-player-end-screen)
   const cardsPlayed = (state.soloResponses && Array.isArray(state.soloResponses)) ? state.soloResponses.length : 0;
   
   let countUnder = 0;
@@ -4276,14 +4277,14 @@ function showSinglePlayerResults() {
     personalityIcon = "💤";
   }
 
-  const singleStats = document.getElementById('single-player-summary-stats');
-  if (singleStats) {
-    singleStats.textContent = `Hai completato ${cardsPlayed} carte in questa sessione!`;
+  const summaryEl = document.getElementById('single-player-summary');
+  if (summaryEl) {
+    summaryEl.textContent = `Hai completato tutte le ${cardsPlayed} carte della sessione!`;
   }
 
-  const singlePersonalityCard = document.getElementById('single-player-personality-card');
-  if (singlePersonalityCard) {
-    singlePersonalityCard.innerHTML = `
+  const badgeEl = document.getElementById('single-player-personality-badge');
+  if (badgeEl) {
+    badgeEl.innerHTML = `
       <div class="award-card glass-panel" style="width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);">
         <div class="award-icon-box" style="font-size: 2rem; flex-shrink: 0;">${personalityIcon}</div>
         <div class="award-info" style="flex: 1; text-align: left;">
@@ -4297,20 +4298,18 @@ function showSinglePlayerResults() {
     `;
   }
 
-  const singleModal = document.getElementById('single-player-results-modal');
-  if (singleModal) {
-    singleModal.style.setProperty('display', 'flex', 'important');
-    singleModal.classList.add('active');
+  const endScreen = document.getElementById('single-player-end-screen');
+  if (endScreen) {
+    endScreen.style.display = 'flex';
   }
 
-  // 3. ACTION DEL TASTO RICOMINCIA (#btn-restart-single)
-  const btnRestartSingle = document.getElementById('btn-restart-single');
+  // 3. EVENT LISTENER SUL TASTO "RICOMINCIA" (#btn-restart-single-game)
+  const btnRestartSingle = document.getElementById('btn-restart-single-game');
   if (btnRestartSingle && !btnRestartSingle.dataset.bound) {
     btnRestartSingle.dataset.bound = 'true';
     btnRestartSingle.addEventListener('click', () => {
-      if (singleModal) {
-        singleModal.style.setProperty('display', 'none', 'important');
-        singleModal.classList.remove('active');
+      if (endScreen) {
+        endScreen.style.display = 'none';
       }
       resetToMenu();
     });
