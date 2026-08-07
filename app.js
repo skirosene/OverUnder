@@ -3166,6 +3166,14 @@ function preloadDeckImages(imageUrls) {
  * in formato grande ed espanso sul campo di gioco senza richiedere tap o modali di ingrandimento.
  */
 function updateGameplayCardMedia(prompt, image) {
+  const isInfinite = !!state.isInfiniteMode;
+  const totalCards = state.isSoloMode ? ((state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : (state.totalCards || 0)) : (state.totalCards || 0);
+  if (state.isSoloMode && state.soloCardIndex >= totalCards && !isInfinite) {
+    const promptCard = el.promptCard || document.getElementById('prompt-card');
+    if (promptCard) promptCard.innerHTML = '';
+    return;
+  }
+
   if (!el.gameplayPromptImageContainer || !el.gameplayPromptImage) return;
 
   const promptCard = el.promptCard || document.getElementById('prompt-card');
@@ -3903,9 +3911,12 @@ function showSoloCard() {
     const isInfinite = !!state.isInfiniteMode;
     const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : (state.totalCards || 0);
 
-    if (!isInfinite && (state.soloCardIndex >= totalCards || !state.soloDeck || !state.soloDeck.cards)) {
-      console.log("Fine mazzo rilevata in showSoloCard, forzo la schermata finale.");
-      renderSoloGameOver();
+    // 1. GUARDIA SUL RENDERING: Primissima riga
+    if (state.soloCardIndex >= totalCards && !isInfinite) {
+      console.log("[GUARDIA RENDERING] Indice superato (currentIndex >= totalCards). Arresto immediato rendering.");
+      const promptCard = el.promptCard || document.getElementById('prompt-card');
+      if (promptCard) promptCard.innerHTML = '';
+      forceSwitchToSummary();
       return;
     }
 
@@ -3918,9 +3929,12 @@ function showSoloCard() {
       card = state.soloDeck.cards[state.soloCardIndex];
     }
 
+    // 2. PREVENZIONE RENDER VUOTO: Svuota subito il contenitore della carta se undefined
     if (!card) {
-      console.log("Carta non trovata in showSoloCard, forzo la schermata finale.");
-      renderSoloGameOver();
+      console.log("[PREVENZIONE RENDER VUOTO] Carta non trovata in memoria, svuoto contenitore e forzo schermata finale.");
+      const promptCard = el.promptCard || document.getElementById('prompt-card');
+      if (promptCard) promptCard.innerHTML = '';
+      forceSwitchToSummary();
       return;
     }
 
