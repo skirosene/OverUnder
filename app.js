@@ -5653,8 +5653,9 @@ function getAvatarBgColor(name) {
 
 function hasUserCustomAvatar() {
   const url = state.playerAvatarUrl || localStorage.getItem('overunder_avatarUrl');
-  if (!url || typeof url !== 'string' || url.length < 15) return false;
-  return url.startsWith('data:image') || url.startsWith('http') || url.startsWith('/');
+  if (!url || typeof url !== 'string' || url.trim().length < 15) return false;
+  if (url.includes('<svg') || url.includes('circle') || url.includes('path')) return false;
+  return url.startsWith('data:image/') || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/');
 }
 
 function setupAvatarEvents() {
@@ -5781,7 +5782,8 @@ function setupAvatarEvents() {
   const btnRemoveAvatar = document.getElementById('btn-remove-avatar');
   const updateRemoveAvatarVisibility = () => {
     if (btnRemoveAvatar) {
-      btnRemoveAvatar.style.display = hasUserCustomAvatar() ? 'flex' : 'none';
+      const isCustom = hasUserCustomAvatar();
+      btnRemoveAvatar.style.setProperty('display', isCustom ? 'flex' : 'none', 'important');
     }
   };
 
@@ -5805,7 +5807,7 @@ function setupAvatarEvents() {
       const box = document.getElementById('avatar-preview-box');
       if (box) box.classList.remove('has-image');
 
-      btnRemoveAvatar.style.display = 'none';
+      btnRemoveAvatar.style.setProperty('display', 'none', 'important');
 
       if (socket && socket.connected && state.roomCode) {
         socket.emit('update_avatar', { avatar: null });
