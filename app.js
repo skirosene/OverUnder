@@ -4037,9 +4037,33 @@ function hideSoloPersonalityPopup() {
   }
 }
 
+function forceSwitchToSummary() {
+  try {
+    if (state.timerRequestId) {
+      cancelAnimationFrame(state.timerRequestId);
+      state.timerRequestId = null;
+    }
+    stopTimerLoop();
+    hideSoloPersonalityPopup();
+
+    // FORZATURA DELLO STATO DELLA UI (Rimozione manuale classe gameplay e attivazione summary)
+    if (el.screenGameplay) {
+      el.screenGameplay.classList.remove('active', 'is-solo-mode');
+    }
+    if (el.screenSummary) {
+      el.screenSummary.classList.add('active');
+    }
+
+    renderSoloGameOver();
+  } catch (e) {
+    console.error("[FORCE SWITCH] Errore in forceSwitchToSummary:", e);
+    showScreen(el.screenSummary);
+  }
+}
+
 function handleSoloVote(voteType) {
   try {
-    // Ferma il timer
+    // 1. Ferma subito il timer ed elimina celermente qualsiasi animation loop
     if (state.timerRequestId) {
       cancelAnimationFrame(state.timerRequestId);
       state.timerRequestId = null;
@@ -4051,8 +4075,8 @@ function handleSoloVote(voteType) {
     const card = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards[state.soloCardIndex] : null;
 
     if (!card) {
-      console.log("Carta non trovata in handleSoloVote, forzo schermata finale.");
-      renderSoloGameOver();
+      console.log("[FORCE ENDGAME] Carta non trovata in handleSoloVote, cambio diretto a schermata risultati.");
+      forceSwitchToSummary();
       return;
     }
 
@@ -4069,18 +4093,19 @@ function handleSoloVote(voteType) {
       stats: card.global_stats
     });
 
-    // FORCE END-GAME: Se l'utente ha appena votato l'ultima carta del mazzo, passa subito ai risultati
-    if (!isInfinite && state.soloCardIndex >= totalCards - 1) {
-      console.log("Fine mazzo rilevata in handleSoloVote, forzo la schermata finale.");
-      renderSoloGameOver();
+    // 1. INTERCETTAZIONE DELLA SCHERMATA FINALE:
+    // Se l'indice corrente è l'ultimo del mazzo (soloCardIndex === totalCards - 1):
+    if (!isInfinite && (state.soloCardIndex >= totalCards - 1)) {
+      console.log("[FORCE ENDGAME] Ultima carta intercettata in handleSoloVote (indice " + state.soloCardIndex + "). Cambio schermata UI istantaneo!");
+      forceSwitchToSummary();
       return;
     }
 
     // Avanza immediatamente alla prossima carta
     advanceSoloGame();
   } catch (err) {
-    console.error("Errore critico in handleSoloVote, forzo schermata finale:", err);
-    renderSoloGameOver();
+    console.error("[FORCE ENDGAME] Errore critico in handleSoloVote, cambio forzato a schermata risultati:", err);
+    forceSwitchToSummary();
   }
 }
 
@@ -4090,10 +4115,9 @@ function advanceSoloGame() {
     const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : (state.totalCards || 0);
 
     // FORCE END-GAME (Logica Blindata):
-    // All'inizio della funzione, prima di qualsiasi riga di codice/incremento:
     if (!isInfinite && (state.soloCardIndex >= totalCards - 1 || state.soloCardIndex + 1 >= totalCards)) {
-      console.log("Fine mazzo rilevata in advanceSoloGame, forzo la schermata finale.");
-      renderSoloGameOver();
+      console.log("[FORCE ENDGAME] Fine mazzo rilevata in advanceSoloGame. Cambio schermata UI istantaneo!");
+      forceSwitchToSummary();
       return;
     }
 
@@ -4111,16 +4135,16 @@ function advanceSoloGame() {
 
     // BLOCCO INCREMENTO: Se l'indice corrente ha raggiunto l'ultima carta disponibile, passa direttamente a fine partita
     if (state.soloCardIndex >= totalCards - 1) {
-      console.log("Blocco incremento: ultima carta raggiunta, forzo schermata finale.");
-      renderSoloGameOver();
+      console.log("[FORCE ENDGAME] Blocco incremento: ultima carta raggiunta, forzo schermata finale.");
+      forceSwitchToSummary();
       return;
     }
 
     state.soloCardIndex++;
     showSoloCard();
   } catch (err) {
-    console.error("Errore critico in advanceSoloGame, forzo la schermata finale:", err);
-    renderSoloGameOver();
+    console.error("[FORCE ENDGAME] Errore critico in advanceSoloGame, forzo schermata finale:", err);
+    forceSwitchToSummary();
   }
 }
 
