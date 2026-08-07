@@ -4219,6 +4219,14 @@ function renderSoloGameOver() {
       icon: "💤"
     });
   }
+  if (awards.length === 0) {
+    awards.push({
+      title: "🎯 L'EQUILIBRATO",
+      winner: state.playerName,
+      desc: `Hai mantenuto un perfetto bilanciamento tra Over e Under!`,
+      icon: "⚖️"
+    });
+  }
 
   renderGameOver({
     awards: awards,
@@ -4373,10 +4381,29 @@ function renderFilteredResultsList() {
 }
 
 function renderGameOver({ awards, summary }) {
-  // Condizionale titolo in base a Solo vs Gruppo
+  const mainTitleEl = document.querySelector('#screen-summary .summary-main-title');
+  if (mainTitleEl) {
+    mainTitleEl.textContent = state.isSoloMode ? "Sessione Completata! 🔥" : "Partita Completata! 🎉";
+  }
+
   const subtitleEl = document.getElementById('summary-subtitle');
   if (subtitleEl) {
-    subtitleEl.textContent = state.isSoloMode ? "I tuoi risultati" : "I risultati del gruppo";
+    if (state.isSoloMode) {
+      const cardsPlayed = (summary && Array.isArray(summary)) ? summary.length : (state.soloResponses ? state.soloResponses.length : 0);
+      let profileText = "";
+      if (awards && Array.isArray(awards) && awards.length > 0) {
+        profileText = ` • Profilo: ${awards[0].title.replace(/^[🟢🔴🐌🎯✨⛔💤]\s*/, '')}`;
+      }
+      subtitleEl.textContent = `Carte giocate: ${cardsPlayed}${profileText}`;
+    } else {
+      subtitleEl.textContent = "Classifiche e premi finali del gruppo:";
+    }
+  }
+
+  const sectionTitles = document.querySelectorAll('#screen-summary .awards-section-title');
+  if (sectionTitles && sectionTitles.length >= 2) {
+    sectionTitles[0].textContent = state.isSoloMode ? "🏆 Profilo di Personalità:" : "🏆 Premi Speciali:";
+    sectionTitles[1].textContent = state.isSoloMode ? "📊 I Tuoi Verdetti:" : "📊 Tutti i Verdetti:";
   }
 
   // Genera premi
@@ -4507,14 +4534,21 @@ function renderGameOver({ awards, summary }) {
     });
   }
 
-  // Controlli Host per riavvio
+  // Controlli Host per riavvio / Single Player
   if (el.summaryHostControls && el.summaryPlayerWaiting) {
-    if (state.isHost || state.isSoloMode) {
+    if (state.isSoloMode) {
       el.summaryHostControls.style.display = 'block';
       el.summaryPlayerWaiting.style.display = 'none';
       const btnRestartSpan = el.btnRestart ? el.btnRestart.querySelector('span') : null;
       if (btnRestartSpan) {
-        btnRestartSpan.textContent = state.isSoloMode ? "TORNA AL MENU" : "RICOMINCIA";
+        btnRestartSpan.textContent = "TORNA AL MENU";
+      }
+    } else if (state.isHost) {
+      el.summaryHostControls.style.display = 'block';
+      el.summaryPlayerWaiting.style.display = 'none';
+      const btnRestartSpan = el.btnRestart ? el.btnRestart.querySelector('span') : null;
+      if (btnRestartSpan) {
+        btnRestartSpan.textContent = "RICOMINCIA";
       }
     } else {
       el.summaryHostControls.style.display = 'none';
