@@ -3309,12 +3309,11 @@ function renderLobbyPlayers() {
 
     const hasAvatar = (player.avatar && typeof player.avatar === 'string' && player.avatar.trim().length > 15 && !player.avatar.includes('broken') && !player.avatar.includes('undefined') && (player.avatar.startsWith('data:image') || player.avatar.startsWith('http') || player.avatar.startsWith('/')));
     const avatarBg = getAvatarBgColor(player.name);
-    const initials = player.name ? player.name.substring(0, 2).toUpperCase() : '??';
 
     const avatarHtml = hasAvatar
       ? `<img class="lobby-avatar" src="${player.avatar}" style="cursor: pointer;" loading="lazy" onerror="this.style.display='none'; this.onerror=null; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
-         <div class="lobby-avatar-fallback" style="display:none; background-color: ${avatarBg}; cursor: pointer;">${initials}</div>`
-      : `<div class="lobby-avatar-fallback" style="background-color: ${avatarBg}; cursor: pointer;">${initials}</div>`;
+         <div class="lobby-avatar-fallback" style="display:none; background-color: ${avatarBg}; cursor: pointer; justify-content: center; align-items: center;">${getDefaultAvatarSvg('65%', 'rgba(255,255,255,0.7)')}</div>`
+      : `<div class="lobby-avatar-fallback" style="background-color: ${avatarBg}; cursor: pointer; display: flex; justify-content: center; align-items: center;">${getDefaultAvatarSvg('65%', 'rgba(255,255,255,0.7)')}</div>`;
 
     const hostBadge = player.isHost ? `<span class="lobby-player-host-badge" style="position: absolute; top: -6px; left: -6px; font-size: 0.7rem;">👑</span>` : '';
 
@@ -5535,6 +5534,10 @@ async function uploadImage(dataUrl, filename) {
 // SEZIONE AVATAR E PARTECIPANTI (DEFINIZIONI MANCANTI)
 // ==========================================================================
 
+function getDefaultAvatarSvg(size = '60%', color = 'rgba(255, 255, 255, 0.65)') {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:${size}; height:${size}; display:block; flex-shrink:0;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+}
+
 function getAvatarBgColor(name) {
   if (!name) return 'hsl(200, 70%, 60%)';
   let hash = 0;
@@ -5857,9 +5860,8 @@ function renderGameplayAvatars() {
     if (hasAvatar) {
       avatarContainer.innerHTML = `<img src="${player.avatar}" class="gameplay-avatar-img" style="width:100%; height:100%; border-radius:50%; object-fit:cover; border:1.5px solid rgba(255,255,255,0.4);">`;
     } else {
-      const initials = player.name ? player.name.substring(0, 2).toUpperCase() : '??';
       const bgColor = getAvatarBgColor(player.name);
-      avatarContainer.innerHTML = `<div class="avatar-initials-fallback" style="background-color:${bgColor};">${initials}</div>`;
+      avatarContainer.innerHTML = `<div class="avatar-initials-fallback" style="background-color:${bgColor}; display:flex; justify-content:center; align-items:center;">${getDefaultAvatarSvg('60%', 'rgba(255,255,255,0.75)')}</div>`;
     }
     el.gameplayAvatarsList.appendChild(avatarContainer);
   });
@@ -5897,9 +5899,8 @@ function renderPlayerListModalContent() {
     if (hasAvatar) {
       avatarHtml = `<img src="${player.avatar}" class="modal-player-avatar" style="cursor: pointer;">`;
     } else {
-      const initials = player.name ? player.name.substring(0, 2).toUpperCase() : '??';
       const bgColor = getAvatarBgColor(player.name);
-      avatarHtml = `<div class="modal-player-avatar-fallback" style="background-color:${bgColor}; cursor: pointer;">${initials}</div>`;
+      avatarHtml = `<div class="modal-player-avatar-fallback" style="background-color:${bgColor}; cursor: pointer; display:flex; justify-content:center; align-items:center;">${getDefaultAvatarSvg('60%', 'rgba(255,255,255,0.75)')}</div>`;
     }
 
     const isMe = player.id === socket.id;
@@ -5960,9 +5961,11 @@ function openAvatarZoom(player) {
   } else {
     if (zoomImage) zoomImage.style.display = 'none';
     if (zoomFallback) {
-      zoomFallback.textContent = player.name ? player.name.substring(0, 2).toUpperCase() : '??';
+      zoomFallback.innerHTML = getDefaultAvatarSvg('50%', 'rgba(255,255,255,0.75)');
       zoomFallback.style.backgroundColor = getAvatarBgColor(player.name);
       zoomFallback.style.display = 'flex';
+      zoomFallback.style.justifyContent = 'center';
+      zoomFallback.style.alignItems = 'center';
     }
   }
 
