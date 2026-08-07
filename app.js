@@ -117,6 +117,11 @@ function resetToMenu() {
   if (el.screenGameplay) {
     el.screenGameplay.classList.remove('is-solo-mode');
   }
+  const singleModal = document.getElementById('single-player-results-modal');
+  if (singleModal) {
+    singleModal.style.setProperty('display', 'none', 'important');
+    singleModal.classList.remove('active');
+  }
   clearSession();
   showScreen(el.screenWelcome);
 }
@@ -3909,6 +3914,12 @@ function startSoloGame(length = 30) {
   state.soloStreakCount = 0;
   hideSoloPersonalityPopup();
 
+  const singleModal = document.getElementById('single-player-results-modal');
+  if (singleModal) {
+    singleModal.style.setProperty('display', 'none', 'important');
+    singleModal.classList.remove('active');
+  }
+
   if (el.screenGameplay) {
     el.screenGameplay.classList.add('is-solo-mode');
   }
@@ -4197,20 +4208,19 @@ function showSinglePlayerResults() {
   checkMatchEndTrialExpiration();
   try { AudioSynth.playGong(); } catch (e) {}
 
-  if (el.screenGameplay) {
-    el.screenGameplay.classList.remove('active', 'is-solo-mode');
-  }
+  // 1. FORCE HIDE DEGLI ELEMENTI LOBBY MULTIPLAYER & SCHERMATE DI GIOCO
+  [el.screenGameplay, el.screenResults, el.screenSummary, el.screenLobby].forEach(s => {
+    if (s) s.classList.remove('active', 'is-solo-mode');
+  });
 
-  // Nascondi tassativamente qualsiasi elemento di attesa dell'host o multiplayer
   if (el.summaryPlayerWaiting) {
-    el.summaryPlayerWaiting.style.display = 'none';
+    el.summaryPlayerWaiting.style.setProperty('display', 'none', 'important');
+  }
+  if (el.resultsPlayerWaitingConfluent) {
+    el.resultsPlayerWaitingConfluent.style.setProperty('display', 'none', 'important');
   }
 
-  const mainTitleEl = document.querySelector('#screen-summary .summary-main-title');
-  if (mainTitleEl) {
-    mainTitleEl.textContent = "PARTITA FINITA! 🔥";
-  }
-
+  // 2. GENERAZIONE SCHERMATA FINALE INLINE (SINGLE PLAYER)
   const cardsPlayed = (state.soloResponses && Array.isArray(state.soloResponses)) ? state.soloResponses.length : 0;
   
   let countUnder = 0;
@@ -4246,28 +4256,45 @@ function showSinglePlayerResults() {
     personalityIcon = "💤";
   }
 
-  const subtitleEl = document.getElementById('summary-subtitle');
-  if (subtitleEl) {
-    subtitleEl.textContent = `Carte giocate: ${cardsPlayed} • Profilo: ${personalityTitle.replace(/^[🟢🔴🐌🎯✨⛔💤]\s*/, '')}`;
+  const singleStats = document.getElementById('single-player-summary-stats');
+  if (singleStats) {
+    singleStats.textContent = `Hai completato ${cardsPlayed} carte in questa sessione!`;
   }
 
-  const sectionTitles = document.querySelectorAll('#screen-summary .awards-section-title');
-  if (sectionTitles && sectionTitles.length >= 2) {
-    sectionTitles[0].textContent = "🏆 Profilo di Personalità:";
-    sectionTitles[1].textContent = "📊 I Tuoi Verdetti:";
+  const singlePersonalityCard = document.getElementById('single-player-personality-card');
+  if (singlePersonalityCard) {
+    singlePersonalityCard.innerHTML = `
+      <div class="award-card glass-panel" style="width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);">
+        <div class="award-icon-box" style="font-size: 2rem; flex-shrink: 0;">${personalityIcon}</div>
+        <div class="award-info" style="flex: 1; text-align: left;">
+          <div class="award-title-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span class="award-name" style="font-weight: 800; font-size: 1.05rem; color: #FFFFFF;">${personalityTitle}</span>
+            <span class="award-winner" style="font-size: 0.8rem; font-weight: 700; color: var(--color-underrated);">${state.playerName || 'Tu'}</span>
+          </div>
+          <div class="award-desc" style="font-size: 0.82rem; color: rgba(255,255,255,0.7); font-weight: 500;">${personalityDesc}</div>
+        </div>
+      </div>
+    `;
   }
 
-  const awards = [{
-    title: personalityTitle,
-    winner: state.playerName || 'Tu',
-    desc: personalityDesc,
-    icon: personalityIcon
-  }];
+  const singleModal = document.getElementById('single-player-results-modal');
+  if (singleModal) {
+    singleModal.style.setProperty('display', 'flex', 'important');
+    singleModal.classList.add('active');
+  }
 
-  renderGameOver({
-    awards: awards,
-    summary: state.soloResponses
-  });
+  // 3. ACTION DEL TASTO RICOMINCIA (#btn-restart-single)
+  const btnRestartSingle = document.getElementById('btn-restart-single');
+  if (btnRestartSingle && !btnRestartSingle.dataset.bound) {
+    btnRestartSingle.dataset.bound = 'true';
+    btnRestartSingle.addEventListener('click', () => {
+      if (singleModal) {
+        singleModal.style.setProperty('display', 'none', 'important');
+        singleModal.classList.remove('active');
+      }
+      resetToMenu();
+    });
+  }
 }
 
 function renderRoundResults({ votes, groupStats, globalStats, prompt, image, cardIndex, totalCards }) {
