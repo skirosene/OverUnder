@@ -3890,7 +3890,8 @@ function startSoloGame(length = 30) {
 }
 
 function showSoloCard() {
-  if (!state.soloDeck || !state.soloDeck.cards || state.soloCardIndex >= state.soloDeck.cards.length) {
+  const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : 0;
+  if (!state.soloDeck || !state.soloDeck.cards || state.soloCardIndex >= totalCards) {
     renderSoloGameOver();
     return;
   }
@@ -4016,10 +4017,17 @@ function handleSoloVote(voteType) {
     state.timerRequestId = null;
   }
 
+  const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : 0;
+  const card = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards[state.soloCardIndex] : null;
+
+  if (!card) {
+    renderSoloGameOver();
+    return;
+  }
+
   // Traccia le scelte consecutive e gestisce i pop-up di personalità
   updateSoloPersonalityStreak(voteType);
 
-  const card = state.soloDeck.cards[state.soloCardIndex];
   const votes = [{ player: state.playerName, vote: voteType }];
 
   // Salva risposta
@@ -4035,15 +4043,26 @@ function handleSoloVote(voteType) {
 }
 
 function advanceSoloGame() {
-  state.soloCardIndex++;
-  if (state.soloDeck && state.soloDeck.cards && state.soloCardIndex < state.soloDeck.cards.length) {
-    showSoloCard();
-  } else {
+  const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : 0;
+  
+  // CONTROLLO DI FINE PARTITA PRIORITARIO:
+  // Se l'indice della carta corrente ha raggiunto l'ultima carta del mazzo, interrompi subito e mostra i risultati finali
+  if (state.soloCardIndex + 1 >= totalCards) {
     renderSoloGameOver();
+    return;
   }
+
+  state.soloCardIndex++;
+  showSoloCard();
 }
 
 function renderSoloGameOver() {
+  if (state.timerRequestId) {
+    cancelAnimationFrame(state.timerRequestId);
+    state.timerRequestId = null;
+  }
+  hideSoloPersonalityPopup();
+
   checkMatchEndTrialExpiration();
   // Riproduci suono gong alla fine della partita in Solo
   AudioSynth.playGong();
