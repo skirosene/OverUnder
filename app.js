@@ -3890,9 +3890,13 @@ function startSoloGame(length = 30) {
 }
 
 function showSoloCard() {
+  if (!state.soloDeck || !state.soloDeck.cards || state.soloCardIndex >= state.soloDeck.cards.length) {
+    renderSoloGameOver();
+    return;
+  }
   const card = state.soloDeck.cards[state.soloCardIndex];
   if (!card) {
-    showSoloSummaryScreen();
+    renderSoloGameOver();
     return;
   }
   state.userHasVoted = false;
@@ -4032,7 +4036,7 @@ function handleSoloVote(voteType) {
 
 function advanceSoloGame() {
   state.soloCardIndex++;
-  if (state.soloCardIndex < state.soloDeck.cards.length) {
+  if (state.soloDeck && state.soloDeck.cards && state.soloCardIndex < state.soloDeck.cards.length) {
     showSoloCard();
   } else {
     renderSoloGameOver();
