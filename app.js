@@ -4080,7 +4080,11 @@ function forceSwitchToSummary() {
       el.screenSummary.classList.add('active');
     }
 
-    renderSoloGameOver();
+    if (state.isSoloMode) {
+      showSinglePlayerResults();
+    } else {
+      renderSoloGameOver();
+    }
   } catch (e) {
     console.error("[FORCE SWITCH] Errore in forceSwitchToSummary:", e);
     showScreen(el.screenSummary);
@@ -4175,70 +4179,90 @@ function advanceSoloGame() {
 }
 
 function renderSoloGameOver() {
+  if (state.isSoloMode) {
+    showSinglePlayerResults();
+  } else {
+    renderGameOver({});
+  }
+}
+
+function showSinglePlayerResults() {
   if (state.timerRequestId) {
     cancelAnimationFrame(state.timerRequestId);
     state.timerRequestId = null;
   }
+  stopTimerLoop();
   hideSoloPersonalityPopup();
 
   checkMatchEndTrialExpiration();
-  // Riproduci suono gong alla fine della partita in Solo
-  AudioSynth.playGong();
+  try { AudioSynth.playGong(); } catch (e) {}
 
-  // Calcola premi solo
-  const stats = {
-    [state.playerName]: {
-      underrated: 0,
-      overrated: 0,
-      timeouts: 0,
-      agreedWithGroup: 0,
-      disagreedWithGroup: 0
-    }
-  };
+  if (el.screenGameplay) {
+    el.screenGameplay.classList.remove('active', 'is-solo-mode');
+  }
 
-  state.soloResponses.forEach(res => {
-    res.votes.forEach(v => {
-      if (v.vote === 'underrated') stats[state.playerName].underrated++;
-      else if (v.vote === 'overrated') stats[state.playerName].overrated++;
-      else stats[state.playerName].timeouts++;
-    });
-  });
+  // Nascondi tassativamente qualsiasi elemento di attesa dell'host o multiplayer
+  if (el.summaryPlayerWaiting) {
+    el.summaryPlayerWaiting.style.display = 'none';
+  }
 
-  const awards = [];
-  const s = stats[state.playerName];
+  const mainTitleEl = document.querySelector('#screen-summary .summary-main-title');
+  if (mainTitleEl) {
+    mainTitleEl.textContent = "PARTITA FINITA! 🔥";
+  }
+
+  const cardsPlayed = (state.soloResponses && Array.isArray(state.soloResponses)) ? state.soloResponses.length : 0;
   
-  if (s.underrated >= Math.ceil(state.soloResponses.length / 2)) {
-    awards.push({
-      title: "🟢 IL SOTTO-VALUTATORE",
-      winner: state.playerName,
-      desc: `Hai votato SOTTOVALUTATO ${s.underrated} volte. Trovi valore in qualsiasi cosa!`,
-      icon: "✨"
+  let countUnder = 0;
+  let countOver = 0;
+  let countTimeout = 0;
+  if (state.soloResponses && Array.isArray(state.soloResponses)) {
+    state.soloResponses.forEach(res => {
+      if (res.votes && Array.isArray(res.votes)) {
+        res.votes.forEach(v => {
+          if (v.vote === 'underrated') countUnder++;
+          else if (v.vote === 'overrated') countOver++;
+          else countTimeout++;
+        });
+      }
     });
   }
-  if (s.overrated >= Math.ceil(state.soloResponses.length / 2)) {
-    awards.push({
-      title: "🔴 IL SOPRA-VALUTATORE",
-      winner: state.playerName,
-      desc: `Hai votato SOPRAVVALUTATO ${s.overrated} volte. Niente sembra soddisfarti!`,
-      icon: "⛔"
-    });
+
+  let personalityTitle = "🎯 L'EQUILIBRATO";
+  let personalityDesc = "Hai mantenuto un bilanciamento perfetto tra Over e Under!";
+  let personalityIcon = "⚖️";
+
+  if (countUnder >= Math.ceil(cardsPlayed / 2)) {
+    personalityTitle = "🟢 IL SOTTO-VALUTATORE";
+    personalityDesc = `Hai votato SOTTOVALUTATO ${countUnder} volte su ${cardsPlayed}. Trovi valore in qualsiasi cosa!`;
+    personalityIcon = "✨";
+  } else if (countOver >= Math.ceil(cardsPlayed / 2)) {
+    personalityTitle = "🔴 IL SOPRA-VALUTATORE";
+    personalityDesc = `Hai votato SOPRAVVALUTATO ${countOver} volte su ${cardsPlayed}. Niente sembra soddisfarti!`;
+    personalityIcon = "⛔";
+  } else if (countTimeout > 0 && countTimeout >= Math.ceil(cardsPlayed / 2)) {
+    personalityTitle = "🐌 IL PIGRO";
+    personalityDesc = `Tempo scaduto per ${countTimeout} volte. La fretta non fa per te!`;
+    personalityIcon = "💤";
   }
-  if (s.timeouts > 0) {
-    awards.push({
-      title: "🐌 IL PIGRO",
-      winner: state.playerName,
-      desc: `Tempo scaduto per ${s.timeouts} volte. La fretta non fa per te!`,
-      icon: "💤"
-    });
+
+  const subtitleEl = document.getElementById('summary-subtitle');
+  if (subtitleEl) {
+    subtitleEl.textContent = `Carte giocate: ${cardsPlayed} • Profilo: ${personalityTitle.replace(/^[🟢🔴🐌🎯✨⛔💤]\s*/, '')}`;
   }
-  if (awards.length === 0) {
-    awards.push({
-      title: "🎯 L'EQUILIBRATO",
-      winner: state.playerName,
-      desc: `Hai mantenuto un perfetto bilanciamento tra Over e Under!`,
-      icon: "⚖️"
-    });
+
+  const sectionTitles = document.querySelectorAll('#screen-summary .awards-section-title');
+  if (sectionTitles && sectionTitles.length >= 2) {
+    sectionTitles[0].textContent = "🏆 Profilo di Personalità:";
+    sectionTitles[1].textContent = "📊 I Tuoi Verdetti:";
   }
+
+  const awards = [{
+    title: personalityTitle,
+    winner: state.playerName || 'Tu',
+    desc: personalityDesc,
+    icon: personalityIcon
+  }];
 
   renderGameOver({
     awards: awards,
