@@ -102,17 +102,22 @@ function clearSession() {
 }
 
 function resetToMenu() {
-  clearSession();
+  state.soloCardIndex = 0;
+  state.soloResponses = [];
+  state.userHasVoted = false;
   state.soloStreakType = null;
   state.soloStreakCount = 0;
+  state.currentCardIndex = 0;
   hideSoloPersonalityPopup();
-  if (el.screenGameplay) {
-    el.screenGameplay.classList.remove('is-solo-mode');
-  }
   if (state.timerRequestId) {
     cancelAnimationFrame(state.timerRequestId);
     state.timerRequestId = null;
   }
+  stopTimerLoop();
+  if (el.screenGameplay) {
+    el.screenGameplay.classList.remove('is-solo-mode');
+  }
+  clearSession();
   showScreen(el.screenWelcome);
 }
 
@@ -2050,7 +2055,7 @@ function showPurchaseModal() {
     });
   }
 
-  // Host: Torna al Menu / Reset Lobby
+  // Host / Solo: Riavvio o Torna al Menu
   if (el.btnRestart) {
     el.btnRestart.addEventListener('click', () => {
       if (state.isSoloMode) {
@@ -2060,6 +2065,13 @@ function showPurchaseModal() {
       if (state.isHost) {
         socket.emit('restart_game');
       }
+    });
+  }
+
+  const btnSoloMenu = document.getElementById('btn-solo-menu');
+  if (btnSoloMenu) {
+    btnSoloMenu.addEventListener('click', () => {
+      resetToMenu();
     });
   }
 
@@ -4536,23 +4548,33 @@ function renderGameOver({ awards, summary }) {
 
   // Controlli Host per riavvio / Single Player
   if (el.summaryHostControls && el.summaryPlayerWaiting) {
+    const btnSoloMenu = document.getElementById('btn-solo-menu');
     if (state.isSoloMode) {
-      el.summaryHostControls.style.display = 'block';
-      el.summaryPlayerWaiting.style.display = 'none';
-      const btnRestartSpan = el.btnRestart ? el.btnRestart.querySelector('span') : null;
-      if (btnRestartSpan) {
-        btnRestartSpan.textContent = "TORNA AL MENU";
-      }
-    } else if (state.isHost) {
-      el.summaryHostControls.style.display = 'block';
+      el.summaryHostControls.style.display = 'flex';
       el.summaryPlayerWaiting.style.display = 'none';
       const btnRestartSpan = el.btnRestart ? el.btnRestart.querySelector('span') : null;
       if (btnRestartSpan) {
         btnRestartSpan.textContent = "RICOMINCIA";
       }
+      if (btnSoloMenu) {
+        btnSoloMenu.style.display = 'flex';
+      }
+    } else if (state.isHost) {
+      el.summaryHostControls.style.display = 'flex';
+      el.summaryPlayerWaiting.style.display = 'none';
+      const btnRestartSpan = el.btnRestart ? el.btnRestart.querySelector('span') : null;
+      if (btnRestartSpan) {
+        btnRestartSpan.textContent = "RICOMINCIA";
+      }
+      if (btnSoloMenu) {
+        btnSoloMenu.style.display = 'none';
+      }
     } else {
       el.summaryHostControls.style.display = 'none';
       el.summaryPlayerWaiting.style.display = 'block';
+      if (btnSoloMenu) {
+        btnSoloMenu.style.display = 'none';
+      }
     }
   }
 
