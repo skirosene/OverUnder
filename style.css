@@ -5527,22 +5527,30 @@ input[type="submit"] {
 .legal-modal-backdrop {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  z-index: 10000;
+  z-index: 20000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
   transition: opacity 0.25s ease, visibility 0.25s ease;
 }
 
 .legal-modal-backdrop.active {
   opacity: 1;
   visibility: visible;
+  pointer-events: auto;
+}
+
+.legal-modal-backdrop.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .legal-modal-content {

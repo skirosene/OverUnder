@@ -5667,6 +5667,8 @@ function setupAvatarEvents() {
       const box = document.getElementById('avatar-preview-box');
       if (box) box.classList.remove('has-image');
 
+      btnRemoveAvatar.style.display = 'none';
+
       if (socket && socket.connected && state.roomCode) {
         socket.emit('update_avatar', { avatar: null });
       }
@@ -5679,7 +5681,15 @@ function setupAvatarEvents() {
       e.stopPropagation();
       if (el.avatarOptionsPopover) {
         const isOpen = el.avatarOptionsPopover.style.display === 'flex';
-        el.avatarOptionsPopover.style.display = isOpen ? 'none' : 'flex';
+        const willOpen = !isOpen;
+        el.avatarOptionsPopover.style.display = willOpen ? 'flex' : 'none';
+
+        if (willOpen) {
+          const hasCustomPhoto = !!(state.playerAvatarUrl || (el.avatarPreviewBox && el.avatarPreviewBox.classList.contains('has-image')) || (el.avatarPreviewImg && el.avatarPreviewImg.style.display !== 'none' && el.avatarPreviewImg.src));
+          if (btnRemoveAvatar) {
+            btnRemoveAvatar.style.display = hasCustomPhoto ? 'flex' : 'none';
+          }
+        }
       }
     });
   }
