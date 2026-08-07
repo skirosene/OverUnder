@@ -3899,57 +3899,70 @@ function startSoloGame(length = 30) {
 }
 
 function showSoloCard() {
-  const isInfinite = !!state.isInfiniteMode;
-  let card = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards[state.soloCardIndex] : null;
-  
-  if (!card && isInfinite && state.soloDeck && state.soloDeck.cards && state.soloDeck.cards.length > 0) {
-    const originalCards = state.soloAvailableDecks && state.soloAvailableDecks[0] ? state.soloAvailableDecks[0].cards : state.soloDeck.cards;
-    const extraCards = JSON.parse(JSON.stringify(originalCards)).sort(() => 0.5 - Math.random());
-    state.soloDeck.cards.push(...extraCards);
-    card = state.soloDeck.cards[state.soloCardIndex];
-  }
+  try {
+    const isInfinite = !!state.isInfiniteMode;
+    const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : (state.totalCards || 0);
 
-  // Guard check: Se la carta non esiste e non siamo in modalità infinite, forza l'uscita ai risultati per evitare crash
-  if (!card) {
+    if (!isInfinite && (state.soloCardIndex >= totalCards || !state.soloDeck || !state.soloDeck.cards)) {
+      console.log("Fine mazzo rilevata in showSoloCard, forzo la schermata finale.");
+      renderSoloGameOver();
+      return;
+    }
+
+    let card = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards[state.soloCardIndex] : null;
+
+    if (!card && isInfinite && state.soloDeck && state.soloDeck.cards && state.soloDeck.cards.length > 0) {
+      const originalCards = state.soloAvailableDecks && state.soloAvailableDecks[0] ? state.soloAvailableDecks[0].cards : state.soloDeck.cards;
+      const extraCards = JSON.parse(JSON.stringify(originalCards)).sort(() => 0.5 - Math.random());
+      state.soloDeck.cards.push(...extraCards);
+      card = state.soloDeck.cards[state.soloCardIndex];
+    }
+
+    if (!card) {
+      console.log("Carta non trovata in showSoloCard, forzo la schermata finale.");
+      renderSoloGameOver();
+      return;
+    }
+
+    state.userHasVoted = false;
+    const promptStr = card.prompt || card.text || card.promptText || '';
+    state.currentPromptText = promptStr;
+    state.currentCardIndex = state.soloCardIndex;
+
+    el.currentDeckName.textContent = state.currentDeckName;
+    updateGameplayCardMedia(promptStr, card.image);
+
+    const totalDisplay = (state.isInfiniteMode || state.totalCards >= 9999 || state.totalCards === '∞') ? '∞' : state.totalCards;
+    el.deckProgress.textContent = `Carta ${state.soloCardIndex + 1} / ${totalDisplay}`;
+
+    el.btnUnderrated.classList.remove('disabled', 'pulse-active');
+    el.btnOverrated.classList.remove('disabled', 'pulse-active');
+
+    // Reset timer bar & UI counter
+    updateTimerUI(state.timerDurationMs);
+    el.timerBar.style.background = 'hsl(145, 80%, 50%)';
+    el.timerBar.style.boxShadow = '0 0 12px hsl(145, 80%, 50%)';
+
+    // In solo mode nascondi lo stato votazioni del gruppo e la lista avatar in alto
+    el.gameplayPlayersStatus.innerHTML = '';
+    el.gameplayStatusPanel.style.display = 'none';
+    if (el.gameplayAvatarsWrapper) {
+      el.gameplayAvatarsWrapper.style.display = 'none';
+    }
+
+    showScreen(el.screenGameplay);
+
+    // Avvia Timer Locale
+    state.lastTickElapsed = 0;
+    state.timerStartTime = Date.now();
+    if (state.timerRequestId) {
+      cancelAnimationFrame(state.timerRequestId);
+    }
+    state.timerRequestId = requestAnimationFrame(gameLoop);
+  } catch (err) {
+    console.error("Errore critico in showSoloCard, forzo la schermata finale:", err);
     renderSoloGameOver();
-    return;
   }
-
-  state.userHasVoted = false;
-  const promptStr = card.prompt || card.text || card.promptText || '';
-  state.currentPromptText = promptStr;
-  state.currentCardIndex = state.soloCardIndex;
-
-  el.currentDeckName.textContent = state.currentDeckName;
-  updateGameplayCardMedia(promptStr, card.image);
-  
-  const totalDisplay = (state.isInfiniteMode || state.totalCards >= 9999 || state.totalCards === '∞') ? '∞' : state.totalCards;
-  el.deckProgress.textContent = `Carta ${state.soloCardIndex + 1} / ${totalDisplay}`;
-
-  el.btnUnderrated.classList.remove('disabled', 'pulse-active');
-  el.btnOverrated.classList.remove('disabled', 'pulse-active');
-
-  // Reset timer bar & UI counter
-  updateTimerUI(state.timerDurationMs);
-  el.timerBar.style.background = 'hsl(145, 80%, 50%)';
-  el.timerBar.style.boxShadow = '0 0 12px hsl(145, 80%, 50%)';
-
-  // In solo mode nascondi lo stato votazioni del gruppo e la lista avatar in alto
-  el.gameplayPlayersStatus.innerHTML = '';
-  el.gameplayStatusPanel.style.display = 'none';
-  if (el.gameplayAvatarsWrapper) {
-    el.gameplayAvatarsWrapper.style.display = 'none';
-  }
-
-  showScreen(el.screenGameplay);
-
-  // Avvia Timer Locale
-  state.lastTickElapsed = 0;
-  state.timerStartTime = Date.now();
-  if (state.timerRequestId) {
-    cancelAnimationFrame(state.timerRequestId);
-  }
-  state.timerRequestId = requestAnimationFrame(gameLoop);
 }
 
 function updateSoloPersonalityStreak(voteType) {
@@ -4025,61 +4038,90 @@ function hideSoloPersonalityPopup() {
 }
 
 function handleSoloVote(voteType) {
-  // Ferma il timer
-  if (state.timerRequestId) {
-    cancelAnimationFrame(state.timerRequestId);
-    state.timerRequestId = null;
-  }
+  try {
+    // Ferma il timer
+    if (state.timerRequestId) {
+      cancelAnimationFrame(state.timerRequestId);
+      state.timerRequestId = null;
+    }
 
-  const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : 0;
-  const card = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards[state.soloCardIndex] : null;
+    const isInfinite = !!state.isInfiniteMode;
+    const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : (state.totalCards || 0);
 
-  if (!card) {
+    const card = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards[state.soloCardIndex] : null;
+
+    if (!card) {
+      console.log("Carta non trovata in handleSoloVote, forzo schermata finale.");
+      renderSoloGameOver();
+      return;
+    }
+
+    // Traccia le scelte consecutive e gestisce i pop-up di personalità
+    updateSoloPersonalityStreak(voteType);
+
+    const votes = [{ player: state.playerName, vote: voteType }];
+
+    // Salva risposta
+    state.soloResponses.push({
+      prompt: card.prompt,
+      image: card.image || null,
+      votes: votes,
+      stats: card.global_stats
+    });
+
+    // FORCE END-GAME: Se l'utente ha appena votato l'ultima carta del mazzo, passa subito ai risultati
+    if (!isInfinite && state.soloCardIndex >= totalCards - 1) {
+      console.log("Fine mazzo rilevata in handleSoloVote, forzo la schermata finale.");
+      renderSoloGameOver();
+      return;
+    }
+
+    // Avanza immediatamente alla prossima carta
+    advanceSoloGame();
+  } catch (err) {
+    console.error("Errore critico in handleSoloVote, forzo schermata finale:", err);
     renderSoloGameOver();
-    return;
   }
-
-  // Traccia le scelte consecutive e gestisce i pop-up di personalità
-  updateSoloPersonalityStreak(voteType);
-
-  const votes = [{ player: state.playerName, vote: voteType }];
-
-  // Salva risposta
-  state.soloResponses.push({
-    prompt: card.prompt,
-    image: card.image || null,
-    votes: votes,
-    stats: card.global_stats
-  });
-
-  // Avanza immediatamente alla prossima carta o fine gioco
-  advanceSoloGame();
 }
 
 function advanceSoloGame() {
-  const isInfinite = !!state.isInfiniteMode;
-  const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : 0;
-  
-  // GESTIONE CASO SPECIALE "CARTE INFINITE" (∞)
-  if (isInfinite) {
-    state.soloCardIndex++;
-    if (state.soloCardIndex >= state.soloDeck.cards.length) {
-      const originalCards = state.soloAvailableDecks && state.soloAvailableDecks[0] ? state.soloAvailableDecks[0].cards : state.soloDeck.cards;
-      const extraCards = JSON.parse(JSON.stringify(originalCards)).sort(() => 0.5 - Math.random());
-      state.soloDeck.cards.push(...extraCards);
+  try {
+    const isInfinite = !!state.isInfiniteMode;
+    const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : (state.totalCards || 0);
+
+    // FORCE END-GAME (Logica Blindata):
+    // All'inizio della funzione, prima di qualsiasi riga di codice/incremento:
+    if (!isInfinite && (state.soloCardIndex >= totalCards - 1 || state.soloCardIndex + 1 >= totalCards)) {
+      console.log("Fine mazzo rilevata in advanceSoloGame, forzo la schermata finale.");
+      renderSoloGameOver();
+      return;
     }
+
+    // GESTIONE CASO SPECIALE "CARTE INFINITE" (∞)
+    if (isInfinite) {
+      state.soloCardIndex++;
+      if (state.soloCardIndex >= state.soloDeck.cards.length) {
+        const originalCards = state.soloAvailableDecks && state.soloAvailableDecks[0] ? state.soloAvailableDecks[0].cards : state.soloDeck.cards;
+        const extraCards = JSON.parse(JSON.stringify(originalCards)).sort(() => 0.5 - Math.random());
+        state.soloDeck.cards.push(...extraCards);
+      }
+      showSoloCard();
+      return;
+    }
+
+    // BLOCCO INCREMENTO: Se l'indice corrente ha raggiunto l'ultima carta disponibile, passa direttamente a fine partita
+    if (state.soloCardIndex >= totalCards - 1) {
+      console.log("Blocco incremento: ultima carta raggiunta, forzo schermata finale.");
+      renderSoloGameOver();
+      return;
+    }
+
+    state.soloCardIndex++;
     showSoloCard();
-    return;
-  }
-
-  // CONTROLLO FINE MAZZO DINAMICO (Mazzi a termine: 30, 50, 100 carte):
-  if (state.soloCardIndex + 1 >= totalCards) {
+  } catch (err) {
+    console.error("Errore critico in advanceSoloGame, forzo la schermata finale:", err);
     renderSoloGameOver();
-    return;
   }
-
-  state.soloCardIndex++;
-  showSoloCard();
 }
 
 function renderSoloGameOver() {
