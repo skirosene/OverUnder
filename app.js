@@ -2882,6 +2882,12 @@ function setupSocketListeners() {
 
   // 6. Nuova Carta Inviata dal Server
   socket.on('new_card', ({ prompt, image, cardIndex, totalCards, roundId, timerDurationMs }) => {
+    // 4. GUARD CHECK SU UNDEFINED (Stanza Standard)
+    if (!prompt && !image && cardIndex === undefined) {
+      console.warn("[GUARD CHECK UNDEFINED] Carta ricevuta undefined in multiplayer Stanza Standard.");
+      return;
+    }
+
     state.currentPromptText = prompt;
     state.currentCardIndex = cardIndex;
     state.userHasVoted = false;
@@ -2968,7 +2974,11 @@ function setupSocketListeners() {
 
   // 10. Fine Partita (Riepilogo e Premi)
   socket.on('game_over', (data) => {
-    renderGameOver(data);
+    if (state.isSoloMode) {
+      showSinglePlayerResults();
+    } else {
+      renderGameOver(data);
+    }
   });
 
   // 11. Reset del gioco (Host torna in Lobby)
@@ -3183,6 +3193,15 @@ function preloadDeckImages(imageUrls) {
  * in formato grande ed espanso sul campo di gioco senza richiedere tap o modali di ingrandimento.
  */
 function updateGameplayCardMedia(prompt, image) {
+  // 4. GUARD CHECK SU UNDEFINED
+  if (prompt === undefined && image === undefined) {
+    console.warn("[GUARD CHECK UNDEFINED] Carta undefined in updateGameplayCardMedia.");
+    if (state.isSoloMode) {
+      showSinglePlayerResults();
+    }
+    return;
+  }
+
   const isInfinite = !!state.isInfiniteMode;
   const totalCards = state.isSoloMode ? ((state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : (state.totalCards || 0)) : (state.totalCards || 0);
   if (state.isSoloMode && state.soloCardIndex >= totalCards && !isInfinite) {
@@ -3939,7 +3958,7 @@ function showSoloCard() {
       console.log("[GUARDIA RENDERING] Indice superato (currentIndex >= totalCards). Arresto immediato rendering.");
       const promptCard = el.promptCard || document.getElementById('prompt-card');
       if (promptCard) promptCard.innerHTML = '';
-      forceSwitchToSummary();
+      showSinglePlayerResults();
       return;
     }
 
@@ -3952,12 +3971,12 @@ function showSoloCard() {
       card = state.soloDeck.cards[state.soloCardIndex];
     }
 
-    // 2. PREVENZIONE RENDER VUOTO: Svuota subito il contenitore della carta se undefined
+    // 2. PREVENZIONE RENDER VUOTO / GUARD CHECK SU UNDEFINED
     if (!card) {
-      console.log("[PREVENZIONE RENDER VUOTO] Carta non trovata in memoria, svuoto contenitore e forzo schermata finale.");
+      console.log("[PREVENZIONE RENDER VUOTO] Carta non trovata in memoria, svuoto contenitore e mostro fine partita.");
       const promptCard = el.promptCard || document.getElementById('prompt-card');
       if (promptCard) promptCard.innerHTML = '';
-      forceSwitchToSummary();
+      showSinglePlayerResults();
       return;
     }
 
@@ -4083,18 +4102,19 @@ function forceSwitchToSummary() {
     stopTimerLoop();
     hideSoloPersonalityPopup();
 
-    // FORZATURA DELLO STATO DELLA UI (Rimozione manuale classe gameplay e attivazione summary)
-    if (el.screenGameplay) {
-      el.screenGameplay.classList.remove('active', 'is-solo-mode');
-    }
-    if (el.screenSummary) {
-      el.screenSummary.classList.add('active');
-    }
-
     if (state.isSoloMode) {
+      if (el.screenGameplay) {
+        el.screenGameplay.classList.remove('active', 'is-solo-mode');
+      }
       showSinglePlayerResults();
     } else {
-      renderSoloGameOver();
+      if (el.screenGameplay) {
+        el.screenGameplay.classList.remove('active');
+      }
+      if (el.screenSummary) {
+        el.screenSummary.classList.add('active');
+      }
+      showScreen(el.screenSummary);
     }
   } catch (e) {
     console.error("[FORCE SWITCH] Errore in forceSwitchToSummary:", e);
