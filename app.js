@@ -953,9 +953,9 @@ function initSettingsSidebar() {
   if (btnShare) {
     btnShare.addEventListener('click', async () => {
       const shareData = {
-        title: 'OverUnder - Il Gioco',
-        text: 'Vieni a provare OverUnder, il gioco del momento! 🔥',
-        url: 'https://overunder-game.com'
+        title: 'Over Under - Party Game',
+        text: 'Vieni a provare Over Under, il gioco del momento! 🔥',
+        url: window.location.origin
       };
 
       if (navigator.share) {
@@ -983,15 +983,15 @@ function initSettingsSidebar() {
   const btnCloseLegal = document.getElementById('btn-close-legal-modal');
 
   const privacyText = `
-    <p><strong>OverUnder Game</strong> rispetta la tua privacy e si impegna a proteggere i dati degli utenti.</p>
+    <p><strong>Over Under</strong> rispetta la tua privacy e si impegna a proteggere i dati degli utenti.</p>
     <p><strong>Dati Raccolti:</strong> Non raccogliamo dati personali identificabili. I dati temporanei di sessione (es. nickname e risposte di gioco) vengono utilizzati esclusivamente per consentire il corretto funzionamento delle partite multiplayer in tempo reale e cancellati al termine della sessione.</p>
     <p><strong>Storage Locale:</strong> Utilizziamo unicamente la memoria locale del browser (localStorage) per salvare preferenze di gioco (audio, preferenze grafiche) senza tracciare la tua navigazione.</p>
     <p><strong>Contatti e Supporto:</strong> Per qualsiasi domanda riguardante la privacy o il servizio, puoi scriverci a <a href="mailto:support@overunder-game.com" style="color: #00f0ff; text-decoration: underline;">support@overunder-game.com</a>.</p>
   `;
 
   const termsText = `
-    <p><strong>Termini di Servizio - OverUnder Game</strong></p>
-    <p><strong>1. Accettazione dei Termini:</strong> Accedendo e utilizzando OverUnder Game, l'utente accetta di rispettare le regole della community e i presenti Termini di Servizio.</p>
+    <p><strong>Termini di Servizio - Over Under</strong></p>
+    <p><strong>1. Accettazione dei Termini:</strong> Accedendo e utilizzando Over Under, l'utente accetta di rispettare le regole della community e i presenti Termini di Servizio.</p>
     <p><strong>2. Condotta dell'Utente:</strong> È vietato utilizzare nickname o contenuti offensivi, diffamatori o discriminatori, nonché tentare di manomettere il servizio o i server di gioco.</p>
     <p><strong>3. Limitazione di Responsabilità:</strong> Il servizio viene fornito "così com'è". Ci riserviamo il diritto di sospendere l'accesso agli utenti che violano i termini della community.</p>
     <p><strong>4. Contatti:</strong> Per maggiori informazioni o assistenza: <a href="mailto:support@overunder-game.com" style="color: #00f0ff; text-decoration: underline;">support@overunder-game.com</a>.</p>
@@ -1821,15 +1821,35 @@ function showPurchaseModal() {
     }
   });
 
-  // Pulsante invita in lobby
-  el.btnLobbyInvite.addEventListener('click', () => {
+  // Pulsante invita in lobby con supporto Web Share API & fallback appunti
+  el.btnLobbyInvite.addEventListener('click', async () => {
     if (!state.roomCode) return;
     const inviteLink = window.location.origin + '/?room=' + encodeURIComponent(state.roomCode);
+    const shareTitle = 'Over Under - Party Game';
+    const shareText = `Unisciti alla mia stanza su Over Under! 🔥`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: inviteLink
+        });
+        console.log('[SHARE] Condivisione nativa stanza completata con successo');
+        return;
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.warn('[SHARE] Web Share API fallita, fallback negli appunti:', err);
+        } else {
+          return;
+        }
+      }
+    }
+
     navigator.clipboard.writeText(inviteLink).then(() => {
       showToast("Invito copiato!");
     }).catch(err => {
       console.error("Errore nella copia dell'invito: ", err);
-      // Fallback per vecchi browser o browser in-app di Telegram/Instagram
       const textArea = document.createElement("textarea");
       textArea.value = inviteLink;
       document.body.appendChild(textArea);
@@ -3834,7 +3854,7 @@ function startSoloGame(length = 30) {
   clonedDeck.cards = shuffledCards.slice(0, Math.min(length, shuffledCards.length));
 
   state.soloDeck = clonedDeck;
-  state.currentDeckName = deck.deck_name || "OverUnder";
+  state.currentDeckName = deck.deck_name || "Over Under";
   state.totalCards = clonedDeck.cards.length;
   state.soloCardIndex = 0;
   state.soloResponses = [];
