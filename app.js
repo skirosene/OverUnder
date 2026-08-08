@@ -4103,8 +4103,114 @@ function hideSoloPersonalityPopup() {
   }
 }
 
+function cleanUpMultiplayerListeners() {
+  try {
+    if (state.timerRequestId) {
+      cancelAnimationFrame(state.timerRequestId);
+      state.timerRequestId = null;
+    }
+    stopTimerLoop();
+    if (state.soloPersonalityTimer) {
+      clearTimeout(state.soloPersonalityTimer);
+      state.soloPersonalityTimer = null;
+    }
+    if (state.soloTimeoutId) {
+      clearTimeout(state.soloTimeoutId);
+      state.soloTimeoutId = null;
+    }
+    if (state.connectionTimeout) {
+      clearTimeout(state.connectionTimeout);
+      state.connectionTimeout = null;
+    }
+    if (typeof socket !== 'undefined' && socket) {
+      if (typeof socket.disconnect === 'function') {
+        socket.disconnect();
+      }
+    }
+  } catch (e) {
+    console.warn("[CLEANUP] Errore in cleanUpMultiplayerListeners:", e);
+  }
+}
+
+function renderSinglePlayerFinalScreen() {
+  cleanUpMultiplayerListeners();
+
+  const appContainer = document.getElementById('app') || document.body;
+  
+  // Svuotamento totale del contenitore principale ed iniezione pulita senza elementi multiplayer
+  appContainer.innerHTML = `
+    <div class="phone-frame" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; text-align: center; box-sizing: border-box; width: 100%;">
+      <div class="glass-panel" style="width: 100%; max-width: 420px; text-align: center; padding: 36px 24px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.18); background: rgba(18, 24, 40, 0.94); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 20px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; align-items: center; gap: 20px;">
+        <div style="font-size: 3.8rem; line-height: 1; margin-bottom: 2px;">🔥</div>
+        <h1 style="font-family: var(--font-title, 'Outfit', sans-serif); font-weight: 800; font-size: 2rem; color: #FFFFFF; text-transform: uppercase; margin: 0; letter-spacing: 0.5px; line-height: 1.2;">Partita Completata! 🔥</h1>
+        <p style="font-size: 1.05rem; color: rgba(255,255,255,0.85); line-height: 1.5; margin: 0; font-weight: 500;">Hai risposto a tutte le carte della sessione.</p>
+        <button id="btn-restart-final" class="btn btn-primary btn-pulse-premium" style="width: 100%; justify-content: center; font-size: 1.1rem; font-weight: 800; padding: 16px; border-radius: 14px; margin-top: 10px; cursor: pointer; border: none; background: linear-gradient(135deg, #06B6D4, #0891B2); color: #FFFFFF; box-shadow: 0 4px 20px rgba(6, 182, 212, 0.4);">RICOMINCIA</button>
+      </div>
+    </div>
+  `;
+
+  // Al click sul pulsante #btn-restart-final, reset totale dello stato locale e refresh alla configurazione iniziale
+  const btnRestartFinal = document.getElementById('btn-restart-final');
+  if (btnRestartFinal) {
+    btnRestartFinal.addEventListener('click', () => {
+      clearSession();
+      safeStorage.removeItem('overunder_saved_session');
+      safeSessionStorage.removeItem('overunder_roomCode');
+      safeSessionStorage.removeItem('overunder_playerName');
+      safeSessionStorage.removeItem('overunder_isHost');
+      window.location.href = window.location.pathname;
+    });
+  }
+}
+
+function endGame(params) {
+  const isSinglePlayer = !!(state.isSoloMode || state.gameMode === 'single');
+  if (isSinglePlayer) {
+    cleanUpMultiplayerListeners();
+    renderSinglePlayerFinalScreen();
+    return;
+  }
+  renderGameOver(params || {});
+}
+
+function showResults(params) {
+  const isSinglePlayer = !!(state.isSoloMode || state.gameMode === 'single');
+  if (isSinglePlayer) {
+    cleanUpMultiplayerListeners();
+    renderSinglePlayerFinalScreen();
+    return;
+  }
+  renderGameOver(params || {});
+}
+
+function finishMatch(params) {
+  const isSinglePlayer = !!(state.isSoloMode || state.gameMode === 'single');
+  if (isSinglePlayer) {
+    cleanUpMultiplayerListeners();
+    renderSinglePlayerFinalScreen();
+    return;
+  }
+  renderGameOver(params || {});
+}
+
+function showSinglePlayerResults() {
+  cleanUpMultiplayerListeners();
+  renderSinglePlayerFinalScreen();
+}
+
+function renderSoloGameOver() {
+  cleanUpMultiplayerListeners();
+  renderSinglePlayerFinalScreen();
+}
+
 function forceSwitchToSummary() {
   try {
+    if (state.isSoloMode || state.gameMode === 'single') {
+      cleanUpMultiplayerListeners();
+      renderSinglePlayerFinalScreen();
+      return;
+    }
+
     if (state.timerRequestId) {
       cancelAnimationFrame(state.timerRequestId);
       state.timerRequestId = null;
@@ -4112,20 +4218,13 @@ function forceSwitchToSummary() {
     stopTimerLoop();
     hideSoloPersonalityPopup();
 
-    if (state.isSoloMode) {
-      if (el.screenGameplay) {
-        el.screenGameplay.classList.remove('active', 'is-solo-mode');
-      }
-      showSinglePlayerResults();
-    } else {
-      if (el.screenGameplay) {
-        el.screenGameplay.classList.remove('active');
-      }
-      if (el.screenSummary) {
-        el.screenSummary.classList.add('active');
-      }
-      showScreen(el.screenSummary);
+    if (el.screenGameplay) {
+      el.screenGameplay.classList.remove('active');
     }
+    if (el.screenSummary) {
+      el.screenSummary.classList.add('active');
+    }
+    showScreen(el.screenSummary);
   } catch (e) {
     console.error("[FORCE SWITCH] Errore in forceSwitchToSummary:", e);
     showScreen(el.screenSummary);
@@ -4146,8 +4245,8 @@ function handleSoloVote(voteType) {
     const card = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards[state.soloCardIndex] : null;
 
     if (!card) {
-      console.log("[FORCE ENDGAME] Carta non trovata in handleSoloVote, cambio diretto a schermata risultati.");
-      forceSwitchToSummary();
+      console.log("[FORCE ENDGAME] Carta non trovata in handleSoloVote, rendering finale.");
+      renderSinglePlayerFinalScreen();
       return;
     }
 
@@ -4167,8 +4266,8 @@ function handleSoloVote(voteType) {
     // 1. INTERCETTAZIONE DELLA SCHERMATA FINALE:
     // Se l'indice corrente è l'ultimo del mazzo (soloCardIndex === totalCards - 1):
     if (!isInfinite && (state.soloCardIndex >= totalCards - 1)) {
-      console.log("[FORCE ENDGAME] Ultima carta intercettata in handleSoloVote (indice " + state.soloCardIndex + "). Cambio schermata UI istantaneo!");
-      forceSwitchToSummary();
+      console.log("[FORCE ENDGAME] Ultima carta intercettata in handleSoloVote (indice " + state.soloCardIndex + "). Rendering finale istantaneo!");
+      renderSinglePlayerFinalScreen();
       return;
     }
 
@@ -4176,7 +4275,7 @@ function handleSoloVote(voteType) {
     advanceSoloGame();
   } catch (err) {
     console.error("[FORCE ENDGAME] Errore critico in handleSoloVote, cambio forzato a schermata risultati:", err);
-    forceSwitchToSummary();
+    renderSinglePlayerFinalScreen();
   }
 }
 
@@ -4187,8 +4286,8 @@ function advanceSoloGame() {
 
     // FORCE END-GAME (Logica Blindata):
     if (!isInfinite && (state.soloCardIndex >= totalCards - 1 || state.soloCardIndex + 1 >= totalCards)) {
-      console.log("[FORCE ENDGAME] Fine mazzo rilevata in advanceSoloGame. Cambio schermata UI istantaneo!");
-      forceSwitchToSummary();
+      console.log("[FORCE ENDGAME] Fine mazzo rilevata in advanceSoloGame. Rendering finale istantaneo!");
+      renderSinglePlayerFinalScreen();
       return;
     }
 
@@ -4207,7 +4306,7 @@ function advanceSoloGame() {
     // BLOCCO INCREMENTO: Se l'indice corrente ha raggiunto l'ultima carta disponibile, passa direttamente a fine partita
     if (state.soloCardIndex >= totalCards - 1) {
       console.log("[FORCE ENDGAME] Blocco incremento: ultima carta raggiunta, forzo schermata finale.");
-      forceSwitchToSummary();
+      renderSinglePlayerFinalScreen();
       return;
     }
 
@@ -4215,266 +4314,19 @@ function advanceSoloGame() {
     showSoloCard();
   } catch (err) {
     console.error("[FORCE ENDGAME] Errore critico in advanceSoloGame, forzo schermata finale:", err);
-    forceSwitchToSummary();
+    renderSinglePlayerFinalScreen();
   }
 }
 
-function renderSoloGameOver() {
-  if (state.isSoloMode) {
-    showSinglePlayerResults();
-  } else {
-    renderGameOver({});
+function renderGameOver({ awards, summary } = {}) {
+  const isSinglePlayer = !!(state.isSoloMode || state.gameMode === 'single');
+  if (isSinglePlayer) {
+    // Disattiva e scollega qualsiasi listener o socket attivo prima
+    cleanUpMultiplayerListeners();
+    // Esegui SOLO la funzione locale per il singolo
+    renderSinglePlayerFinalScreen();
+    return; // INTERROMPI QUI L'ESECUZIONE, non andare avanti
   }
-}
-
-function showSinglePlayerResults() {
-  if (state.timerRequestId) {
-    cancelAnimationFrame(state.timerRequestId);
-    state.timerRequestId = null;
-  }
-  stopTimerLoop();
-  hideSoloPersonalityPopup();
-
-  checkMatchEndTrialExpiration();
-  try { AudioSynth.playGong(); } catch (e) {}
-
-  // 1. NASCONDI TASSATIVAMENTE SCHERMATA DI GIOCO E QUALSIASI CONTENITORE MULTIPLAYER
-  [el.screenGameplay, el.screenResults, el.screenSummary, el.screenLobby].forEach(s => {
-    if (s) {
-      s.classList.remove('active', 'is-solo-mode');
-      s.style.display = 'none';
-    }
-  });
-
-  if (el.summaryPlayerWaiting) {
-    el.summaryPlayerWaiting.style.setProperty('display', 'none', 'important');
-  }
-  if (el.resultsPlayerWaitingConfluent) {
-    el.resultsPlayerWaitingConfluent.style.setProperty('display', 'none', 'important');
-  }
-
-  // 2. MOSTRA ESCLUSIVAMENTE IL NUOVO BLOCCO DEDICATO SINGLE PLAYER (#single-player-end-screen)
-  const cardsPlayed = (state.soloResponses && Array.isArray(state.soloResponses)) ? state.soloResponses.length : 0;
-  
-  let countUnder = 0;
-  let countOver = 0;
-  let countTimeout = 0;
-  if (state.soloResponses && Array.isArray(state.soloResponses)) {
-    state.soloResponses.forEach(res => {
-      if (res.votes && Array.isArray(res.votes)) {
-        res.votes.forEach(v => {
-          if (v.vote === 'underrated') countUnder++;
-          else if (v.vote === 'overrated') countOver++;
-          else countTimeout++;
-        });
-      }
-    });
-  }
-
-  let personalityTitle = "🎯 L'EQUILIBRATO";
-  let personalityDesc = "Hai mantenuto un bilanciamento perfetto tra Over e Under!";
-  let personalityIcon = "⚖️";
-
-  if (countUnder >= Math.ceil(cardsPlayed / 2)) {
-    personalityTitle = "🟢 IL SOTTO-VALUTATORE";
-    personalityDesc = `Hai votato SOTTOVALUTATO ${countUnder} volte su ${cardsPlayed}. Trovi valore in qualsiasi cosa!`;
-    personalityIcon = "✨";
-  } else if (countOver >= Math.ceil(cardsPlayed / 2)) {
-    personalityTitle = "🔴 IL SOPRA-VALUTATORE";
-    personalityDesc = `Hai votato SOPRAVVALUTATO ${countOver} volte su ${cardsPlayed}. Niente sembra soddisfarti!`;
-    personalityIcon = "⛔";
-  } else if (countTimeout > 0 && countTimeout >= Math.ceil(cardsPlayed / 2)) {
-    personalityTitle = "🐌 IL PIGRO";
-    personalityDesc = `Tempo scaduto per ${countTimeout} volte. La fretta non fa per te!`;
-    personalityIcon = "💤";
-  }
-
-  const summaryEl = document.getElementById('single-player-summary');
-  if (summaryEl) {
-    summaryEl.textContent = `Hai completato tutte le ${cardsPlayed} carte della sessione!`;
-  }
-
-  const badgeEl = document.getElementById('single-player-personality-badge');
-  if (badgeEl) {
-    badgeEl.innerHTML = `
-      <div class="award-card glass-panel" style="width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);">
-        <div class="award-icon-box" style="font-size: 2rem; flex-shrink: 0;">${personalityIcon}</div>
-        <div class="award-info" style="flex: 1; text-align: left;">
-          <div class="award-title-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span class="award-name" style="font-weight: 800; font-size: 1.05rem; color: #FFFFFF;">${personalityTitle}</span>
-            <span class="award-winner" style="font-size: 0.8rem; font-weight: 700; color: var(--color-underrated);">${state.playerName || 'Tu'}</span>
-          </div>
-          <div class="award-desc" style="font-size: 0.82rem; color: rgba(255,255,255,0.7); font-weight: 500;">${personalityDesc}</div>
-        </div>
-      </div>
-    `;
-  }
-
-  const endScreen = document.getElementById('single-player-end-screen');
-  if (endScreen) {
-    endScreen.style.display = 'flex';
-  }
-
-  // 3. EVENT LISTENER SUL TASTO "RICOMINCIA" (#btn-restart-single-game)
-  const btnRestartSingle = document.getElementById('btn-restart-single-game');
-  if (btnRestartSingle && !btnRestartSingle.dataset.bound) {
-    btnRestartSingle.dataset.bound = 'true';
-    btnRestartSingle.addEventListener('click', () => {
-      if (endScreen) {
-        endScreen.style.display = 'none';
-      }
-      resetToMenu();
-    });
-  }
-}
-
-function renderRoundResults({ votes, groupStats, globalStats, prompt, image, cardIndex, totalCards }) {
-  stopTimerLoop();
-  state.roundEndActive = true;
-  state.currentCardIndex = cardIndex;
-  state.totalCards = totalCards;
-  state.currentPromptText = prompt;
-
-  // Reset dello stato della barra toggle bridge per ogni nuovo round
-  state.isWorldStatsVisible = false;
-  el.btnToggleWorldStats.classList.remove('active');
-  el.globalStatsCard.classList.remove('active');
-
-  if (state.roomIsPremium) {
-    if (el.worldToggleBridge) el.worldToggleBridge.style.display = 'none';
-    if (el.globalStatsCard) el.globalStatsCard.style.display = 'none';
-  } else {
-    if (el.worldToggleBridge) el.worldToggleBridge.style.display = 'flex';
-    if (el.globalStatsCard) el.globalStatsCard.style.display = '';
-  }
-
-  // Gestione immagine risultati round (Full-Card, no zoom)
-  if (el.resultsPromptImageContainer) {
-    if (image) {
-      el.resultsPromptImage.src = image;
-      el.resultsPromptImageContainer.style.display = 'block';
-      el.resultsPromptImage.style.pointerEvents = 'none';
-      el.resultsPromptImage.style.cursor = 'default';
-    } else {
-      el.resultsPromptImageContainer.style.display = 'none';
-      el.resultsPromptImage.src = '';
-    }
-  }
-
-  // 1. Popola il soggetto del prompt (nasconde titoli generici in partita)
-  const cleanResultPrompt = (prompt && typeof prompt === 'string') ? prompt.trim() : '';
-  const isGenericResultPrompt = !cleanResultPrompt || cleanResultPrompt === 'Carta Immagine' || cleanResultPrompt.startsWith('Immagine (') || cleanResultPrompt === 'immagine caricata' || cleanResultPrompt.startsWith('image_');
-  
-  if (!isGenericResultPrompt) {
-    el.resultsPromptSubject.textContent = cleanResultPrompt;
-    el.resultsPromptSubject.style.display = 'block';
-  } else {
-    el.resultsPromptSubject.textContent = '';
-    el.resultsPromptSubject.style.display = 'none';
-  }
-
-  // 3. Modulo 1: Il Tuo Gruppo (Barre percentuali bipolari)
-  el.groupUnderPctText.textContent = `UNDER ${groupStats.underrated}%`;
-  el.groupOverPctText.textContent = `OVER ${groupStats.overrated}%`;
-  el.groupUnderFill.style.width = `${groupStats.underrated}%`;
-  el.groupOverFill.style.width = `${groupStats.overrated}%`;
-
-  // 4. Modulo 2: Il Mondo (Global, Barre percentuali bipolari)
-  el.globalUnderPctText.textContent = `UNDER ${globalStats.underrated}%`;
-  el.globalOverPctText.textContent = `OVER ${globalStats.overrated}%`;
-  el.globalUnderFill.style.width = `${globalStats.underrated}%`;
-  el.globalOverFill.style.width = `${globalStats.overrated}%`;
-
-  // 5. Modulo Dettaglio Voti (Solo in Multiplayer)
-  if (state.isSoloMode) {
-    el.resultsVotesDetailCard.style.display = 'none';
-  } else {
-    el.resultsVotesDetailCard.style.display = 'block';
-    
-    // Salva i voti correnti per il filtraggio
-    state.currentRoundResultsVotes = votes;
-    state.activeResultsFilter = 'all';
-
-    // Reimposta active classe sui bottoni filtro dei risultati
-    document.querySelectorAll('#results-votes-detail-card .votes-filter-container .filter-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.filter === 'all');
-    });
-
-    // Renderizza la lista filtrata
-    renderFilteredResultsList();
-  }
-}
-
-function renderFilteredResultsList() {
-  const filter = state.activeResultsFilter || 'all';
-  const votes = state.currentRoundResultsVotes || [];
-
-  // Filtra
-  let filteredVotes = votes;
-  if (filter === 'over') {
-    filteredVotes = votes.filter(v => v.vote === 'overrated');
-  } else if (filter === 'under') {
-    filteredVotes = votes.filter(v => v.vote === 'underrated');
-  }
-
-  // Ordina i voti in modo che l'utente corrente ("Tu") sia il primo della lista
-  const sortedVotes = [...filteredVotes].sort((a, b) => {
-    if (a.player === state.playerName) return -1;
-    if (b.player === state.playerName) return 1;
-    return 0;
-  });
-
-  el.resultsVotesList.innerHTML = '';
-  if (sortedVotes.length === 0) {
-    el.resultsVotesList.innerHTML = `<div class="no-players-text" style="padding: 10px; text-align: center; color: var(--color-text-muted);">Nessun voto per questa categoria.</div>`;
-    return;
-  }
-
-  sortedVotes.forEach(pv => {
-    const row = document.createElement('div');
-    row.className = 'results-vote-row';
-
-    let badgeText = 'Tempo Scaduto';
-    let badgeClass = 'results-vote-row-badge timeout';
-
-    if (pv.vote === 'underrated') {
-      badgeText = 'Sottovalutato';
-      badgeClass = 'results-vote-row-badge under';
-    } else if (pv.vote === 'overrated') {
-      badgeText = 'Sopravvalutato';
-      badgeClass = 'results-vote-row-badge over';
-    }
-
-    const displayName = pv.player === state.playerName ? 'Tu' : pv.player;
-
-    row.innerHTML = `
-      <span class="results-vote-row-name">${displayName}</span>
-      <span class="${badgeClass}">${badgeText}</span>
-    `;
-    el.resultsVotesList.appendChild(row);
-  });
-
-  // 6. Configura il footer (Controlli avanzamento)
-  if (state.isSoloMode) {
-    el.btnNextCardConfluent.style.display = 'flex';
-    el.resultsPlayerWaitingConfluent.style.display = 'none';
-    const isLast = state.currentCardIndex == state.totalCards - 1;
-    el.btnNextCardConfluent.querySelector('span').textContent = isLast ? "VEDI CLASSIFICA" : "PROSSIMA CARTA";
-  } else if (state.isHost) {
-    el.btnNextCardConfluent.style.display = 'flex';
-    el.resultsPlayerWaitingConfluent.style.display = 'none';
-    const isLast = state.currentCardIndex == state.totalCards - 1;
-    el.btnNextCardConfluent.querySelector('span').textContent = isLast ? "VEDI CLASSIFICA" : "PROSSIMA CARTA";
-  } else {
-    el.btnNextCardConfluent.style.display = 'none';
-    el.resultsPlayerWaitingConfluent.style.display = 'flex';
-  }
-
-  // 6. Transizione alla schermata
-  showScreen(el.screenResults);
-}
-
-function renderGameOver({ awards, summary }) {
   const mainTitleEl = document.querySelector('#screen-summary .summary-main-title');
   if (mainTitleEl) {
     mainTitleEl.textContent = state.isSoloMode ? "Sessione Completata! 🔥" : "Partita Completata! 🎉";
