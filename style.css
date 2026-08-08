@@ -2811,6 +2811,110 @@ input[type="submit"] {
   pointer-events: auto !important;
 }
 
+/* ==========================================================================
+   BADGE PREMIO CELEBRATIVO SINGLE PLAYER (TROPHY REWARD CARD)
+   ========================================================================== */
+.single-player-end-modal-box {
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  padding: 30px 24px;
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(56, 189, 248, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  box-sizing: border-box;
+  margin: auto;
+}
+
+.single-player-end-title {
+  color: #ffffff;
+  text-align: center;
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: clamp(1.6rem, 5vw, 2rem);
+  text-transform: uppercase;
+  margin: 0;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.single-player-end-subtitle {
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  margin: -6px 0 0 0;
+  font-weight: 400;
+}
+
+.award-reward-badge-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 22px 16px;
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45), 0 0 24px rgba(250, 204, 21, 0.12);
+  box-sizing: border-box;
+}
+
+.trophy-glow-wrapper {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(250, 204, 21, 0.22) 0%, rgba(250, 204, 21, 0.04) 70%, transparent 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid rgba(250, 204, 21, 0.45);
+  box-shadow: 0 0 24px rgba(250, 204, 21, 0.35), inset 0 0 14px rgba(250, 204, 21, 0.2);
+  margin-bottom: 12px;
+}
+
+.award-badge-title {
+  font-family: var(--font-title);
+  font-weight: 900;
+  font-size: 1.22rem;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.25);
+  margin-bottom: 6px;
+}
+
+.award-badge-desc {
+  font-size: 0.86rem;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.45;
+  font-weight: 400;
+  margin: 0 0 12px 0;
+  max-width: 320px;
+}
+
+.award-player-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
 .custom-modal-box {
   width: 90%;
   max-width: 380px;

@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=8000">
+  <link rel="stylesheet" href="/style.css?v=8100">
 </head>
 
 <body>
@@ -830,12 +830,11 @@
 
       <!-- BLOCCO HTML FISICAMENTE SEPARATO DEDICATO ESCLUSIVAMENTE AL SINGLE PLAYER -->
       <div id="single-player-end-screen" class="single-player-end-screen-overlay" style="display: none;">
-        <div class="glass-panel" style="width: 100%; max-width: 420px; text-align: center; padding: 28px 22px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.18); box-shadow: 0 20px 50px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 16px; box-sizing: border-box;">
-          <div style="font-size: 3.5rem; line-height: 1;">🔥</div>
-          <h1 style="color: #fff; text-align: center; font-family: var(--font-title); font-weight: 800; font-size: 1.8rem; text-transform: uppercase; margin: 0; letter-spacing: 0.5px;">Partita Completata! 🔥</h1>
-          <p id="single-player-summary" style="color: #aaa; text-align: center; font-size: 0.95rem; line-height: 1.5; margin: 0; font-weight: 500;">Hai risposto a tutte le carte della sessione.</p>
+        <div class="single-player-end-modal-box glass-panel">
+          <h1 class="single-player-end-title">Partita Completata!</h1>
+          <p id="single-player-summary" class="single-player-end-subtitle">Hai risposto a tutte le carte della sessione.</p>
           <div id="single-player-personality-badge" style="width: 100%;"></div>
-          <button id="btn-restart-direct" class="btn btn-primary btn-pulse-premium" style="width: 100%; justify-content: center; font-size: 1rem; font-weight: 800; padding: 14px; margin-top: 8px;">RICOMINCIA</button>
+          <button id="btn-restart-direct" class="btn btn-primary btn-pulse-premium" style="width: 100%; justify-content: center; font-size: 1.05rem; font-weight: 800; padding: 15px; border-radius: 14px; margin-top: 4px; letter-spacing: 1px;">RICOMINCIA</button>
         </div>
       </div>
 
@@ -1417,7 +1416,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=8000"></script>
+  <script src="/app.js?v=8100"></script>
 </body>
 
 </html>

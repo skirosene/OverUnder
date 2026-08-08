@@ -4303,7 +4303,19 @@ function renderSinglePlayerFinalScreen() {
       personalityIcon = "💤";
     }
 
-    // 3. Mostra la schermata finale Single Player isolata
+    const trophySvg = `
+      <div class="trophy-glow-wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 8px rgba(250,204,21,0.6)); display: block;">
+          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+          <path d="M4 22h16"></path>
+          <path d="M10 14.66V17c0 .55-.45 1-1 1H7c-.55 0-1 .45-1 1v1c0 .55.45 1 1 1h10c.55 0 1-.45 1-1v-1c0-.55-.45-1-1-1h-2c-.55 0-1-.45-1-1v-2.34"></path>
+          <path d="M6 4h12v5a6 6 0 0 1-12 0V4z"></path>
+        </svg>
+      </div>
+    `;
+
+    // 3. Mostra la schermata finale Single Player isolata e centrata verticalmente
     let endScreen = document.getElementById('single-player-end-screen');
     if (!endScreen) {
       endScreen = document.createElement('div');
@@ -4313,26 +4325,24 @@ function renderSinglePlayerFinalScreen() {
     }
 
     endScreen.className = 'single-player-end-screen-overlay custom-modal-overlay active';
-    endScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 999999; background: rgba(10, 15, 30, 0.96); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
+    endScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; background: rgba(10, 15, 30, 0.96); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; overflow-y: auto;';
 
     endScreen.innerHTML = `
-      <div class="glass-panel" style="width: 100%; max-width: 420px; text-align: center; padding: 28px 22px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.18); box-shadow: 0 20px 50px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 16px; box-sizing: border-box;">
-        <div style="font-size: 3.5rem; line-height: 1;">🔥</div>
-        <h1 style="color: #fff; text-align: center; font-family: var(--font-title); font-weight: 800; font-size: 1.8rem; text-transform: uppercase; margin: 0; letter-spacing: 0.5px;">Partita Completata! 🔥</h1>
-        <p style="color: #aaa; text-align: center; font-size: 0.95rem; line-height: 1.5; margin: 0; font-weight: 500;">Hai risposto a tutte le carte della sessione.</p>
+      <div class="single-player-end-modal-box glass-panel">
+        <h1 class="single-player-end-title">Partita Completata!</h1>
+        <p id="single-player-summary" class="single-player-end-subtitle">Hai risposto a tutte le carte della sessione.</p>
         <div id="single-player-personality-badge" style="width: 100%;">
-          <div class="award-card glass-panel" style="width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); box-sizing: border-box;">
-            <div class="award-icon-box" style="font-size: 2rem; flex-shrink: 0;">${personalityIcon}</div>
-            <div class="award-info" style="flex: 1; text-align: left;">
-              <div class="award-title-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                <span class="award-name" style="font-weight: 800; font-size: 1.05rem; color: #FFFFFF;">${personalityTitle}</span>
-                <span class="award-winner" style="font-size: 0.8rem; font-weight: 700; color: var(--color-underrated);">${state.playerName || 'Tu'}</span>
-              </div>
-              <div class="award-desc" style="font-size: 0.82rem; color: rgba(255,255,255,0.7); font-weight: 500;">${personalityDesc}</div>
+          <div class="award-reward-badge-card">
+            ${trophySvg}
+            <div class="award-badge-title">${personalityTitle}</div>
+            <p class="award-badge-desc">${personalityDesc}</p>
+            <div class="award-player-pill">
+              <span style="opacity: 0.7;">Giocatore:</span>
+              <span>${state.playerName || 'Tu'}</span>
             </div>
           </div>
         </div>
-        <button id="btn-restart-direct" class="btn btn-primary btn-pulse-premium" style="width: 100%; justify-content: center; font-size: 1rem; font-weight: 800; padding: 14px; margin-top: 8px;">RICOMINCIA</button>
+        <button id="btn-restart-direct" class="btn btn-primary btn-pulse-premium" style="width: 100%; justify-content: center; font-size: 1.05rem; font-weight: 800; padding: 15px; border-radius: 14px; margin-top: 4px; letter-spacing: 1px;">RICOMINCIA</button>
       </div>
     `;
 
@@ -4343,7 +4353,6 @@ function renderSinglePlayerFinalScreen() {
     }
   } catch (error) {
     console.error("[SAFE RENDER] Errore in renderSinglePlayerFinalScreen, attivo fallback:", error);
-    // Inietta immediatamente una schermata di ripiego (fallback) per non lasciare mai lo schermo nero
     try {
       const container = document.getElementById('app') || document.body;
       let fallbackScreen = document.getElementById('single-player-end-screen');
@@ -4353,12 +4362,27 @@ function renderSinglePlayerFinalScreen() {
         container.appendChild(fallbackScreen);
       }
       fallbackScreen.className = 'single-player-end-screen-overlay custom-modal-overlay active';
-      fallbackScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 999999; background: rgba(10, 15, 30, 0.96); flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
+      fallbackScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; background: rgba(10, 15, 30, 0.96); flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
       fallbackScreen.innerHTML = `
-        <div class="glass-panel" style="width: 100%; max-width: 400px; text-align: center; padding: 30px 20px; border-radius: 20px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); display: flex; flex-direction: column; gap: 16px; box-sizing: border-box;">
-          <h1 style="color:#fff; text-align:center; font-family:var(--font-title); font-size:1.8rem; margin:0;">Partita Completata! 🔥</h1>
-          <p style="color:#aaa; text-align:center; font-size:0.95rem; margin:0;">Hai risposto a tutte le carte della sessione.</p>
-          <button id="btn-restart-direct" class="btn btn-primary" style="width:100%; justify-content:center; font-weight:800; padding:14px; margin-top:10px;">RICOMINCIA</button>
+        <div class="single-player-end-modal-box glass-panel">
+          <h1 class="single-player-end-title">Partita Completata!</h1>
+          <p style="color: rgba(255,255,255,0.7); text-align: center; font-size: 0.92rem; margin: -6px 0 0 0;">Hai risposto a tutte le carte della sessione.</p>
+          <div class="award-reward-badge-card">
+            <div class="trophy-glow-wrapper">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 8px rgba(250,204,21,0.6)); display: block;">
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                <path d="M4 22h16"></path>
+                <path d="M10 14.66V17c0 .55-.45 1-1 1H7c-.55 0-1 .45-1 1v1c0 .55.45 1 1 1h10c.55 0 1-.45 1-1v-1c0-.55-.45-1-1-1h-2c-.55 0-1-.45-1-1v-2.34"></path>
+                <path d="M6 4h12v5a6 6 0 0 1-12 0V4z"></path>
+              </svg>
+            </div>
+            <div class="award-badge-title">SESSIONE COMPLETATA</div>
+            <div class="award-player-pill" style="margin-top: 8px;">
+              <span>${state.playerName || 'Tu'}</span>
+            </div>
+          </div>
+          <button id="btn-restart-direct" class="btn btn-primary" style="width: 100%; justify-content: center; font-weight: 800; padding: 15px; border-radius: 14px;">RICOMINCIA</button>
         </div>
       `;
       const btnFallback = fallbackScreen.querySelector('#btn-restart-direct');
