@@ -4602,11 +4602,11 @@ input[type="submit"] {
   letter-spacing: 3px;
   margin-top: 24px;
   text-transform: uppercase;
-  text-shadow: 0 0 15px rgba(255, 255, 255, 0.35);
 }
 
 #qr-modal-room-code {
   color: #ffffff !important;
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.6), 0 0 24px rgba(56, 189, 248, 0.3);
 }
 
 /* ==========================================================================
