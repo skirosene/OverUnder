@@ -4135,31 +4135,153 @@ function cleanUpMultiplayerListeners() {
 function renderSinglePlayerFinalScreen() {
   cleanUpMultiplayerListeners();
 
-  const appContainer = document.getElementById('app') || document.body;
-  
-  // Svuotamento totale del contenitore principale ed iniezione pulita senza elementi multiplayer
-  appContainer.innerHTML = `
-    <div class="phone-frame" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; text-align: center; box-sizing: border-box; width: 100%;">
-      <div class="glass-panel" style="width: 100%; max-width: 420px; text-align: center; padding: 36px 24px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.18); background: rgba(18, 24, 40, 0.94); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 20px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; align-items: center; gap: 20px;">
-        <div style="font-size: 3.8rem; line-height: 1; margin-bottom: 2px;">🔥</div>
-        <h1 style="font-family: var(--font-title, 'Outfit', sans-serif); font-weight: 800; font-size: 2rem; color: #FFFFFF; text-transform: uppercase; margin: 0; letter-spacing: 0.5px; line-height: 1.2;">Partita Completata! 🔥</h1>
-        <p style="font-size: 1.05rem; color: rgba(255,255,255,0.85); line-height: 1.5; margin: 0; font-weight: 500;">Hai risposto a tutte le carte della sessione.</p>
-        <button id="btn-restart-final" class="btn btn-primary btn-pulse-premium" style="width: 100%; justify-content: center; font-size: 1.1rem; font-weight: 800; padding: 16px; border-radius: 14px; margin-top: 10px; cursor: pointer; border: none; background: linear-gradient(135deg, #06B6D4, #0891B2); color: #FFFFFF; box-shadow: 0 4px 20px rgba(6, 182, 212, 0.4);">RICOMINCIA</button>
-      </div>
-    </div>
-  `;
+  // 1. Nascondi tassativamente schermata di gioco e qualsiasi contenitore multiplayer
+  [el.screenGameplay, el.screenResults, el.screenSummary, el.screenLobby, el.screenWelcome, el.screenSplash, el.screenLoading].forEach(s => {
+    if (s) {
+      s.classList.remove('active', 'is-solo-mode');
+      s.style.display = 'none';
+    }
+  });
 
-  // Al click sul pulsante #btn-restart-final, reset totale dello stato locale e refresh alla configurazione iniziale
+  if (el.summaryPlayerWaiting) {
+    el.summaryPlayerWaiting.style.setProperty('display', 'none', 'important');
+  }
+  if (el.resultsPlayerWaitingConfluent) {
+    el.resultsPlayerWaitingConfluent.style.setProperty('display', 'none', 'important');
+  }
+
+  // 2. Calcola e popola il badge di personalità e statistiche
+  const cardsPlayed = (state.soloResponses && Array.isArray(state.soloResponses)) ? state.soloResponses.length : 0;
+  
+  let countUnder = 0;
+  let countOver = 0;
+  let countTimeout = 0;
+  if (state.soloResponses && Array.isArray(state.soloResponses)) {
+    state.soloResponses.forEach(res => {
+      if (res.votes && Array.isArray(res.votes)) {
+        res.votes.forEach(v => {
+          if (v.vote === 'underrated') countUnder++;
+          else if (v.vote === 'overrated') countOver++;
+          else countTimeout++;
+        });
+      }
+    });
+  }
+
+  let personalityTitle = "🎯 L'EQUILIBRATO";
+  let personalityDesc = "Hai mantenuto un bilanciamento perfetto tra Over e Under!";
+  let personalityIcon = "⚖️";
+
+  if (countUnder >= Math.ceil(cardsPlayed / 2)) {
+    personalityTitle = "🟢 IL SOTTO-VALUTATORE";
+    personalityDesc = `Hai votato SOTTOVALUTATO ${countUnder} volte su ${cardsPlayed}. Trovi valore in qualsiasi cosa!`;
+    personalityIcon = "✨";
+  } else if (countOver >= Math.ceil(cardsPlayed / 2)) {
+    personalityTitle = "🔴 IL SOPRA-VALUTATORE";
+    personalityDesc = `Hai votato SOPRAVVALUTATO ${countOver} volte su ${cardsPlayed}. Niente sembra soddisfarti!`;
+    personalityIcon = "⛔";
+  } else if (countTimeout > 0 && countTimeout >= Math.ceil(cardsPlayed / 2)) {
+    personalityTitle = "🐌 IL PIGRO";
+    personalityDesc = `Tempo scaduto per ${countTimeout} volte. La fretta non fa per te!`;
+    personalityIcon = "💤";
+  }
+
+  const summaryEl = document.getElementById('single-player-summary');
+  if (summaryEl) {
+    summaryEl.textContent = `Hai risposto a tutte le carte della sessione.`;
+  }
+
+  const badgeEl = document.getElementById('single-player-personality-badge');
+  if (badgeEl) {
+    badgeEl.innerHTML = `
+      <div class="award-card glass-panel" style="width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);">
+        <div class="award-icon-box" style="font-size: 2rem; flex-shrink: 0;">${personalityIcon}</div>
+        <div class="award-info" style="flex: 1; text-align: left;">
+          <div class="award-title-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span class="award-name" style="font-weight: 800; font-size: 1.05rem; color: #FFFFFF;">${personalityTitle}</span>
+            <span class="award-winner" style="font-size: 0.8rem; font-weight: 700; color: var(--color-underrated);">${state.playerName || 'Tu'}</span>
+          </div>
+          <div class="award-desc" style="font-size: 0.82rem; color: rgba(255,255,255,0.7); font-weight: 500;">${personalityDesc}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  const endScreen = document.getElementById('single-player-end-screen');
+  if (endScreen) {
+    endScreen.style.display = 'flex';
+  }
+
+  // 3. TRANSIZIONE DIRETTA E ISTANTANEA ALLA SETUP VIEW (Zero lag / No page reload / No loading spinner)
+  const handleRestartClick = (e) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+
+    // Reset dello stato della partita in memoria
+    state.soloCardIndex = 0;
+    state.currentCardIndex = 0;
+    state.soloResponses = [];
+    state.soloStreakType = null;
+    state.soloStreakCount = 0;
+    state.userHasVoted = false;
+    state.isSoloMode = true;
+    state.gameMode = 'single';
+    hideSoloPersonalityPopup();
+
+    if (state.timerRequestId) {
+      cancelAnimationFrame(state.timerRequestId);
+      state.timerRequestId = null;
+    }
+    stopTimerLoop();
+
+    // Nascondi la vista dei risultati finale
+    if (endScreen) {
+      endScreen.style.display = 'none';
+    }
+    if (el.screenGameplay) {
+      el.screenGameplay.classList.remove('is-solo-mode', 'active');
+      el.screenGameplay.style.display = 'none';
+    }
+    if (el.screenSummary) {
+      el.screenSummary.classList.remove('active');
+      el.screenSummary.style.display = 'none';
+    }
+    if (el.screenResults) {
+      el.screenResults.classList.remove('active');
+      el.screenResults.style.display = 'none';
+    }
+    if (el.screenWelcome) {
+      el.screenWelcome.classList.remove('active');
+      el.screenWelcome.style.display = 'none';
+    }
+    if (el.screenSplash) {
+      el.screenSplash.classList.remove('active');
+      el.screenSplash.style.display = 'none';
+    }
+    if (el.screenLoading) {
+      el.screenLoading.classList.remove('active');
+      el.screenLoading.style.display = 'none';
+    }
+
+    // Mostra DIRETTAMENTE la schermata di configurazione "Gioca da solo" (scelta 30, 50, 100... carte)
+    showScreen(el.screenOnboarding);
+    if (el.tabSolo) el.tabSolo.classList.add('active');
+    if (el.tabCreate) el.tabCreate.classList.remove('active');
+    if (el.formSoloPlay) el.formSoloPlay.style.display = 'block';
+    if (el.formCreateRoom) el.formCreateRoom.style.display = 'none';
+    if (el.nameErrorMsg) el.nameErrorMsg.style.display = 'none';
+    if (el.soloNameInput && state.playerName) {
+      el.soloNameInput.value = state.playerName;
+    }
+  };
+
   const btnRestartFinal = document.getElementById('btn-restart-final');
   if (btnRestartFinal) {
-    btnRestartFinal.addEventListener('click', () => {
-      clearSession();
-      safeStorage.removeItem('overunder_saved_session');
-      safeSessionStorage.removeItem('overunder_roomCode');
-      safeSessionStorage.removeItem('overunder_playerName');
-      safeSessionStorage.removeItem('overunder_isHost');
-      window.location.href = window.location.pathname;
-    });
+    btnRestartFinal.onclick = handleRestartClick;
+  }
+
+  const btnRestartSingleGame = document.getElementById('btn-restart-single-game');
+  if (btnRestartSingleGame) {
+    btnRestartSingleGame.onclick = handleRestartClick;
   }
 }
 
