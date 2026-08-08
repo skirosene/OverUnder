@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=6900">
+  <link rel="stylesheet" href="/style.css?v=7000">
 </head>
 
 <body>
@@ -829,13 +829,13 @@
       </section>
 
       <!-- BLOCCO HTML FISICAMENTE SEPARATO DEDICATO ESCLUSIVAMENTE AL SINGLE PLAYER -->
-      <div id="single-player-end-screen" class="custom-modal-overlay" style="display: none; z-index: 99999; background: rgba(10, 15, 30, 0.96); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
-        <div class="glass-panel" style="width: 100%; max-width: 420px; text-align: center; padding: 28px 22px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.18); box-shadow: 0 20px 50px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 16px;">
+      <div id="single-player-end-screen" class="single-player-end-screen-overlay" style="display: none;">
+        <div class="glass-panel" style="width: 100%; max-width: 420px; text-align: center; padding: 28px 22px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.18); box-shadow: 0 20px 50px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 16px; box-sizing: border-box;">
           <div style="font-size: 3.5rem; line-height: 1;">🔥</div>
-          <h2 style="font-family: var(--font-title); font-weight: 800; font-size: 1.8rem; color: #FFFFFF; text-transform: uppercase; margin: 0; letter-spacing: 0.5px;">Partita Completata! 🔥</h2>
-          <p id="single-player-summary" style="font-size: 0.95rem; color: rgba(255,255,255,0.85); line-height: 1.5; margin: 0; font-weight: 600;">Hai risposto a tutte le carte della sessione.</p>
+          <h1 style="color: #fff; text-align: center; font-family: var(--font-title); font-weight: 800; font-size: 1.8rem; text-transform: uppercase; margin: 0; letter-spacing: 0.5px;">Partita Completata! 🔥</h1>
+          <p id="single-player-summary" style="color: #aaa; text-align: center; font-size: 0.95rem; line-height: 1.5; margin: 0; font-weight: 500;">Hai risposto a tutte le carte della sessione.</p>
           <div id="single-player-personality-badge" style="width: 100%;"></div>
-          <button id="btn-restart-final" class="btn btn-primary btn-pulse-premium" style="width: 100%; justify-content: center; font-size: 1rem; font-weight: 800; padding: 14px; margin-top: 8px;">RICOMINCIA</button>
+          <button id="btn-restart-direct" class="btn btn-primary btn-pulse-premium" style="width: 100%; justify-content: center; font-size: 1rem; font-weight: 800; padding: 14px; margin-top: 8px;">RICOMINCIA</button>
         </div>
       </div>
 
@@ -1417,7 +1417,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=6900"></script>
+  <script src="/app.js?v=7000"></script>
 </body>
 
 </html>

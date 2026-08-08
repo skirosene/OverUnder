@@ -2779,6 +2779,38 @@ input[type="submit"] {
   pointer-events: auto;
 }
 
+.single-player-end-screen-overlay,
+#single-player-end-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  width: 100dvw;
+  height: 100vh;
+  height: 100dvh;
+  background: rgba(10, 15, 30, 0.96) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 999999 !important;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.single-player-end-screen-overlay.active,
+#single-player-end-screen.active {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
 .custom-modal-box {
   width: 90%;
   max-width: 380px;

@@ -3964,21 +3964,22 @@ function startSoloGame(length = 30) {
 function showSoloCard() {
   try {
     const isInfinite = !!state.isInfiniteMode;
-    const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : (state.totalCards || 0);
+    const cards = (state.soloDeck && Array.isArray(state.soloDeck.cards)) ? state.soloDeck.cards : [];
+    const totalCards = cards.length || state.totalCards || 0;
 
     // 1. GUARDIA SUL RENDERING: Primissima riga
-    if (state.soloCardIndex >= totalCards && !isInfinite) {
+    if ((state.soloCardIndex >= totalCards || totalCards === 0) && !isInfinite) {
       console.log("[GUARDIA RENDERING] Indice superato (currentIndex >= totalCards). Arresto immediato rendering.");
       const promptCard = el.promptCard || document.getElementById('prompt-card');
       if (promptCard) promptCard.innerHTML = '';
-      showSinglePlayerResults();
+      renderSinglePlayerFinalScreen();
       return;
     }
 
-    let card = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards[state.soloCardIndex] : null;
+    let card = cards[state.soloCardIndex];
 
-    if (!card && isInfinite && state.soloDeck && state.soloDeck.cards && state.soloDeck.cards.length > 0) {
-      const originalCards = state.soloAvailableDecks && state.soloAvailableDecks[0] ? state.soloAvailableDecks[0].cards : state.soloDeck.cards;
+    if (!card && isInfinite && cards.length > 0) {
+      const originalCards = state.soloAvailableDecks && state.soloAvailableDecks[0] ? state.soloAvailableDecks[0].cards : cards;
       const extraCards = JSON.parse(JSON.stringify(originalCards)).sort(() => 0.5 - Math.random());
       state.soloDeck.cards.push(...extraCards);
       card = state.soloDeck.cards[state.soloCardIndex];
@@ -3989,7 +3990,7 @@ function showSoloCard() {
       console.log("[PREVENZIONE RENDER VUOTO] Carta non trovata in memoria, svuoto contenitore e mostro fine partita.");
       const promptCard = el.promptCard || document.getElementById('prompt-card');
       if (promptCard) promptCard.innerHTML = '';
-      showSinglePlayerResults();
+      renderSinglePlayerFinalScreen();
       return;
     }
 
@@ -3998,23 +3999,25 @@ function showSoloCard() {
     state.currentPromptText = promptStr;
     state.currentCardIndex = state.soloCardIndex;
 
-    el.currentDeckName.textContent = state.currentDeckName;
+    if (el.currentDeckName) el.currentDeckName.textContent = state.currentDeckName || 'OVER UNDER';
     updateGameplayCardMedia(promptStr, card.image);
 
-    const totalDisplay = (state.isInfiniteMode || state.totalCards >= 9999 || state.totalCards === '∞') ? '∞' : state.totalCards;
-    el.deckProgress.textContent = `Carta ${state.soloCardIndex + 1} / ${totalDisplay}`;
+    const totalDisplay = (state.isInfiniteMode || state.totalCards >= 9999 || state.totalCards === '∞') ? '∞' : totalCards;
+    if (el.deckProgress) el.deckProgress.textContent = `Carta ${state.soloCardIndex + 1} / ${totalDisplay}`;
 
-    el.btnUnderrated.classList.remove('disabled', 'pulse-active');
-    el.btnOverrated.classList.remove('disabled', 'pulse-active');
+    if (el.btnUnderrated) el.btnUnderrated.classList.remove('disabled', 'pulse-active');
+    if (el.btnOverrated) el.btnOverrated.classList.remove('disabled', 'pulse-active');
 
     // Reset timer bar & UI counter
     updateTimerUI(state.timerDurationMs);
-    el.timerBar.style.background = 'hsl(145, 80%, 50%)';
-    el.timerBar.style.boxShadow = '0 0 12px hsl(145, 80%, 50%)';
+    if (el.timerBar) {
+      el.timerBar.style.background = 'hsl(145, 80%, 50%)';
+      el.timerBar.style.boxShadow = '0 0 12px hsl(145, 80%, 50%)';
+    }
 
     // In solo mode nascondi lo stato votazioni del gruppo e la lista avatar in alto
-    el.gameplayPlayersStatus.innerHTML = '';
-    el.gameplayStatusPanel.style.display = 'none';
+    if (el.gameplayPlayersStatus) el.gameplayPlayersStatus.innerHTML = '';
+    if (el.gameplayStatusPanel) el.gameplayStatusPanel.style.display = 'none';
     if (el.gameplayAvatarsWrapper) {
       el.gameplayAvatarsWrapper.style.display = 'none';
     }
@@ -4029,8 +4032,8 @@ function showSoloCard() {
     }
     state.timerRequestId = requestAnimationFrame(gameLoop);
   } catch (err) {
-    console.error("Errore critico in showSoloCard, forzo la schermata finale:", err);
-    renderSoloGameOver();
+    console.error("[SHOW SOLO CARD] Errore critico in showSoloCard:", err);
+    renderSinglePlayerFinalScreen();
   }
 }
 
@@ -4136,165 +4139,180 @@ function cleanUpMultiplayerListeners() {
 }
 
 function renderSinglePlayerFinalScreen() {
-  cleanUpMultiplayerListeners();
-
-  // 1. Nascondi tassativamente schermata di gioco e qualsiasi contenitore multiplayer
-  [el.screenGameplay, el.screenResults, el.screenSummary, el.screenLobby, el.screenWelcome, el.screenSplash, el.screenLoading].forEach(s => {
-    if (s) {
-      s.classList.remove('active', 'is-solo-mode');
-      s.style.display = 'none';
-    }
-  });
-
-  if (el.summaryPlayerWaiting) {
-    el.summaryPlayerWaiting.style.setProperty('display', 'none', 'important');
-  }
-  if (el.resultsPlayerWaitingConfluent) {
-    el.resultsPlayerWaitingConfluent.style.setProperty('display', 'none', 'important');
-  }
-
-  // 2. Calcola e popola il badge di personalità e statistiche
-  const cardsPlayed = (state.soloResponses && Array.isArray(state.soloResponses)) ? state.soloResponses.length : 0;
-  
-  let countUnder = 0;
-  let countOver = 0;
-  let countTimeout = 0;
-  if (state.soloResponses && Array.isArray(state.soloResponses)) {
-    state.soloResponses.forEach(res => {
-      if (res.votes && Array.isArray(res.votes)) {
-        res.votes.forEach(v => {
-          if (v.vote === 'underrated') countUnder++;
-          else if (v.vote === 'overrated') countOver++;
-          else countTimeout++;
-        });
-      }
-    });
-  }
-
-  let personalityTitle = "🎯 L'EQUILIBRATO";
-  let personalityDesc = "Hai mantenuto un bilanciamento perfetto tra Over e Under!";
-  let personalityIcon = "⚖️";
-
-  if (countUnder >= Math.ceil(cardsPlayed / 2)) {
-    personalityTitle = "🟢 IL SOTTO-VALUTATORE";
-    personalityDesc = `Hai votato SOTTOVALUTATO ${countUnder} volte su ${cardsPlayed}. Trovi valore in qualsiasi cosa!`;
-    personalityIcon = "✨";
-  } else if (countOver >= Math.ceil(cardsPlayed / 2)) {
-    personalityTitle = "🔴 IL SOPRA-VALUTATORE";
-    personalityDesc = `Hai votato SOPRAVVALUTATO ${countOver} volte su ${cardsPlayed}. Niente sembra soddisfarti!`;
-    personalityIcon = "⛔";
-  } else if (countTimeout > 0 && countTimeout >= Math.ceil(cardsPlayed / 2)) {
-    personalityTitle = "🐌 IL PIGRO";
-    personalityDesc = `Tempo scaduto per ${countTimeout} volte. La fretta non fa per te!`;
-    personalityIcon = "💤";
-  }
-
-  const summaryEl = document.getElementById('single-player-summary');
-  if (summaryEl) {
-    summaryEl.textContent = `Hai risposto a tutte le carte della sessione.`;
-  }
-
-  const badgeEl = document.getElementById('single-player-personality-badge');
-  if (badgeEl) {
-    badgeEl.innerHTML = `
-      <div class="award-card glass-panel" style="width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);">
-        <div class="award-icon-box" style="font-size: 2rem; flex-shrink: 0;">${personalityIcon}</div>
-        <div class="award-info" style="flex: 1; text-align: left;">
-          <div class="award-title-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span class="award-name" style="font-weight: 800; font-size: 1.05rem; color: #FFFFFF;">${personalityTitle}</span>
-            <span class="award-winner" style="font-size: 0.8rem; font-weight: 700; color: var(--color-underrated);">${state.playerName || 'Tu'}</span>
-          </div>
-          <div class="award-desc" style="font-size: 0.82rem; color: rgba(255,255,255,0.7); font-weight: 500;">${personalityDesc}</div>
-        </div>
-      </div>
-    `;
-  }
-
-  const endScreen = document.getElementById('single-player-end-screen');
-  if (endScreen) {
-    endScreen.style.display = 'flex';
-  }
-
-  // 3. TRANSIZIONE DIRETTA E ISTANTANEA ALLA SETUP VIEW (Zero lag / No page reload / No loading spinner)
-  const handleRestartClick = (e) => {
-    if (e && typeof e.preventDefault === 'function') e.preventDefault();
-
-    // Reset dello stato della partita in memoria
-    state.soloCardIndex = 0;
-    state.currentCardIndex = 0;
-    state.soloResponses = [];
-    state.soloStreakType = null;
-    state.soloStreakCount = 0;
-    state.userHasVoted = false;
-    state.isSoloMode = true;
-    state.gameMode = 'single';
-    hideSoloPersonalityPopup();
+  try {
+    cleanUpMultiplayerListeners();
 
     if (state.timerRequestId) {
       cancelAnimationFrame(state.timerRequestId);
       state.timerRequestId = null;
     }
     stopTimerLoop();
+    hideSoloPersonalityPopup();
 
-    // Nascondi la vista dei risultati finale
-    if (endScreen) {
-      endScreen.style.display = 'none';
-    }
+    // 1. Nascondi tassativamente la schermata di gioco e qualsiasi altro pannello
     if (el.screenGameplay) {
-      el.screenGameplay.classList.remove('is-solo-mode', 'active');
-      el.screenGameplay.style.display = 'none';
+      el.screenGameplay.classList.remove('active', 'is-solo-mode');
+      el.screenGameplay.style.setProperty('display', 'none', 'important');
     }
-    if (el.screenSummary) {
-      el.screenSummary.classList.remove('active');
-      el.screenSummary.style.display = 'none';
+    [el.screenResults, el.screenSummary, el.screenLobby, el.screenWelcome, el.screenSplash, el.screenLoading, el.screenKicked, el.screenRoomFull].forEach(s => {
+      if (s) {
+        s.classList.remove('active');
+        s.style.setProperty('display', 'none', 'important');
+      }
+    });
+
+    if (el.summaryPlayerWaiting) {
+      el.summaryPlayerWaiting.style.setProperty('display', 'none', 'important');
     }
-    if (el.screenResults) {
-      el.screenResults.classList.remove('active');
-      el.screenResults.style.display = 'none';
-    }
-    if (el.screenWelcome) {
-      el.screenWelcome.classList.remove('active');
-      el.screenWelcome.style.display = 'none';
-    }
-    if (el.screenSplash) {
-      el.screenSplash.classList.remove('active');
-      el.screenSplash.style.display = 'none';
-    }
-    if (el.screenLoading) {
-      el.screenLoading.classList.remove('active');
-      el.screenLoading.style.display = 'none';
+    if (el.resultsPlayerWaitingConfluent) {
+      el.resultsPlayerWaitingConfluent.style.setProperty('display', 'none', 'important');
     }
 
-    // Mostra DIRETTAMENTE e SINCRO la schermata di configurazione "Gioca da solo" (scelta 30, 50, 100, 300, 500, ∞ carte)
-    showScreen(el.screenOnboarding);
-    if (el.modeTabs) el.modeTabs.style.display = 'flex';
-    if (el.tabSolo) el.tabSolo.classList.add('active');
-    if (el.tabCreate) el.tabCreate.classList.remove('active');
-    if (el.formSoloPlay) el.formSoloPlay.style.display = 'block';
-    if (el.formCreateRoom) el.formCreateRoom.style.display = 'none';
-    if (el.formJoinRoomLink) el.formJoinRoomLink.style.display = 'none';
-    if (el.nameErrorMsg) el.nameErrorMsg.style.display = 'none';
-    if (el.soloNameInput && state.playerName) {
-      el.soloNameInput.value = state.playerName;
+    // 2. Calcola e popola il badge di personalità in modo sicuro
+    const cardsPlayed = (state.soloResponses && Array.isArray(state.soloResponses)) ? state.soloResponses.length : (state.soloCardIndex || 0);
+    
+    let countUnder = 0;
+    let countOver = 0;
+    let countTimeout = 0;
+    if (state.soloResponses && Array.isArray(state.soloResponses)) {
+      state.soloResponses.forEach(res => {
+        if (res && res.votes && Array.isArray(res.votes)) {
+          res.votes.forEach(v => {
+            if (v && v.vote === 'underrated') countUnder++;
+            else if (v && v.vote === 'overrated') countOver++;
+            else countTimeout++;
+          });
+        }
+      });
     }
-    if (el.screenOnboarding) {
-      try { el.screenOnboarding.scrollTop = 0; } catch (e) {}
-    }
-  };
 
-  const btnRestartFinal = document.getElementById('btn-restart-final');
-  if (btnRestartFinal) {
-    btnRestartFinal.onclick = handleRestartClick;
+    let personalityTitle = "🎯 L'EQUILIBRATO";
+    let personalityDesc = "Hai mantenuto un bilanciamento perfetto tra Over e Under!";
+    let personalityIcon = "⚖️";
+
+    if (countUnder >= Math.ceil(cardsPlayed / 2) && countUnder > 0) {
+      personalityTitle = "🟢 IL SOTTO-VALUTATORE";
+      personalityDesc = `Hai votato SOTTOVALUTATO ${countUnder} volte su ${cardsPlayed}. Trovi valore in qualsiasi cosa!`;
+      personalityIcon = "✨";
+    } else if (countOver >= Math.ceil(cardsPlayed / 2) && countOver > 0) {
+      personalityTitle = "🔴 IL SOPRA-VALUTATORE";
+      personalityDesc = `Hai votato SOPRAVVALUTATO ${countOver} volte su ${cardsPlayed}. Niente sembra soddisfarti!`;
+      personalityIcon = "⛔";
+    } else if (countTimeout > 0 && countTimeout >= Math.ceil(cardsPlayed / 2)) {
+      personalityTitle = "🐌 IL PIGRO";
+      personalityDesc = `Tempo scaduto per ${countTimeout} volte. La fretta non fa per te!`;
+      personalityIcon = "💤";
+    }
+
+    // 3. Mostra la schermata finale Single Player isolata
+    let endScreen = document.getElementById('single-player-end-screen');
+    if (!endScreen) {
+      endScreen = document.createElement('div');
+      endScreen.id = 'single-player-end-screen';
+      const container = document.getElementById('app') || document.body;
+      container.appendChild(endScreen);
+    }
+
+    endScreen.className = 'single-player-end-screen-overlay custom-modal-overlay active';
+    endScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 999999; background: rgba(10, 15, 30, 0.96); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
+
+    endScreen.innerHTML = `
+      <div class="glass-panel" style="width: 100%; max-width: 420px; text-align: center; padding: 28px 22px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.18); box-shadow: 0 20px 50px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 16px; box-sizing: border-box;">
+        <div style="font-size: 3.5rem; line-height: 1;">🔥</div>
+        <h1 style="color: #fff; text-align: center; font-family: var(--font-title); font-weight: 800; font-size: 1.8rem; text-transform: uppercase; margin: 0; letter-spacing: 0.5px;">Partita Completata! 🔥</h1>
+        <p style="color: #aaa; text-align: center; font-size: 0.95rem; line-height: 1.5; margin: 0; font-weight: 500;">Hai risposto a tutte le carte della sessione.</p>
+        <div id="single-player-personality-badge" style="width: 100%;">
+          <div class="award-card glass-panel" style="width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); box-sizing: border-box;">
+            <div class="award-icon-box" style="font-size: 2rem; flex-shrink: 0;">${personalityIcon}</div>
+            <div class="award-info" style="flex: 1; text-align: left;">
+              <div class="award-title-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span class="award-name" style="font-weight: 800; font-size: 1.05rem; color: #FFFFFF;">${personalityTitle}</span>
+                <span class="award-winner" style="font-size: 0.8rem; font-weight: 700; color: var(--color-underrated);">${state.playerName || 'Tu'}</span>
+              </div>
+              <div class="award-desc" style="font-size: 0.82rem; color: rgba(255,255,255,0.7); font-weight: 500;">${personalityDesc}</div>
+            </div>
+          </div>
+        </div>
+        <button id="btn-restart-direct" class="btn btn-primary btn-pulse-premium" style="width: 100%; justify-content: center; font-size: 1rem; font-weight: 800; padding: 14px; margin-top: 8px;">RICOMINCIA</button>
+      </div>
+    `;
+
+    // 4. Collega l'evento di reset immediato al tasto RICOMINCIA
+    const btnRestartDirect = endScreen.querySelector('#btn-restart-direct');
+    if (btnRestartDirect) {
+      btnRestartDirect.onclick = handleSinglePlayerRestart;
+    }
+  } catch (error) {
+    console.error("[SAFE RENDER] Errore in renderSinglePlayerFinalScreen, attivo fallback:", error);
+    // Inietta immediatamente una schermata di ripiego (fallback) per non lasciare mai lo schermo nero
+    try {
+      const container = document.getElementById('app') || document.body;
+      let fallbackScreen = document.getElementById('single-player-end-screen');
+      if (!fallbackScreen) {
+        fallbackScreen = document.createElement('div');
+        fallbackScreen.id = 'single-player-end-screen';
+        container.appendChild(fallbackScreen);
+      }
+      fallbackScreen.className = 'single-player-end-screen-overlay custom-modal-overlay active';
+      fallbackScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 999999; background: rgba(10, 15, 30, 0.96); flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
+      fallbackScreen.innerHTML = `
+        <div class="glass-panel" style="width: 100%; max-width: 400px; text-align: center; padding: 30px 20px; border-radius: 20px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); display: flex; flex-direction: column; gap: 16px; box-sizing: border-box;">
+          <h1 style="color:#fff; text-align:center; font-family:var(--font-title); font-size:1.8rem; margin:0;">Partita Completata! 🔥</h1>
+          <p style="color:#aaa; text-align:center; font-size:0.95rem; margin:0;">Hai risposto a tutte le carte della sessione.</p>
+          <button id="btn-restart-direct" class="btn btn-primary" style="width:100%; justify-content:center; font-weight:800; padding:14px; margin-top:10px;">RICOMINCIA</button>
+        </div>
+      `;
+      const btnFallback = fallbackScreen.querySelector('#btn-restart-direct');
+      if (btnFallback) {
+        btnFallback.onclick = handleSinglePlayerRestart;
+      }
+    } catch (e) {
+      console.error("[CRITICAL FALLBACK ERROR]", e);
+    }
+  }
+}
+
+function handleSinglePlayerRestart(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+
+  // 1. Reset dello stato delle carte
+  state.soloCardIndex = 0;
+  state.currentCardIndex = 0;
+  state.soloResponses = [];
+  state.soloStreakType = null;
+  state.soloStreakCount = 0;
+  state.userHasVoted = false;
+  state.isSoloMode = true;
+  state.gameMode = 'single';
+  hideSoloPersonalityPopup();
+
+  if (state.timerRequestId) {
+    cancelAnimationFrame(state.timerRequestId);
+    state.timerRequestId = null;
+  }
+  stopTimerLoop();
+
+  // 2. Nascondi la schermata finale
+  const endScreen = document.getElementById('single-player-end-screen');
+  if (endScreen) {
+    endScreen.style.setProperty('display', 'none', 'important');
+    endScreen.classList.remove('active');
   }
 
-  const btnRestartSingleGame = document.getElementById('btn-restart-single-game');
-  if (btnRestartSingleGame) {
-    btnRestartSingleGame.onclick = handleRestartClick;
+  // 3. Mostra direttamente la schermata di selezione delle carte del Single Player (senza reload / no splash)
+  showScreen(el.screenOnboarding);
+  if (el.modeTabs) el.modeTabs.style.display = 'flex';
+  if (el.tabSolo) el.tabSolo.classList.add('active');
+  if (el.tabCreate) el.tabCreate.classList.remove('active');
+  if (el.formSoloPlay) el.formSoloPlay.style.display = 'block';
+  if (el.formCreateRoom) el.formCreateRoom.style.display = 'none';
+  if (el.formJoinRoomLink) el.formJoinRoomLink.style.display = 'none';
+  if (el.nameErrorMsg) el.nameErrorMsg.style.display = 'none';
+  if (el.soloNameInput && state.playerName) {
+    el.soloNameInput.value = state.playerName;
   }
-
-  const btnRestartSingle = document.getElementById('btn-restart-single');
-  if (btnRestartSingle) {
-    btnRestartSingle.onclick = handleRestartClick;
+  if (el.screenOnboarding) {
+    try { el.screenOnboarding.scrollTop = 0; } catch (err) {}
   }
 }
 
@@ -4373,12 +4391,19 @@ function handleSoloVote(voteType) {
       cancelAnimationFrame(state.timerRequestId);
       state.timerRequestId = null;
     }
+    stopTimerLoop();
 
     const isInfinite = !!state.isInfiniteMode;
-    const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : (state.totalCards || 0);
+    const cards = (state.soloDeck && Array.isArray(state.soloDeck.cards)) ? state.soloDeck.cards : [];
+    const totalCards = cards.length || state.totalCards || 0;
 
-    const card = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards[state.soloCardIndex] : null;
+    // Check bounds
+    if (!isInfinite && (state.soloCardIndex >= totalCards || totalCards === 0)) {
+      renderSinglePlayerFinalScreen();
+      return;
+    }
 
+    const card = cards[state.soloCardIndex];
     if (!card) {
       console.log("[FORCE ENDGAME] Carta non trovata in handleSoloVote, rendering finale.");
       renderSinglePlayerFinalScreen();
@@ -4390,26 +4415,27 @@ function handleSoloVote(voteType) {
 
     const votes = [{ player: state.playerName, vote: voteType }];
 
-    // Salva risposta
+    if (!Array.isArray(state.soloResponses)) {
+      state.soloResponses = [];
+    }
     state.soloResponses.push({
-      prompt: card.prompt,
+      prompt: card.prompt || '',
       image: card.image || null,
       votes: votes,
-      stats: card.global_stats
+      stats: card.global_stats || null
     });
 
-    // 1. INTERCETTAZIONE DELLA SCHERMATA FINALE:
-    // Se l'indice corrente è l'ultimo del mazzo (soloCardIndex === totalCards - 1):
+    // Se l'indice corrente ha completato l'ultima carta del mazzo:
     if (!isInfinite && (state.soloCardIndex >= totalCards - 1)) {
-      console.log("[FORCE ENDGAME] Ultima carta intercettata in handleSoloVote (indice " + state.soloCardIndex + "). Rendering finale istantaneo!");
+      console.log("[FORCE ENDGAME] Ultima carta completata in handleSoloVote (indice " + state.soloCardIndex + "). Rendering finale istantaneo!");
       renderSinglePlayerFinalScreen();
       return;
     }
 
-    // Avanza immediatamente alla prossima carta
+    // Avanza alla prossima carta
     advanceSoloGame();
   } catch (err) {
-    console.error("[FORCE ENDGAME] Errore critico in handleSoloVote, cambio forzato a schermata risultati:", err);
+    console.error("[FORCE ENDGAME] Errore in handleSoloVote, forzo rendering finale:", err);
     renderSinglePlayerFinalScreen();
   }
 }
@@ -4417,20 +4443,21 @@ function handleSoloVote(voteType) {
 function advanceSoloGame() {
   try {
     const isInfinite = !!state.isInfiniteMode;
-    const totalCards = (state.soloDeck && state.soloDeck.cards) ? state.soloDeck.cards.length : (state.totalCards || 0);
+    const cards = (state.soloDeck && Array.isArray(state.soloDeck.cards)) ? state.soloDeck.cards : [];
+    const totalCards = cards.length || state.totalCards || 0;
 
-    // FORCE END-GAME (Logica Blindata):
+    // Controllo fine mazzo per non superare mai l'array
     if (!isInfinite && (state.soloCardIndex >= totalCards - 1 || state.soloCardIndex + 1 >= totalCards)) {
-      console.log("[FORCE ENDGAME] Fine mazzo rilevata in advanceSoloGame. Rendering finale istantaneo!");
+      console.log("[FORCE ENDGAME] Fine mazzo in advanceSoloGame. Rendering finale!");
       renderSinglePlayerFinalScreen();
       return;
     }
 
-    // GESTIONE CASO SPECIALE "CARTE INFINITE" (∞)
+    // Modalità infinita
     if (isInfinite) {
       state.soloCardIndex++;
-      if (state.soloCardIndex >= state.soloDeck.cards.length) {
-        const originalCards = state.soloAvailableDecks && state.soloAvailableDecks[0] ? state.soloAvailableDecks[0].cards : state.soloDeck.cards;
+      if (state.soloCardIndex >= cards.length) {
+        const originalCards = state.soloAvailableDecks && state.soloAvailableDecks[0] ? state.soloAvailableDecks[0].cards : cards;
         const extraCards = JSON.parse(JSON.stringify(originalCards)).sort(() => 0.5 - Math.random());
         state.soloDeck.cards.push(...extraCards);
       }
@@ -4438,17 +4465,16 @@ function advanceSoloGame() {
       return;
     }
 
-    // BLOCCO INCREMENTO: Se l'indice corrente ha raggiunto l'ultima carta disponibile, passa direttamente a fine partita
-    if (state.soloCardIndex >= totalCards - 1) {
-      console.log("[FORCE ENDGAME] Blocco incremento: ultima carta raggiunta, forzo schermata finale.");
+    // Avanzamento regolare con verifica di sicurezza
+    state.soloCardIndex++;
+    if (state.soloCardIndex >= totalCards) {
       renderSinglePlayerFinalScreen();
       return;
     }
 
-    state.soloCardIndex++;
     showSoloCard();
   } catch (err) {
-    console.error("[FORCE ENDGAME] Errore critico in advanceSoloGame, forzo schermata finale:", err);
+    console.error("[FORCE ENDGAME] Errore in advanceSoloGame, forzo rendering finale:", err);
     renderSinglePlayerFinalScreen();
   }
 }
