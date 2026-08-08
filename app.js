@@ -846,10 +846,15 @@ function runSplashScreen(hasRoomParam = false) {
 function showScreen(targetScreen) {
   forceHideSplash();
   [el.screenWelcome, el.screenOnboarding, el.screenLobby, el.screenGameplay, el.screenResults, el.screenSummary, el.screenKicked, el.screenRoomFull, el.screenLoading].forEach(screen => {
-    if (screen) screen.classList.remove('active');
+    if (screen) {
+      screen.classList.remove('active');
+      screen.style.removeProperty('display');
+    }
   });
   if (targetScreen) {
     targetScreen.classList.add('active');
+    targetScreen.style.removeProperty('display');
+    targetScreen.style.display = '';
     try { targetScreen.scrollTop = 0; } catch (e) {}
   }
 
@@ -3850,47 +3855,91 @@ function clearSession() {
 // ==========================================================================
 // MODALITÀ GIOCO INDIVIDUALE (SOLO PLAY - OFFLINE)
 // ==========================================================================
+function getDefaultSoloDecks() {
+  return [{
+    deck_id: 'gli_intoccabili',
+    deck_name: '🔥 Gli Intoccabili',
+    cards: [
+      { card_id: 'c001', prompt: "La pizza con l'ananas", global_stats: { underrated: 15, overrated: 85 } },
+      { card_id: 'c002', prompt: "L'applauso all'atterraggio dell'aereo", global_stats: { underrated: 10, overrated: 90 } },
+      { card_id: 'c003', prompt: "Ordinare un cappuccino dopo le 12:00", global_stats: { underrated: 20, overrated: 80 } },
+      { card_id: 'c004', prompt: "L'uso quotidiano del bidet", global_stats: { underrated: 96, overrated: 4 } },
+      { card_id: 'c005', prompt: "Aggiungere la panna nella carbonara", global_stats: { underrated: 12, overrated: 88 } },
+      { card_id: 'c006', prompt: "Inviare messaggi vocali di oltre 3 minuti", global_stats: { underrated: 8, overrated: 92 } },
+      { card_id: 'c007', prompt: "Arrivare 15 minuti in anticipo ad un appuntamento", global_stats: { underrated: 72, overrated: 28 } },
+      { card_id: 'c008', prompt: "Mettere i calzini con i sandali in estate", global_stats: { underrated: 18, overrated: 82 } },
+      { card_id: 'c009', prompt: "Mangiare la pasta riscaldata il giorno dopo", global_stats: { underrated: 88, overrated: 12 } },
+      { card_id: 'c010', prompt: "Fare spoiler di serie TV senza preavviso", global_stats: { underrated: 3, overrated: 97 } },
+      { card_id: 'c011', prompt: "Usare la modalità scura su qualsiasi app", global_stats: { underrated: 91, overrated: 9 } },
+      { card_id: 'c012', prompt: "Ballare da soli in camera con le cuffie", global_stats: { underrated: 84, overrated: 16 } },
+      { card_id: 'c013', prompt: "Comprare libri e non leggerli mai", global_stats: { underrated: 35, overrated: 65 } },
+      { card_id: 'c014', prompt: "Riguardare sempre la stessa serie TV di conforto", global_stats: { underrated: 78, overrated: 22 } },
+      { card_id: 'c015', prompt: "Il silenzio assoluto durante i viaggi in macchina", global_stats: { underrated: 68, overrated: 32 } },
+      { card_id: 'c016', prompt: "Dormire con la porta della camera aperta", global_stats: { underrated: 42, overrated: 58 } },
+      { card_id: 'c017', prompt: "Fare il letto appena svegli la mattina", global_stats: { underrated: 65, overrated: 35 } },
+      { card_id: 'c018', prompt: "Mettere il parmigiano sulla pasta con il pesce", global_stats: { underrated: 14, overrated: 86 } },
+      { card_id: 'c019', prompt: "Andare al cinema da soli", global_stats: { underrated: 81, overrated: 19 } },
+      { card_id: 'c020', prompt: "Rispondere ai messaggi dopo 4 giorni", global_stats: { underrated: 11, overrated: 89 } },
+      { card_id: 'c021', prompt: "Le vacanze senza smartphone né connessione", global_stats: { underrated: 79, overrated: 21 } },
+      { card_id: 'c022', prompt: "Cucinare per gli amici il sabato sera", global_stats: { underrated: 87, overrated: 13 } },
+      { card_id: 'c023', prompt: "L'odore della pioggia sull'asfalto estivo", global_stats: { underrated: 94, overrated: 6 } },
+      { card_id: 'c024', prompt: "Rimettere la sveglia per altri 5 minuti", global_stats: { underrated: 76, overrated: 24 } },
+      { card_id: 'c025', prompt: "Bere il caffè amaro senza zucchero", global_stats: { underrated: 69, overrated: 31 } },
+      { card_id: 'c026', prompt: "Le serate a casa sotto la coperta con la pioggia", global_stats: { underrated: 93, overrated: 7 } },
+      { card_id: 'c027', prompt: "Fare la spesa quando si ha fame", global_stats: { underrated: 15, overrated: 85 } },
+      { card_id: 'c028', prompt: "Cantare a squarciagola sotto la doccia", global_stats: { underrated: 89, overrated: 11 } },
+      { card_id: 'c029', prompt: "I vocali di WhatsApp ascoltati a velocità 2x", global_stats: { underrated: 83, overrated: 17 } },
+      { card_id: 'c030', prompt: "Guardare il tramonto senza fare foto", global_stats: { underrated: 88, overrated: 12 } }
+    ]
+  }];
+}
+
 async function startSoloMode(playerName) {
-  state.isSoloMode = true;
-  state.isHost = true;
-  state.playerName = playerName;
-  state.players = [{ id: 'solo', name: playerName, isHost: true }];
-  state.soloResponses = [];
-  state.soloCardIndex = 0;
-  state.roomIsPremium = false;
-  state.hasSubmittedPremiumCards = false;
-
-  if (el.createPremiumToggle) {
-    el.createPremiumToggle.checked = false;
-  }
-
-  // Carica il mazzo dal server o usa il mazzo locale di fallback
   try {
-    const response = await fetch('/api/decks');
-    const data = await response.json();
-    if (data && data.decks && data.decks.length > 0) {
-      state.soloAvailableDecks = data.decks;
-    } else {
-      throw new Error("Mazzi non trovati");
-    }
-  } catch (e) {
-    console.warn("Avviso caricamento mazzi da server. Uso mazzo di backup:", e);
-    state.soloAvailableDecks = [{
-      deck_id: 'gli_intoccabili',
-      deck_name: '🔥 Gli Intoccabili',
-      cards: [
-        { card_id: 'c001', prompt: "La pizza con l'ananas", global_stats: { underrated: 15, overrated: 85 } },
-        { card_id: 'c002', prompt: "L'applauso all'atterraggio dell'aereo", global_stats: { underrated: 10, overrated: 90 } },
-        { card_id: 'c003', prompt: "Ordinare un cappuccino dopo le 12:00", global_stats: { underrated: 20, overrated: 80 } },
-        { card_id: 'c004', prompt: "L'uso quotidiano del bidet", global_stats: { underrated: 96, overrated: 4 } },
-        { card_id: 'c005', prompt: "Aggiungere la panna nella carbonara", global_stats: { underrated: 12, overrated: 88 } }
-      ]
-    }];
-  }
+    state.isSoloMode = true;
+    state.isHost = true;
+    state.playerName = playerName || 'Giocatore';
+    state.players = [{ id: 'solo', name: state.playerName, isHost: true }];
+    state.soloResponses = [];
+    state.soloCardIndex = 0;
+    state.currentCardIndex = 0;
+    state.userHasVoted = false;
+    state.gameMode = 'single';
+    state.roomIsPremium = false;
+    state.hasSubmittedPremiumCards = false;
 
-  // Avvia immediatamente la partita in singolo con il numero di carte selezionato dall'utente
-  const length = state.soloGameLength || 30;
-  startSoloGame(length);
+    if (el.createPremiumToggle) {
+      el.createPremiumToggle.checked = false;
+    }
+
+    // Carica il mazzo dal server o usa il mazzo locale di fallback garantito
+    let decks = null;
+    try {
+      const response = await fetch('/api/decks');
+      if (response && response.ok) {
+        const data = await response.json();
+        if (data && data.decks && Array.isArray(data.decks) && data.decks.length > 0) {
+          decks = data.decks;
+        }
+      }
+    } catch (e) {
+      console.warn("Caricamento mazzi da server non disponibile. Uso fallback locale:", e);
+    }
+
+    if (!decks || decks.length === 0) {
+      decks = getDefaultSoloDecks();
+    }
+
+    state.soloAvailableDecks = decks;
+
+    // Avvia immediatamente la partita in singolo con il numero di carte selezionato dall'utente
+    const length = state.soloGameLength || 30;
+    startSoloGame(length);
+  } catch (err) {
+    console.error("[START SOLO MODE] Errore avvio modalità singolo:", err);
+    state.soloAvailableDecks = getDefaultSoloDecks();
+    startSoloGame(state.soloGameLength || 30);
+  }
 }
 
 function setupSoloLobbyUI() {
@@ -3918,56 +3967,92 @@ function setupSoloLobbyUI() {
 }
 
 function startSoloGame(length = 30) {
-  const deck = state.soloAvailableDecks ? state.soloAvailableDecks[0] : null;
-  if (!deck || !deck.cards || deck.cards.length === 0) {
-    showError("Mazzo non caricato!");
-    return;
+  try {
+    // 1. Assicurati che l'array delle carte sia caricato COMPLETAMENTE prima del rendering
+    if (!state.soloAvailableDecks || !Array.isArray(state.soloAvailableDecks) || state.soloAvailableDecks.length === 0) {
+      state.soloAvailableDecks = getDefaultSoloDecks();
+    }
+
+    let deck = state.soloAvailableDecks[0];
+    if (!deck || !Array.isArray(deck.cards) || deck.cards.length === 0) {
+      state.soloAvailableDecks = getDefaultSoloDecks();
+      deck = state.soloAvailableDecks[0];
+    }
+
+    const isInfinite = (length >= 9999 || length === '∞');
+    state.isInfiniteMode = isInfinite;
+
+    const clonedDeck = JSON.parse(JSON.stringify(deck));
+    const shuffledCards = (clonedDeck.cards || []).sort(() => 0.5 - Math.random());
+
+    if (isInfinite) {
+      clonedDeck.cards = shuffledCards;
+      state.totalCards = 9999;
+    } else {
+      const numCards = typeof length === 'number' ? length : (parseInt(length) || 30);
+      clonedDeck.cards = shuffledCards.slice(0, Math.min(numCards, shuffledCards.length));
+      state.totalCards = clonedDeck.cards.length;
+    }
+
+    // Se l'array per qualsiasi motivo fosse vuoto, ricarica subito il fallback
+    if (!clonedDeck.cards || clonedDeck.cards.length === 0) {
+      const fallbackDeck = getDefaultSoloDecks()[0];
+      clonedDeck.cards = JSON.parse(JSON.stringify(fallbackDeck.cards));
+      state.totalCards = clonedDeck.cards.length;
+    }
+
+    state.soloDeck = clonedDeck;
+    state.currentDeckName = deck.deck_name || "Over Under";
+    state.soloCardIndex = 0;
+    state.currentCardIndex = 0;
+    state.soloResponses = [];
+    state.soloStreakType = null;
+    state.soloStreakCount = 0;
+    state.userHasVoted = false;
+    state.isSoloMode = true;
+    state.gameMode = 'single';
+    hideSoloPersonalityPopup();
+
+    const endScreen = document.getElementById('single-player-end-screen');
+    if (endScreen) {
+      endScreen.style.setProperty('display', 'none', 'important');
+      endScreen.classList.remove('active');
+    }
+
+    // Rimuovi eventuali stili inline residui
+    if (el.screenGameplay) {
+      el.screenGameplay.style.removeProperty('display');
+      el.screenGameplay.classList.add('is-solo-mode');
+    }
+
+    try { AudioSynth.playConfirm(true); } catch (e) {}
+    showScreen(el.screenGameplay);
+    showSoloCard();
+  } catch (err) {
+    console.error("[START SOLO GAME] Errore critico in startSoloGame:", err);
+    state.soloDeck = JSON.parse(JSON.stringify(getDefaultSoloDecks()[0]));
+    state.totalCards = state.soloDeck.cards.length;
+    state.soloCardIndex = 0;
+    state.currentCardIndex = 0;
+    showScreen(el.screenGameplay);
+    showSoloCard();
   }
-
-  const isInfinite = (length >= 9999 || length === '∞');
-  state.isInfiniteMode = isInfinite;
-
-  const clonedDeck = JSON.parse(JSON.stringify(deck));
-  const shuffledCards = clonedDeck.cards.sort(() => 0.5 - Math.random());
-
-  if (isInfinite) {
-    clonedDeck.cards = shuffledCards;
-    state.totalCards = 9999;
-  } else {
-    const numCards = typeof length === 'number' ? length : (parseInt(length) || 30);
-    clonedDeck.cards = shuffledCards.slice(0, Math.min(numCards, shuffledCards.length));
-    state.totalCards = clonedDeck.cards.length;
-  }
-
-  state.soloDeck = clonedDeck;
-  state.currentDeckName = deck.deck_name || "Over Under";
-  state.soloCardIndex = 0;
-  state.soloResponses = [];
-  state.soloStreakType = null;
-  state.soloStreakCount = 0;
-  hideSoloPersonalityPopup();
-
-  const endScreen = document.getElementById('single-player-end-screen');
-  if (endScreen) {
-    endScreen.style.display = 'none';
-  }
-
-  if (el.screenGameplay) {
-    el.screenGameplay.classList.add('is-solo-mode');
-  }
-
-  AudioSynth.playConfirm(true);
-  showScreen(el.screenGameplay);
-  showSoloCard();
 }
 
 function showSoloCard() {
   try {
     const isInfinite = !!state.isInfiniteMode;
-    const cards = (state.soloDeck && Array.isArray(state.soloDeck.cards)) ? state.soloDeck.cards : [];
+    // Verifica che l'array esista e contenga elementi
+    if (!state.soloDeck || !Array.isArray(state.soloDeck.cards) || state.soloDeck.cards.length === 0) {
+      console.warn("[SHOW SOLO CARD] Mazzo non presente o vuoto, ricarico mazzo di default");
+      state.soloDeck = JSON.parse(JSON.stringify(getDefaultSoloDecks()[0]));
+      state.totalCards = state.soloDeck.cards.length;
+    }
+
+    const cards = state.soloDeck.cards;
     const totalCards = cards.length || state.totalCards || 0;
 
-    // 1. GUARDIA SUL RENDERING: Primissima riga
+    // 1. GUARDIA SUL RENDERING: se l'indice è fuori dai limiti, mostra il fine partita
     if ((state.soloCardIndex >= totalCards || totalCards === 0) && !isInfinite) {
       console.log("[GUARDIA RENDERING] Indice superato (currentIndex >= totalCards). Arresto immediato rendering.");
       const promptCard = el.promptCard || document.getElementById('prompt-card');
@@ -3985,12 +4070,22 @@ function showSoloCard() {
       card = state.soloDeck.cards[state.soloCardIndex];
     }
 
-    // 2. PREVENZIONE RENDER VUOTO / GUARD CHECK SU UNDEFINED
+    // 2. Controllo di sicurezza: se la carta corrente non è valida
     if (!card) {
-      console.log("[PREVENZIONE RENDER VUOTO] Carta non trovata in memoria, svuoto contenitore e mostro fine partita.");
-      const promptCard = el.promptCard || document.getElementById('prompt-card');
-      if (promptCard) promptCard.innerHTML = '';
-      renderSinglePlayerFinalScreen();
+      console.warn("[SHOW SOLO CARD] Carta non trovata all'indice " + state.soloCardIndex + ", ricarico carta di fallback");
+      if (cards.length > 0) {
+        card = cards[0];
+        state.soloCardIndex = 0;
+      } else {
+        renderSinglePlayerFinalScreen();
+        return;
+      }
+    }
+
+    // Verifica che gli elementi essenziali del DOM siano presenti
+    if (!el.screenGameplay || !document.getElementById('prompt-card')) {
+      console.warn("[SHOW SOLO CARD] Nodi DOM di gameplay mancanti, ripristino vista");
+      showScreen(el.screenOnboarding);
       return;
     }
 
@@ -4032,8 +4127,12 @@ function showSoloCard() {
     }
     state.timerRequestId = requestAnimationFrame(gameLoop);
   } catch (err) {
-    console.error("[SHOW SOLO CARD] Errore critico in showSoloCard:", err);
-    renderSinglePlayerFinalScreen();
+    console.error("[SHOW SOLO CARD] Errore critico nel rendering della prima carta:", err);
+    try {
+      showScreen(el.screenOnboarding);
+    } catch (e) {
+      renderSinglePlayerFinalScreen();
+    }
   }
 }
 
