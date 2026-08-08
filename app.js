@@ -5906,14 +5906,24 @@ function getAvatarBgColor(name) {
 
 function hasUserCustomAvatar() {
   const url = state.playerAvatarUrl || localStorage.getItem('overunder_avatarUrl');
-  if (!url || typeof url !== 'string' || url.trim().length < 15) return false;
-  if (url.includes('<svg') || url.includes('circle') || url.includes('path')) return false;
-  return url.startsWith('data:image/') || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/');
+  if (!url || typeof url !== 'string' || url.trim().length < 5) return false;
+  const trimmed = url.trim();
+  if (trimmed === 'null' || trimmed === 'undefined' || trimmed === '') return false;
+  if (trimmed.includes('<svg') || trimmed.includes('circle') || trimmed.includes('path') || trimmed === '?') return false;
+  return trimmed.startsWith('data:image/') || trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/') || trimmed.startsWith('blob:');
+}
+
+function updateRemoveAvatarVisibility() {
+  const btnRemoveAvatar = document.getElementById('btn-remove-avatar');
+  if (btnRemoveAvatar) {
+    const isCustom = hasUserCustomAvatar();
+    btnRemoveAvatar.style.setProperty('display', isCustom ? 'flex' : 'none', 'important');
+  }
 }
 
 function setupAvatarEvents() {
   const savedAvatar = localStorage.getItem('overunder_avatarUrl');
-  if (savedAvatar) {
+  if (savedAvatar && hasUserCustomAvatar()) {
     state.playerAvatarUrl = savedAvatar;
     if (el.avatarDefaultSvg) el.avatarDefaultSvg.style.display = 'none';
     if (el.avatarPreviewImg) {
@@ -5922,7 +5932,19 @@ function setupAvatarEvents() {
     }
     const box = document.getElementById('avatar-preview-box');
     if (box) box.classList.add('has-image');
+  } else {
+    state.playerAvatarUrl = null;
+    localStorage.removeItem('overunder_avatarUrl');
+    if (el.avatarDefaultSvg) el.avatarDefaultSvg.style.display = 'block';
+    if (el.avatarPreviewImg) {
+      el.avatarPreviewImg.src = '';
+      el.avatarPreviewImg.style.display = 'none';
+    }
+    const box = document.getElementById('avatar-preview-box');
+    if (box) box.classList.remove('has-image');
   }
+
+  updateRemoveAvatarVisibility();
 
   const isInAppBrowser = /Instagram|FBAN|FBAV|TikTok|WhatsApp/i.test(navigator.userAgent);
   let cameraStream = null;
@@ -6033,15 +6055,6 @@ function setupAvatarEvents() {
   }
 
   const btnRemoveAvatar = document.getElementById('btn-remove-avatar');
-  const updateRemoveAvatarVisibility = () => {
-    if (btnRemoveAvatar) {
-      const isCustom = hasUserCustomAvatar();
-      btnRemoveAvatar.style.setProperty('display', isCustom ? 'flex' : 'none', 'important');
-    }
-  };
-
-  updateRemoveAvatarVisibility();
-
   if (btnRemoveAvatar) {
     btnRemoveAvatar.addEventListener('click', (e) => {
       e.stopPropagation();
