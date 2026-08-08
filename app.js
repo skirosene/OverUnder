@@ -798,14 +798,7 @@ function initClock() {
   setInterval(updateClock, 30000);
 }
 
-function runSplashScreen(skipSplash = false) {
-  // Se l'utente sta entrando via invite link, salta lo splash e mostra subito il form
-  if (skipSplash) {
-    console.log('[INVITE] Splash screen saltato per invite link');
-    forceHideSplash();
-    return;
-  }
-
+function runSplashScreen(hasRoomParam = false) {
   // Assicurati che lo splash screen sia visibile all'avvio
   if (el.screenSplash) {
     el.screenSplash.style.display = 'flex';
@@ -813,31 +806,41 @@ function runSplashScreen(skipSplash = false) {
     el.screenSplash.classList.remove('fade-out');
   }
 
-  // Mostra il caricamento dello splash screen per 5 secondi e poi avvia il fade-out
+  // Micro fade-out prima dei 5 secondi
   setTimeout(() => {
     if (el.screenSplash) {
       el.screenSplash.classList.add('fade-out');
     }
-  }, 5000);
+  }, 4700);
 
-  // Nascondi lo splash screen a 5.5 secondi e mostra la schermata iniziale di benvenuto
+  // Nascondi lo splash screen esattamente a 5 secondi e mostra la vista corretta
   setTimeout(() => {
     forceHideSplash();
     
-    const screens = [
-      el.screenWelcome,
-      el.screenOnboarding,
-      el.screenLobby,
-      el.screenGameplay,
-      el.screenResults,
-      el.screenSummary
-    ];
-    const anyActive = screens.some(s => s && s.classList.contains('active'));
-    
-    if (!anyActive) {
-      showScreen(el.screenWelcome);
+    if (hasRoomParam) {
+      console.log('[INVITE] Fine splash screen 5s. Mostra form onboarding e subito le regole della stanza.');
+      showScreen(el.screenOnboarding);
+      if (el.screenOnboarding) {
+        try { el.screenOnboarding.scrollTop = 0; } catch (e) {}
+      }
+      // Mostra SUBITO la schermata con le REGOLE della stanza relativa
+      openJoinRulesModal(state.joinRulesIsPremium);
+    } else {
+      const screens = [
+        el.screenWelcome,
+        el.screenOnboarding,
+        el.screenLobby,
+        el.screenGameplay,
+        el.screenResults,
+        el.screenSummary
+      ];
+      const anyActive = screens.some(s => s && s.classList.contains('active'));
+      
+      if (!anyActive) {
+        showScreen(el.screenWelcome);
+      }
     }
-  }, 5500);
+  }, 5000);
 }
 
 function showScreen(targetScreen) {
@@ -4262,15 +4265,20 @@ function renderSinglePlayerFinalScreen() {
       el.screenLoading.style.display = 'none';
     }
 
-    // Mostra DIRETTAMENTE la schermata di configurazione "Gioca da solo" (scelta 30, 50, 100... carte)
+    // Mostra DIRETTAMENTE e SINCRO la schermata di configurazione "Gioca da solo" (scelta 30, 50, 100, 300, 500, ∞ carte)
     showScreen(el.screenOnboarding);
+    if (el.modeTabs) el.modeTabs.style.display = 'flex';
     if (el.tabSolo) el.tabSolo.classList.add('active');
     if (el.tabCreate) el.tabCreate.classList.remove('active');
     if (el.formSoloPlay) el.formSoloPlay.style.display = 'block';
     if (el.formCreateRoom) el.formCreateRoom.style.display = 'none';
+    if (el.formJoinRoomLink) el.formJoinRoomLink.style.display = 'none';
     if (el.nameErrorMsg) el.nameErrorMsg.style.display = 'none';
     if (el.soloNameInput && state.playerName) {
       el.soloNameInput.value = state.playerName;
+    }
+    if (el.screenOnboarding) {
+      try { el.screenOnboarding.scrollTop = 0; } catch (e) {}
     }
   };
 
@@ -4282,6 +4290,11 @@ function renderSinglePlayerFinalScreen() {
   const btnRestartSingleGame = document.getElementById('btn-restart-single-game');
   if (btnRestartSingleGame) {
     btnRestartSingleGame.onclick = handleRestartClick;
+  }
+
+  const btnRestartSingle = document.getElementById('btn-restart-single');
+  if (btnRestartSingle) {
+    btnRestartSingle.onclick = handleRestartClick;
   }
 }
 
@@ -4878,8 +4891,8 @@ function showJoinFromLink(roomCode) {
   state.pendingRoomToJoin = cleanCode;
   safeSessionStorage.setItem('overunder_pendingRoom', cleanCode);
   
-  // Interroga il server per recuperare la modalità della stanza e mostra automaticamente il Modal Onboarding per i Guest
-  fetchAndApplyRoomInfo(cleanCode, true);
+  // Interroga il server per recuperare la modalità della stanza e predisporre le slide
+  fetchAndApplyRoomInfo(cleanCode, false);
 
   // Nascondi le schede standard
   if (el.modeTabs) el.modeTabs.style.display = 'none';
@@ -4897,16 +4910,10 @@ function showJoinFromLink(roomCode) {
   
   // Resetta input ed errori
   if (el.joinNameInput) {
-    el.joinNameInput.value = '';
+    const savedName = state.playerName || safeSessionStorage.getItem('overunder_playerName') || '';
+    el.joinNameInput.value = savedName;
   }
   if (el.nameErrorMsg) el.nameErrorMsg.style.display = 'none';
-  
-  // Mostra la schermata di onboarding con il modulo di ingresso attivo
-  showScreen(el.screenOnboarding);
-  if (el.screenOnboarding) {
-    try { el.screenOnboarding.scrollTop = 0; } catch (e) {}
-  }
-  console.log('[INVITE] screenOnboarding attivato con form join');
 }
 
 function resetFromJoinLink() {
@@ -5117,6 +5124,11 @@ function closeJoinRulesModal() {
       modal.style.display = 'none';
     }, 300);
     try { AudioSynth.playConfirm(false); } catch (e) {}
+  }
+  if (el.joinNameInput && el.formJoinRoomLink && el.formJoinRoomLink.style.display !== 'none') {
+    setTimeout(() => {
+      try { el.joinNameInput.focus(); } catch (e) {}
+    }, 350);
   }
 }
 

@@ -4984,7 +4984,7 @@ input[type="submit"] {
   font-weight: 800;
   color: #ffffff;
   letter-spacing: clamp(1px, 0.4vw, 3px);
-  text-shadow: none;
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.6), 0 0 24px rgba(56, 189, 248, 0.3);
   text-align: center;
   line-height: 1.1;
   margin: 6px 0 10px 0;
@@ -4996,6 +4996,9 @@ input[type="submit"] {
   text-overflow: ellipsis;
   word-break: break-word;
   display: block;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* ==========================================================================
