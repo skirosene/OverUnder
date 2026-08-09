@@ -4911,7 +4911,7 @@ input[type="submit"] {
   stroke: currentColor;
 }
 
-/* Intestazione Brand Fissa per Modali (Regole Stanza & Vista QR) */
+/* Intestazione Brand Fissa per Modali (Regole Stanza) */
 .modal-fixed-brand-header {
   width: 100%;
   display: flex;
@@ -4919,7 +4919,8 @@ input[type="submit"] {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-bottom: 14px;
+  margin-top: 4px;
+  margin-bottom: clamp(22px, 5vh, 34px);
   user-select: none;
   pointer-events: none;
   position: relative;
