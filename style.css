@@ -5048,21 +5048,21 @@ input[type="submit"] {
 
 .qr-modal-title {
   font-family: var(--font-title);
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 800;
   color: #ffffff;
   letter-spacing: 1px;
   text-transform: uppercase;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
 }
 
 .qr-code-box {
-  width: 210px;
-  height: 210px;
+  width: 240px;
+  height: 240px;
   background: #ffffff;
-  padding: 14px;
-  border-radius: 22px;
+  padding: 16px;
+  border-radius: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5080,11 +5080,11 @@ input[type="submit"] {
 
 .qr-modal-code {
   font-family: var(--font-title);
-  font-size: 1.25rem;
+  font-size: 1.3rem;
   font-weight: 800;
   color: #ffffff !important;
   letter-spacing: 3px;
-  margin-top: 18px;
+  margin-top: 24px;
   text-transform: uppercase;
 }
 
