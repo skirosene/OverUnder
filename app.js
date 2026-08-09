@@ -4429,7 +4429,7 @@ function renderSinglePlayerFinalScreen() {
     }
 
     endScreen.className = 'single-player-end-screen-overlay custom-modal-overlay active';
-    endScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;';
+    endScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 12px 16px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;';
 
     endScreen.innerHTML = `
       <div class="single-player-bg-effects">
@@ -4448,6 +4448,16 @@ function renderSinglePlayerFinalScreen() {
           <span class="confetti c11"></span>
           <span class="confetti c12"></span>
         </div>
+      </div>
+
+      <!-- Logo Animato OVER UNDER in alto -->
+      <div class="logo-area single-player-logo-area" style="animation: float-logo 4s ease-in-out infinite;">
+        <div class="logo-title">
+          <span class="logo-over">OVER</span>
+          <div class="logo-divider"></div>
+          <span class="logo-under">under</span>
+        </div>
+        <p class="logo-tagline">Sopravvalutato o Sottovalutato?</p>
       </div>
 
       <div class="single-player-end-modal-wrapper">
@@ -4494,7 +4504,7 @@ function renderSinglePlayerFinalScreen() {
         container.appendChild(fallbackScreen);
       }
       fallbackScreen.className = 'single-player-end-screen-overlay custom-modal-overlay active';
-      fallbackScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;';
+      fallbackScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 12px 16px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;';
       fallbackScreen.innerHTML = `
         <div class="single-player-bg-effects">
           <div class="single-player-light-rays"></div>
@@ -4507,6 +4517,17 @@ function renderSinglePlayerFinalScreen() {
             <span class="confetti c6"></span>
           </div>
         </div>
+
+        <!-- Logo Animato OVER UNDER in alto -->
+        <div class="logo-area single-player-logo-area" style="animation: float-logo 4s ease-in-out infinite;">
+          <div class="logo-title">
+            <span class="logo-over">OVER</span>
+            <div class="logo-divider"></div>
+            <span class="logo-under">under</span>
+          </div>
+          <p class="logo-tagline">Sopravvalutato o Sottovalutato?</p>
+        </div>
+
         <div class="single-player-end-modal-wrapper">
           <div class="single-player-top-flame-wrapper">
             <div class="flame-glow-halo"></div>
@@ -4514,7 +4535,7 @@ function renderSinglePlayerFinalScreen() {
           </div>
           <div class="single-player-end-modal-box">
             <h1 class="single-player-end-title">PARTITA COMPLETATA!</h1>
-            <p style="color: rgba(255,255,255,0.72); text-align: center; font-size: 0.88rem; margin: -8px 0 0 0;">Hai risposto a tutte le carte della sessione.</p>
+            <p style="color: rgba(255,255,255,0.72); text-align: center; font-size: 0.85rem; margin: -6px 0 0 0;">Hai risposto a tutte le carte della sessione.</p>
             <div class="single-player-award-card">
               <div class="single-player-award-icon-box">
                 <span class="single-player-award-icon">⛔</span>

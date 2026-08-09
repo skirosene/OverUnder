@@ -2790,7 +2790,7 @@ input[type="submit"] {
   width: 100dvw;
   height: 100vh;
   height: 100dvh;
-  background: radial-gradient(circle at 50% 30%, #0c1228 0%, #050814 100%) !important;
+  background: radial-gradient(circle at 50% 25%, #0d142d 0%, #050814 100%) !important;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   z-index: 999999 !important;
@@ -2798,7 +2798,8 @@ input[type="submit"] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  gap: 8px;
+  padding: 12px 16px;
   box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
@@ -2898,6 +2899,40 @@ input[type="submit"] {
   100% { transform: translateY(-8px) rotate(var(--rot, 0deg)); }
 }
 
+/* Logo Animato Schermata Finale Single Player */
+.single-player-logo-area {
+  position: relative;
+  z-index: 6;
+  margin: 0;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.single-player-logo-area .logo-over {
+  font-size: 2.1rem;
+  letter-spacing: 4px;
+}
+
+.single-player-logo-area .logo-divider {
+  width: 75px;
+  height: 3px;
+  margin: 4px 0;
+}
+
+.single-player-logo-area .logo-under {
+  font-size: 1.8rem;
+  letter-spacing: 4px;
+}
+
+.single-player-logo-area .logo-tagline {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  margin-top: 3px;
+  margin-bottom: 0;
+  letter-spacing: 0.3px;
+}
+
 /* Wrapper centrato del modal */
 .single-player-end-modal-wrapper {
   position: relative;
@@ -2907,7 +2942,7 @@ input[type="submit"] {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin: auto;
+  margin: 0 auto;
 }
 
 /* Emoji Fuoco Grande in alto */
@@ -2917,24 +2952,24 @@ input[type="submit"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: -32px;
+  margin-bottom: -26px;
 }
 
 .flame-glow-halo {
   position: absolute;
-  width: 110px;
-  height: 110px;
+  width: 95px;
+  height: 95px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 120, 0, 0.8) 0%, rgba(255, 50, 0, 0.4) 45%, transparent 75%);
-  filter: blur(16px);
+  filter: blur(14px);
   animation: pulse-flame-halo 3s ease-in-out infinite alternate;
 }
 
 .single-player-top-flame {
-  font-size: 3.8rem;
+  font-size: 3.2rem;
   line-height: 1;
   display: inline-block;
-  filter: drop-shadow(0 6px 16px rgba(255, 100, 0, 0.7));
+  filter: drop-shadow(0 6px 14px rgba(255, 100, 0, 0.7));
   transform: translateY(-4px);
   animation: float-flame 3s ease-in-out infinite alternate;
 }
@@ -2952,15 +2987,15 @@ input[type="submit"] {
 /* Modal Box con Bordo Gradiente Neon */
 .single-player-end-modal-box {
   width: 100%;
-  padding: 44px 20px 24px 20px;
-  border-radius: 28px;
+  padding: 34px 18px 18px 18px;
+  border-radius: 26px;
   background: #080c1b;
   position: relative;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   text-align: center;
   box-shadow: 0 0 35px rgba(0, 136, 255, 0.25), 0 0 45px rgba(217, 38, 217, 0.25), 0 25px 60px rgba(0, 0, 0, 0.9);
 }
@@ -2973,7 +3008,7 @@ input[type="submit"] {
   right: -2px;
   bottom: -2px;
   background: linear-gradient(135deg, #0088ff 0%, #06b6d4 30%, #8b5cf6 70%, #d926d9 100%);
-  border-radius: 30px;
+  border-radius: 28px;
   z-index: -1;
 }
 
@@ -2982,7 +3017,7 @@ input[type="submit"] {
   text-align: center;
   font-family: var(--font-title);
   font-weight: 800;
-  font-size: clamp(1.5rem, 5.5vw, 1.85rem);
+  font-size: clamp(1.4rem, 5vw, 1.75rem);
   text-transform: uppercase;
   margin: 0;
   letter-spacing: 0.5px;
@@ -2993,9 +3028,9 @@ input[type="submit"] {
 .single-player-end-subtitle {
   color: rgba(255, 255, 255, 0.72);
   text-align: center;
-  font-size: 0.88rem;
-  line-height: 1.4;
-  margin: -8px 0 0 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  margin: -6px 0 0 0;
   font-weight: 400;
 }
 
@@ -3004,8 +3039,8 @@ input[type="submit"] {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: 12px;
+  padding: 12px 14px;
   border-radius: 16px;
   background: rgba(12, 16, 28, 0.85);
   border: 1.5px solid rgba(234, 179, 8, 0.65);
@@ -3015,16 +3050,16 @@ input[type="submit"] {
 }
 
 .single-player-award-icon-box {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
-  border-radius: 14px;
+  border-radius: 12px;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, rgba(10, 15, 30, 0.7) 100%);
   border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
@@ -3032,14 +3067,14 @@ input[type="submit"] {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
 }
 
 .single-player-award-title {
   font-family: var(--font-title);
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   color: #FACC15;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -3052,49 +3087,66 @@ input[type="submit"] {
 }
 
 .single-player-award-dot {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   flex-shrink: 0;
 }
 
 .single-player-award-desc {
   font-family: var(--font-body);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: rgba(255, 255, 255, 0.82);
-  line-height: 1.35;
+  line-height: 1.3;
   margin: 0;
   font-weight: 400;
 }
 
-/* Pulsante RICOMINCIA a gradiente (da azzurro a viola) */
+/* Pulsante RICOMINCIA Neon Dinamico con Shimmer e Pulse */
 .btn-single-player-restart {
   width: 100%;
-  padding: 16px;
+  padding: 14px 20px;
   border-radius: 18px;
-  border: none;
-  background: linear-gradient(90deg, #0088ff 0%, #8b3dff 50%, #d926d9 100%);
-  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  background: linear-gradient(135deg, #00A8E8, #9b59b6, #e0115f, #00A8E8);
+  background-size: 300% 100%;
+  color: #ffffff !important;
   font-family: var(--font-title);
   font-weight: 800;
   font-size: 1.05rem;
-  letter-spacing: 1px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(139, 61, 255, 0.35), 0 2px 8px rgba(0, 136, 255, 0.25);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 25px rgba(155, 89, 182, 0.4), 0 0 15px rgba(0, 168, 232, 0.3);
+  animation: dynamic-gradient 4s linear infinite, premium-pulse 2s infinite ease-in-out;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 4px;
+  margin-top: 2px;
+}
+
+.btn-single-player-restart::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 30%;
+  height: 200%;
+  background: rgba(255, 255, 255, 0.25);
+  transform: rotate(30deg);
+  pointer-events: none;
+  animation: sweep-shimmer 3.2s infinite ease-in-out;
 }
 
 .btn-single-player-restart:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(139, 61, 255, 0.5), 0 4px 12px rgba(0, 136, 255, 0.35);
-  filter: brightness(1.08);
+  transform: scale(1.02) translateY(-1px);
+  box-shadow: 0 12px 30px rgba(224, 17, 95, 0.6), 0 0 20px rgba(0, 168, 232, 0.5);
+  border-color: rgba(255, 255, 255, 0.45) !important;
 }
 
 .btn-single-player-restart:active {
-  transform: translateY(1px);
+  transform: scale(0.96) translateY(0);
   filter: brightness(0.95);
 }
 
