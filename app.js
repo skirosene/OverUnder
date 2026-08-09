@@ -4368,35 +4368,27 @@ function renderSinglePlayerFinalScreen() {
       });
     }
 
-    let personalityTitle = "🎯 L'EQUILIBRATO";
+    let personalityTitle = "L'EQUILIBRATO";
     let personalityDesc = "Hai mantenuto un bilanciamento perfetto tra Over e Under!";
     let personalityIcon = "⚖️";
+    let personalityDot = "🎯";
 
     if (countUnder >= Math.ceil(cardsPlayed / 2) && countUnder > 0) {
-      personalityTitle = "🟢 IL SOTTO-VALUTATORE";
+      personalityTitle = "IL SOTTO-VALUTATORE";
       personalityDesc = `Hai votato SOTTOVALUTATO ${countUnder} volte su ${cardsPlayed}. Trovi valore in qualsiasi cosa!`;
       personalityIcon = "✨";
+      personalityDot = "🟢";
     } else if (countOver >= Math.ceil(cardsPlayed / 2) && countOver > 0) {
-      personalityTitle = "🔴 IL SOPRA-VALUTATORE";
+      personalityTitle = "IL SOPRA-VALUTATORE";
       personalityDesc = `Hai votato SOPRAVVALUTATO ${countOver} volte su ${cardsPlayed}. Niente sembra soddisfarti!`;
       personalityIcon = "⛔";
+      personalityDot = "🔴";
     } else if (countTimeout > 0 && countTimeout >= Math.ceil(cardsPlayed / 2)) {
-      personalityTitle = "🐌 IL PIGRO";
+      personalityTitle = "IL PIGRO";
       personalityDesc = `Tempo scaduto per ${countTimeout} volte. La fretta non fa per te!`;
       personalityIcon = "💤";
+      personalityDot = "🐌";
     }
-
-    const trophySvg = `
-      <div class="trophy-glow-wrapper">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 8px rgba(250,204,21,0.6)); display: block;">
-          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
-          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
-          <path d="M4 22h16"></path>
-          <path d="M10 14.66V17c0 .55-.45 1-1 1H7c-.55 0-1 .45-1 1v1c0 .55.45 1 1 1h10c.55 0 1-.45 1-1v-1c0-.55-.45-1-1-1h-2c-.55 0-1-.45-1-1v-2.34"></path>
-          <path d="M6 4h12v5a6 6 0 0 1-12 0V4z"></path>
-        </svg>
-      </div>
-    `;
 
     // 3. Mostra la schermata finale Single Player isolata e centrata verticalmente
     let endScreen = document.getElementById('single-player-end-screen');
@@ -4408,24 +4400,52 @@ function renderSinglePlayerFinalScreen() {
     }
 
     endScreen.className = 'single-player-end-screen-overlay custom-modal-overlay active';
-    endScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; background: rgba(10, 15, 30, 0.96); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; overflow-y: auto;';
+    endScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;';
 
     endScreen.innerHTML = `
-      <div class="single-player-end-modal-box glass-panel">
-        <h1 class="single-player-end-title">Partita Completata!</h1>
-        <p id="single-player-summary" class="single-player-end-subtitle">Hai risposto a tutte le carte della sessione.</p>
-        <div id="single-player-personality-badge" style="width: 100%;">
-          <div class="award-reward-badge-card">
-            ${trophySvg}
-            <div class="award-badge-title">${personalityTitle}</div>
-            <p class="award-badge-desc">${personalityDesc}</p>
-            <div class="award-player-pill">
-              <span style="opacity: 0.7;">Giocatore:</span>
-              <span>${state.playerName || 'Tu'}</span>
+      <div class="single-player-bg-effects">
+        <div class="single-player-light-rays"></div>
+        <div class="single-player-confetti-container">
+          <span class="confetti c1"></span>
+          <span class="confetti c2"></span>
+          <span class="confetti c3"></span>
+          <span class="confetti c4"></span>
+          <span class="confetti c5"></span>
+          <span class="confetti c6"></span>
+          <span class="confetti c7"></span>
+          <span class="confetti c8"></span>
+          <span class="confetti c9"></span>
+          <span class="confetti c10"></span>
+          <span class="confetti c11"></span>
+          <span class="confetti c12"></span>
+        </div>
+      </div>
+
+      <div class="single-player-end-modal-wrapper">
+        <div class="single-player-top-flame-wrapper">
+          <div class="flame-glow-halo"></div>
+          <span class="single-player-top-flame">🔥</span>
+        </div>
+
+        <div class="single-player-end-modal-box">
+          <h1 class="single-player-end-title">PARTITA COMPLETATA!</h1>
+          <p id="single-player-summary" class="single-player-end-subtitle">Hai risposto a tutte le carte della sessione.</p>
+          <div id="single-player-personality-badge" style="width: 100%;">
+            <div class="single-player-award-card">
+              <div class="single-player-award-icon-box">
+                <span class="single-player-award-icon">${personalityIcon}</span>
+              </div>
+              <div class="single-player-award-info">
+                <div class="single-player-award-title">
+                  <span class="single-player-award-dot">${personalityDot}</span>
+                  <span>${personalityTitle}</span>
+                </div>
+                <p class="single-player-award-desc">${personalityDesc}</p>
+              </div>
             </div>
           </div>
+          <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
         </div>
-        <button id="btn-restart-direct" class="btn btn-primary btn-pulse-premium" style="width: 100%; justify-content: center; font-size: 1.05rem; font-weight: 800; padding: 15px; border-radius: 14px; margin-top: 4px; letter-spacing: 1px;">RICOMINCIA</button>
       </div>
     `;
 
@@ -4445,27 +4465,41 @@ function renderSinglePlayerFinalScreen() {
         container.appendChild(fallbackScreen);
       }
       fallbackScreen.className = 'single-player-end-screen-overlay custom-modal-overlay active';
-      fallbackScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; background: rgba(10, 15, 30, 0.96); flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
+      fallbackScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;';
       fallbackScreen.innerHTML = `
-        <div class="single-player-end-modal-box glass-panel">
-          <h1 class="single-player-end-title">Partita Completata!</h1>
-          <p style="color: rgba(255,255,255,0.7); text-align: center; font-size: 0.92rem; margin: -6px 0 0 0;">Hai risposto a tutte le carte della sessione.</p>
-          <div class="award-reward-badge-card">
-            <div class="trophy-glow-wrapper">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 8px rgba(250,204,21,0.6)); display: block;">
-                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
-                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
-                <path d="M4 22h16"></path>
-                <path d="M10 14.66V17c0 .55-.45 1-1 1H7c-.55 0-1 .45-1 1v1c0 .55.45 1 1 1h10c.55 0 1-.45 1-1v-1c0-.55-.45-1-1-1h-2c-.55 0-1-.45-1-1v-2.34"></path>
-                <path d="M6 4h12v5a6 6 0 0 1-12 0V4z"></path>
-              </svg>
-            </div>
-            <div class="award-badge-title">SESSIONE COMPLETATA</div>
-            <div class="award-player-pill" style="margin-top: 8px;">
-              <span>${state.playerName || 'Tu'}</span>
-            </div>
+        <div class="single-player-bg-effects">
+          <div class="single-player-light-rays"></div>
+          <div class="single-player-confetti-container">
+            <span class="confetti c1"></span>
+            <span class="confetti c2"></span>
+            <span class="confetti c3"></span>
+            <span class="confetti c4"></span>
+            <span class="confetti c5"></span>
+            <span class="confetti c6"></span>
           </div>
-          <button id="btn-restart-direct" class="btn btn-primary" style="width: 100%; justify-content: center; font-weight: 800; padding: 15px; border-radius: 14px;">RICOMINCIA</button>
+        </div>
+        <div class="single-player-end-modal-wrapper">
+          <div class="single-player-top-flame-wrapper">
+            <div class="flame-glow-halo"></div>
+            <span class="single-player-top-flame">🔥</span>
+          </div>
+          <div class="single-player-end-modal-box">
+            <h1 class="single-player-end-title">PARTITA COMPLETATA!</h1>
+            <p style="color: rgba(255,255,255,0.72); text-align: center; font-size: 0.88rem; margin: -8px 0 0 0;">Hai risposto a tutte le carte della sessione.</p>
+            <div class="single-player-award-card">
+              <div class="single-player-award-icon-box">
+                <span class="single-player-award-icon">⛔</span>
+              </div>
+              <div class="single-player-award-info">
+                <div class="single-player-award-title">
+                  <span class="single-player-award-dot">🔴</span>
+                  <span>IL SOPRA-VALUTATORE</span>
+                </div>
+                <p class="single-player-award-desc">Sessione completata con successo!</p>
+              </div>
+            </div>
+            <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
+          </div>
         </div>
       `;
       const btnFallback = fallbackScreen.querySelector('#btn-restart-direct');
