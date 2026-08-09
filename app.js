@@ -4739,7 +4739,7 @@ function renderSinglePlayerFinalScreen() {
         container.appendChild(fallbackScreen);
       }
       fallbackScreen.className = 'single-player-end-screen-overlay custom-modal-overlay active';
-      fallbackScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 12px 16px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;';
+      fallbackScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; flex-direction: column; align-items: center; justify-content: flex-start; padding: max(48px, calc(34px + env(safe-area-inset-top))) 16px max(24px, calc(16px + env(safe-area-inset-bottom))) 16px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;';
       fallbackScreen.innerHTML = `
         <div class="single-player-bg-effects">
           <div class="single-player-light-rays"></div>

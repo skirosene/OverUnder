@@ -2797,8 +2797,8 @@ input[type="submit"] {
   display: none;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: max(28px, calc(20px + env(safe-area-inset-top))) 16px max(20px, calc(14px + env(safe-area-inset-bottom))) 16px;
+  justify-content: flex-start;
+  padding: max(48px, calc(34px + env(safe-area-inset-top))) 16px max(24px, calc(16px + env(safe-area-inset-bottom))) 16px;
   box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
@@ -2903,7 +2903,8 @@ input[type="submit"] {
   position: relative;
   z-index: 6;
   margin: 0;
-  margin-bottom: clamp(24px, 4.5vh, 32px);
+  margin-top: 4px;
+  margin-bottom: clamp(28px, 5.5vh, 40px);
   flex-shrink: 0;
   text-align: center;
 }
