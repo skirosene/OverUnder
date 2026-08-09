@@ -93,6 +93,7 @@ function clearRoomSession() {
 
 function clearSession() {
   clearRoomSession();
+  clearWatchdog();
   safeSessionStorage.removeItem('overunder_token');
   safeSessionStorage.removeItem('overunder_pendingRoom');
   state.roomCode = '';
@@ -104,6 +105,7 @@ function clearSession() {
 }
 
 function resetToMenu() {
+  clearWatchdog();
   state.soloCardIndex = 0;
   state.soloResponses = [];
   state.userHasVoted = false;
@@ -493,6 +495,54 @@ const state = {
   authenticatedToken: null,
   pendingSocketAction: null
 };
+
+// ==========================================================================
+// WATCHDOG TIMER (Auto-Avanzamento di Sicurezza & Anti-Deadlock Multiplayer)
+// ==========================================================================
+let watchdogTimer = null;
+let watchdogTargetCardIndex = null;
+
+function checkAndArmWatchdog(reason = '') {
+  if (state.isSoloMode) return;
+  if (!el.screenGameplay || !el.screenGameplay.classList.contains('active')) return;
+
+  const activePlayers = (state.players || []).filter(p => p.connected !== false && p.isOnline !== false);
+  const votedBadges = el.gameplayPlayersStatus ? el.gameplayPlayersStatus.querySelectorAll('.player-status-badge.has-voted') : [];
+  const allVotedUI = activePlayers.length > 0 && votedBadges.length >= activePlayers.length;
+
+  const elapsed = Date.now() - (state.timerStartTime || Date.now());
+  const isZeroTimer = elapsed >= state.timerDurationMs || (el.timerCounter && (el.timerCounter.textContent === '0.0s' || el.timerCounter.textContent === '0s'));
+
+  if (allVotedUI || isZeroTimer || reason === 'all_voted' || reason === 'time_up') {
+    if (watchdogTimer && watchdogTargetCardIndex === state.currentCardIndex) {
+      return;
+    }
+
+    clearWatchdog();
+    watchdogTargetCardIndex = state.currentCardIndex;
+
+    watchdogTimer = setTimeout(() => {
+      if (state.currentCardIndex === watchdogTargetCardIndex &&
+          el.screenGameplay && el.screenGameplay.classList.contains('active')) {
+        console.log("Watchdog: forzato avanzamento carta per evitare freeze");
+        if (socket && socket.connected) {
+          socket.emit('next_card');
+          socket.emit('nextCard');
+          socket.emit('advanceTurn');
+        }
+      }
+      watchdogTimer = null;
+    }, 1500);
+  }
+}
+
+function clearWatchdog() {
+  if (watchdogTimer) {
+    clearTimeout(watchdogTimer);
+    watchdogTimer = null;
+  }
+  watchdogTargetCardIndex = null;
+}
 
 let activeCropper = null;
 let openInAppCamera = null;
@@ -2647,8 +2697,19 @@ function setupSocketListeners() {
       state.currentDeckName = gameData.deckName || 'OVER / UNDER';
       state.totalCards = gameData.totalCards || 0;
       state.currentPromptText = gameData.prompt || '';
+      
+      const isNewCardIndex = (state.currentCardIndex !== gameData.cardIndex);
       state.currentCardIndex = gameData.cardIndex || 0;
-      state.userHasVoted = !!gameData.userHasVoted;
+      
+      if (isNewCardIndex) {
+        clearWatchdog();
+        state.userHasVoted = false;
+        state.roundEndActive = false;
+        if (el.roundEndOverlay) el.roundEndOverlay.classList.remove('active');
+        if (el.roundEndOverlayVoteActions) el.roundEndOverlayVoteActions.style.display = 'none';
+      } else {
+        state.userHasVoted = !!gameData.userHasVoted;
+      }
 
       if (el.currentDeckName) el.currentDeckName.textContent = state.currentDeckName;
       updateGameplayCardMedia(gameData.prompt, gameData.image);
@@ -2662,8 +2723,8 @@ function setupSocketListeners() {
         if (el.btnUnderrated) el.btnUnderrated.classList.add('disabled');
         if (el.btnOverrated) el.btnOverrated.classList.add('disabled');
       } else {
-        if (el.btnUnderrated) el.btnUnderrated.classList.remove('disabled');
-        if (el.btnOverrated) el.btnOverrated.classList.remove('disabled');
+        if (el.btnUnderrated) el.btnUnderrated.classList.remove('disabled', 'pulse-active');
+        if (el.btnOverrated) el.btnOverrated.classList.remove('disabled', 'pulse-active');
       }
 
       // Sincronizza timer locale
@@ -2899,6 +2960,8 @@ function setupSocketListeners() {
 
   // 6. Nuova Carta Inviata dal Server
   socket.on('new_card', ({ prompt, image, cardIndex, totalCards, roundId, timerDurationMs }) => {
+    clearWatchdog();
+
     // 4. GUARD CHECK SU UNDEFINED (Stanza Standard)
     if (!prompt && !image && cardIndex === undefined) {
       console.warn("[GUARD CHECK UNDEFINED] Carta ricevuta undefined in multiplayer Stanza Standard.");
@@ -2918,24 +2981,27 @@ function setupSocketListeners() {
     }
 
     // Reset overlay
-    el.roundEndOverlay.classList.remove('active');
-    el.roundEndOverlayVoteActions.style.display = 'none';
+    if (el.roundEndOverlay) el.roundEndOverlay.classList.remove('active');
+    if (el.roundEndOverlayVoteActions) el.roundEndOverlayVoteActions.style.display = 'none';
+    
+    // Auto-Recovery IMMEDIATO dei bottoni OVER e UNDER per la nuova carta
+    if (el.btnUnderrated) el.btnUnderrated.classList.remove('disabled', 'pulse-active');
+    if (el.btnOverrated) el.btnOverrated.classList.remove('disabled', 'pulse-active');
     
     // Reset interfaccia gameplay
-    el.currentDeckName.textContent = state.currentDeckName;
+    if (el.currentDeckName) el.currentDeckName.textContent = state.currentDeckName;
     updateGameplayCardMedia(prompt, image);
     const totalDisplay = (totalCards == 9999 || totalCards === '∞') ? '∞' : totalCards;
-    el.deckProgress.textContent = `Carta ${cardIndex + 1} / ${totalDisplay}`;
-    
-    el.btnUnderrated.classList.remove('disabled', 'pulse-active');
-    el.btnOverrated.classList.remove('disabled', 'pulse-active');
+    if (el.deckProgress) el.deckProgress.textContent = `Carta ${cardIndex + 1} / ${totalDisplay}`;
     
     // Reset colore e ombra
-    el.timerBar.style.background = 'hsl(145, 80%, 50%)';
-    el.timerBar.style.boxShadow = '0 0 12px hsl(145, 80%, 50%)';
+    if (el.timerBar) {
+      el.timerBar.style.background = 'hsl(145, 80%, 50%)';
+      el.timerBar.style.boxShadow = '0 0 12px hsl(145, 80%, 50%)';
+    }
     
     // Mostra il pannello votazioni gruppo in multiplayer
-    el.gameplayStatusPanel.style.display = 'block';
+    if (el.gameplayStatusPanel) el.gameplayStatusPanel.style.display = 'block';
     if (el.gameplayAvatarsWrapper) {
       el.gameplayAvatarsWrapper.style.display = 'flex';
     }
@@ -2975,6 +3041,7 @@ function setupSocketListeners() {
       state.roundEndActive = true;
     }
     renderRoundEndOverlay(votes);
+    checkAndArmWatchdog('time_up');
   });
 
   // 7c. Aggiornamento Voti in tempo reale nell'Overlay
@@ -3464,10 +3531,15 @@ function renderLobbyPlayers() {
 // Il caricamento dei mazzi è stato rimosso in favore del Mazzo Unico
 
 function renderGameplayPlayersStatus(votedPlayers = []) {
+  if (!el.gameplayPlayersStatus) return;
   el.gameplayPlayersStatus.innerHTML = '';
+  const activePlayers = (state.players || []).filter(p => p.connected !== false && p.isOnline !== false);
+  let votedCount = 0;
+
   state.players.forEach(p => {
     const badge = document.createElement('span');
     const hasVoted = votedPlayers.includes(p.name);
+    if (hasVoted) votedCount++;
     badge.className = `player-status-badge ${hasVoted ? 'has-voted' : ''}`;
     badge.innerHTML = `
       <span>${hasVoted ? '✔️' : '🤔'}</span>
@@ -3475,6 +3547,11 @@ function renderGameplayPlayersStatus(votedPlayers = []) {
     `;
     el.gameplayPlayersStatus.appendChild(badge);
   });
+
+  // Se tutti i partecipanti attivi hanno votato, arma il watchdog di sicurezza
+  if (activePlayers.length > 0 && votedCount >= activePlayers.length) {
+    checkAndArmWatchdog('all_voted');
+  }
 }
 
 function renderRoundEndOverlay(votes = [], showStats = false) {
@@ -3642,11 +3719,15 @@ function gameLoop() {
     el.btnUnderrated.classList.add('disabled');
     el.btnOverrated.classList.add('disabled');
     
-    // In multigiocatore, suona il gong localmente a 0.0s esatti
+    // In multigiocatore, suona il gong localmente a 0.0s esatti e attiva il Watchdog
     if (!state.isSoloMode && !state.roundEndActive) {
       state.roundEndActive = true;
       AudioSynth.playGong();
       stopTimerLoop();
+    }
+
+    if (!state.isSoloMode) {
+      checkAndArmWatchdog('time_up');
     }
     
     // In solo mode, auto-advance su timeout (ferma prima il timer corrente così non cancella il nuovo loop della carta successiva)
@@ -3767,6 +3848,7 @@ function submitVote(voteType) {
   
   // Voto via rete
   socket.emit('submit_vote', { voteType, roundId: state.currentRoundId });
+  checkAndArmWatchdog();
 }
 
 function resetFromJoinLink() {
@@ -4210,6 +4292,7 @@ function hideSoloPersonalityPopup() {
 
 function cleanUpMultiplayerListeners() {
   try {
+    clearWatchdog();
     if (state.timerRequestId) {
       cancelAnimationFrame(state.timerRequestId);
       state.timerRequestId = null;
@@ -4600,6 +4683,160 @@ function advanceSoloGame() {
     console.error("[FORCE ENDGAME] Errore in advanceSoloGame, forzo rendering finale:", err);
     renderSinglePlayerFinalScreen();
   }
+}
+
+function renderRoundResults({ votes, groupStats, globalStats, prompt, image, cardIndex, totalCards } = {}) {
+  clearWatchdog();
+  stopTimerLoop();
+  state.roundEndActive = true;
+  state.currentCardIndex = cardIndex;
+  state.totalCards = totalCards;
+  state.currentPromptText = prompt;
+
+  // Reset dello stato della barra toggle bridge per ogni nuovo round
+  state.isWorldStatsVisible = false;
+  if (el.btnToggleWorldStats) el.btnToggleWorldStats.classList.remove('active');
+  if (el.globalStatsCard) el.globalStatsCard.classList.remove('active');
+
+  if (state.roomIsPremium) {
+    if (el.worldToggleBridge) el.worldToggleBridge.style.display = 'none';
+    if (el.globalStatsCard) el.globalStatsCard.style.display = 'none';
+  } else {
+    if (el.worldToggleBridge) el.worldToggleBridge.style.display = 'flex';
+    if (el.globalStatsCard) el.globalStatsCard.style.display = '';
+  }
+
+  // Gestione immagine risultati round (Full-Card, no zoom)
+  if (el.resultsPromptImageContainer) {
+    if (image) {
+      if (el.resultsPromptImage) el.resultsPromptImage.src = image;
+      el.resultsPromptImageContainer.style.display = 'block';
+      if (el.resultsPromptImage) {
+        el.resultsPromptImage.style.pointerEvents = 'none';
+        el.resultsPromptImage.style.cursor = 'default';
+      }
+    } else {
+      el.resultsPromptImageContainer.style.display = 'none';
+      if (el.resultsPromptImage) el.resultsPromptImage.src = '';
+    }
+  }
+
+  // Popola il soggetto del prompt (nasconde titoli generici in partita)
+  const cleanResultPrompt = (prompt && typeof prompt === 'string') ? prompt.trim() : '';
+  const isGenericResultPrompt = !cleanResultPrompt || 
+                                cleanResultPrompt === 'Carta Immagine' || 
+                                cleanResultPrompt.startsWith('Immagine (') || 
+                                cleanResultPrompt === 'immagine caricata' || 
+                                cleanResultPrompt.startsWith('image_');
+  
+  if (el.resultsPromptSubject) {
+    if (!isGenericResultPrompt) {
+      el.resultsPromptSubject.textContent = cleanResultPrompt;
+      el.resultsPromptSubject.style.display = 'block';
+    } else {
+      el.resultsPromptSubject.textContent = '';
+      el.resultsPromptSubject.style.display = 'none';
+    }
+  }
+
+  const gStats = groupStats || { underrated: 50, overrated: 50 };
+  const wStats = globalStats || { underrated: 50, overrated: 50 };
+
+  // Modulo 1: Il Tuo Gruppo (Barre percentuali bipolari)
+  if (el.groupUnderPctText) el.groupUnderPctText.textContent = `UNDER ${gStats.underrated}%`;
+  if (el.groupOverPctText) el.groupOverPctText.textContent = `OVER ${gStats.overrated}%`;
+  if (el.groupUnderFill) el.groupUnderFill.style.width = `${gStats.underrated}%`;
+  if (el.groupOverFill) el.groupOverFill.style.width = `${gStats.overrated}%`;
+
+  // Modulo 2: Il Mondo (Global, Barre percentuali bipolari)
+  if (el.globalUnderPctText) el.globalUnderPctText.textContent = `UNDER ${wStats.underrated}%`;
+  if (el.globalOverPctText) el.globalOverPctText.textContent = `OVER ${wStats.overrated}%`;
+  if (el.globalUnderFill) el.globalUnderFill.style.width = `${wStats.underrated}%`;
+  if (el.globalOverFill) el.globalOverFill.style.width = `${wStats.overrated}%`;
+
+  // Modulo Dettaglio Voti (Solo in Multiplayer)
+  if (state.isSoloMode) {
+    if (el.resultsVotesDetailCard) el.resultsVotesDetailCard.style.display = 'none';
+  } else {
+    if (el.resultsVotesDetailCard) el.resultsVotesDetailCard.style.display = 'block';
+    
+    // Salva i voti correnti per il filtraggio
+    state.currentRoundResultsVotes = votes || [];
+    state.activeResultsFilter = 'all';
+
+    // Reimposta active classe sui bottoni filtro dei risultati
+    document.querySelectorAll('#results-votes-detail-card .votes-filter-container .filter-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.filter === 'all');
+    });
+
+    renderFilteredResultsList();
+  }
+
+  // Configura il footer (Controlli avanzamento)
+  const isLast = (cardIndex !== undefined && totalCards !== undefined) ? (cardIndex >= totalCards - 1) : false;
+  if (state.isSoloMode || state.isHost) {
+    if (el.btnNextCardConfluent) {
+      el.btnNextCardConfluent.style.display = 'flex';
+      const labelSpan = el.btnNextCardConfluent.querySelector('span');
+      if (labelSpan) labelSpan.textContent = isLast ? "VEDI CLASSIFICA" : "PROSSIMA CARTA";
+    }
+    if (el.resultsPlayerWaitingConfluent) el.resultsPlayerWaitingConfluent.style.display = 'none';
+  } else {
+    if (el.btnNextCardConfluent) el.btnNextCardConfluent.style.display = 'none';
+    if (el.resultsPlayerWaitingConfluent) el.resultsPlayerWaitingConfluent.style.display = 'flex';
+  }
+
+  // Transizione alla schermata risultati
+  showScreen(el.screenResults);
+}
+
+function renderFilteredResultsList() {
+  const filter = state.activeResultsFilter || 'all';
+  const votes = state.currentRoundResultsVotes || [];
+
+  let filteredVotes = votes;
+  if (filter === 'over') {
+    filteredVotes = votes.filter(v => v.vote === 'overrated');
+  } else if (filter === 'under') {
+    filteredVotes = votes.filter(v => v.vote === 'underrated');
+  }
+
+  const sortedVotes = [...filteredVotes].sort((a, b) => {
+    if (a.player === state.playerName) return -1;
+    if (b.player === state.playerName) return 1;
+    return 0;
+  });
+
+  if (!el.resultsVotesList) return;
+  el.resultsVotesList.innerHTML = '';
+  if (sortedVotes.length === 0) {
+    el.resultsVotesList.innerHTML = `<div class="no-players-text" style="padding: 10px; text-align: center; color: var(--color-text-muted);">Nessun voto per questa categoria.</div>`;
+    return;
+  }
+
+  sortedVotes.forEach(pv => {
+    const row = document.createElement('div');
+    row.className = 'results-vote-row';
+
+    let badgeText = 'Tempo Scaduto';
+    let badgeClass = 'results-vote-row-badge timeout';
+
+    if (pv.vote === 'underrated') {
+      badgeText = 'Sottovalutato';
+      badgeClass = 'results-vote-row-badge under';
+    } else if (pv.vote === 'overrated') {
+      badgeText = 'Sopravvalutato';
+      badgeClass = 'results-vote-row-badge over';
+    }
+
+    const displayName = pv.player === state.playerName ? 'Tu' : pv.player;
+
+    row.innerHTML = `
+      <span class="results-vote-row-name">${displayName}</span>
+      <span class="${badgeClass}">${badgeText}</span>
+    `;
+    el.resultsVotesList.appendChild(row);
+  });
 }
 
 function renderGameOver({ awards, summary } = {}) {

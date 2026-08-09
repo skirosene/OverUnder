@@ -1473,23 +1473,37 @@ io.on('connection', (socket) => {
 
 
 
-  // Evento 6: Prossima Carta (Solo Host)
-  socket.on('next_card', () => {
+  // Evento 6: Prossima Carta / Avanzamento Turno (Host o Watchdog di emergenza)
+  const handleNextCardRequest = () => {
     const room = rooms[currentRoomCode];
-    if (!room || room.hostId !== socket.id || (room.state !== 'results' && room.state !== 'playing')) return;
+    if (!room || (room.state !== 'results' && room.state !== 'playing')) return;
 
-    if (room.state === 'playing') {
-      freezeRound(room, "Avanzamento Host");
+    const isHost = room.hostId === socket.id;
+    const activePlayers = room.players.filter(p => p.isBot || (p.connected !== false && p.isOnline !== false));
+    const allVoted = activePlayers.length > 0 && activePlayers.every(p => room.votes && room.votes[p.id]);
+    const isStuckOrReady = room.state === 'results' || allVoted || room.timeIsUp;
+
+    // Solo host può forzare l'avanzamento durante la fase attiva; se il round è già terminato o bloccato (tutti votati / time up), il watchdog sblocca
+    if (!isHost && !isStuckOrReady) return;
+
+    if (room.state === 'playing' && !allVoted && !room.timeIsUp) {
+      freezeRound(room, isHost ? "Avanzamento Host" : "Avanzamento Forzato");
       return;
     }
 
     room.currentCardIndex++;
-    if (room.currentCardIndex < room.deck.cards.length) {
+    if (room.deck && room.deck.cards && room.currentCardIndex < room.deck.cards.length) {
       startNewRound(room);
     } else {
       endGame(room);
     }
-  });
+  };
+
+  socket.on('next_card', handleNextCardRequest);
+  socket.on('nextCard', handleNextCardRequest);
+  socket.on('advanceTurn', handleNextCardRequest);
+  socket.on('advance_turn', handleNextCardRequest);
+  socket.on('force_advance', handleNextCardRequest);
 
   // Evento 6b: Cambia Durata Timer (Solo Host)
   socket.on('set_timer_duration', ({ durationMs }) => {
