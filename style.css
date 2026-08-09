@@ -4911,22 +4911,94 @@ input[type="submit"] {
   stroke: currentColor;
 }
 
+/* Intestazione Brand Fissa per Modali (Regole Stanza & Vista QR) */
+.modal-fixed-brand-header {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-bottom: 14px;
+  user-select: none;
+  pointer-events: none;
+  position: relative;
+  z-index: 10;
+}
+
+.modal-logo-area {
+  margin: 0;
+  text-align: center;
+}
+
+.modal-logo-area .logo-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.modal-logo-area .logo-over {
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 2.1rem;
+  letter-spacing: 4px;
+  color: var(--color-overrated);
+  text-shadow: 0 0 15px var(--color-overrated-glow);
+  display: inline-block;
+  line-height: 0.95;
+  transform-origin: center;
+}
+
+.modal-logo-area .logo-divider {
+  width: 75px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-overrated), var(--color-underrated));
+  margin: 4px 0;
+  border-radius: 2px;
+}
+
+.modal-logo-area .logo-under {
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 1.8rem;
+  letter-spacing: 4px;
+  color: var(--color-underrated);
+  text-shadow: 0 0 15px var(--color-underrated-glow);
+  text-transform: uppercase;
+  display: inline-block;
+  line-height: 0.95;
+  transform-origin: center;
+}
+
+.modal-logo-area .logo-tagline {
+  font-size: 0.80rem;
+  color: var(--color-text-secondary);
+  margin-top: 5px;
+  margin-bottom: 0;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
 .qr-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   background: rgba(0, 0, 0, 0.95);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 99999;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: max(16px, env(safe-area-inset-top)) 20px max(16px, env(safe-area-inset-bottom)) 20px;
   box-sizing: border-box;
   animation: scale-up-chip 0.2s ease forwards;
+  overflow-y: auto;
 }
 
 .qr-modal-overlay.hidden {
@@ -4935,15 +5007,15 @@ input[type="submit"] {
 
 .qr-modal-close {
   position: absolute;
-  top: max(28px, calc(18px + env(safe-area-inset-top))) !important;
+  top: max(20px, calc(14px + env(safe-area-inset-top))) !important;
   right: max(20px, calc(16px + env(safe-area-inset-right))) !important;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.85);
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -4976,21 +5048,21 @@ input[type="submit"] {
 
 .qr-modal-title {
   font-family: var(--font-title);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 800;
   color: #ffffff;
   letter-spacing: 1px;
   text-transform: uppercase;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
 }
 
 .qr-code-box {
-  width: 240px;
-  height: 240px;
+  width: 210px;
+  height: 210px;
   background: #ffffff;
-  padding: 16px;
-  border-radius: 24px;
+  padding: 14px;
+  border-radius: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5008,11 +5080,11 @@ input[type="submit"] {
 
 .qr-modal-code {
   font-family: var(--font-title);
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: #ffffff !important;
   letter-spacing: 3px;
-  margin-top: 24px;
+  margin-top: 18px;
   text-transform: uppercase;
 }
 
@@ -5490,17 +5562,19 @@ input[type="submit"] {
   width: 100vw;
   height: 100vh;
   height: 100dvh;
-  background: rgba(8, 10, 18, 0.88);
+  background: rgba(8, 10, 18, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   z-index: 20000;
-  padding: 16px;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)) 16px;
   box-sizing: border-box;
   opacity: 1;
   transition: opacity 0.3s ease;
+  overflow-y: auto;
 }
 
 .join-rules-modal-overlay.hidden {
@@ -5512,11 +5586,11 @@ input[type="submit"] {
 .join-rules-modal-card {
   position: relative;
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
   background: rgba(22, 26, 42, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 24px;
-  padding: 24px 18px 18px 18px;
+  padding: 20px 16px 16px 16px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
   display: flex;
   flex-direction: column;
@@ -5537,27 +5611,31 @@ input[type="submit"] {
 
 .join-rules-modal-close {
   position: absolute;
-  top: 14px;
-  right: 16px;
+  top: max(20px, calc(14px + env(safe-area-inset-top))) !important;
+  right: max(20px, calc(16px + env(safe-area-inset-right))) !important;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #ffffff;
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   line-height: 1;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10;
+  z-index: 100000;
   transition: all 0.2s ease;
+  outline: none;
 }
 
+.join-rules-modal-close:hover,
 .join-rules-modal-close:active {
-  transform: scale(0.9);
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 59, 48, 0.8);
+  border-color: #ff453a;
+  color: #ffffff;
+  transform: scale(1.08);
 }
 
 .join-modal-mode-tag {
