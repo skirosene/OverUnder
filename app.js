@@ -547,6 +547,33 @@ function clearWatchdog() {
 let activeCropper = null;
 let openInAppCamera = null;
 
+function initCropper(imageElement) {
+  if (activeCropper) {
+    activeCropper.destroy();
+    activeCropper = null;
+  }
+
+  activeCropper = new Cropper(imageElement, {
+    aspectRatio: 1,
+    viewMode: 1, // Vincolo di copertura: l'immagine non può mai diventare più piccola del riquadro 1:1 (nessun bordo vuoto o nero)
+    dragMode: 'move', // Trascina per centrare e riposizionare l'immagine
+    autoCropArea: 1,
+    restore: false,
+    guides: true,
+    center: true,
+    highlight: false,
+    cropBoxMovable: false,
+    cropBoxResizable: false,
+    toggleDragModeOnDblclick: false,
+    zoomable: true,
+    zoomOnTouch: true,
+    zoomOnWheel: true,
+    wheelZoomRatio: 0.1
+  });
+
+  return activeCropper;
+}
+
 // Elementi DOM
 const el = {
   // Schermate
@@ -701,6 +728,8 @@ const el = {
   cropperImageTarget: document.getElementById('cropper-image-target'),
   btnCropperCancel: document.getElementById('btn-cropper-cancel'),
   btnCropperConfirm: document.getElementById('btn-cropper-confirm'),
+  btnCropperZoomIn: document.getElementById('btn-cropper-zoom-in'),
+  btnCropperZoomOut: document.getElementById('btn-cropper-zoom-out'),
   infoGognaModal: document.getElementById('info-gogna-modal'),
   inputHelpModal: document.getElementById('input-help-modal'),
   
@@ -5845,21 +5874,7 @@ function renderCapsules() {
           el.cropperModal.offsetHeight;
           el.cropperModal.classList.add('active');
 
-          if (activeCropper) activeCropper.destroy();
-
-          activeCropper = new Cropper(el.cropperImageTarget, {
-            aspectRatio: 1,
-            viewMode: 1,
-            dragMode: 'move',
-            autoCropArea: 1,
-            restore: false,
-            guides: true,
-            center: true,
-            highlight: false,
-            cropBoxMovable: true,
-            cropBoxResizable: false,
-            toggleDragModeOnDblclick: false
-          });
+          initCropper(el.cropperImageTarget);
 
           state.editingPremiumCardIndex = index;
         } else {
@@ -5940,23 +5955,7 @@ function setupPremiumCreatorEvents() {
         el.cropperModal.offsetHeight; // trigger reflow
         el.cropperModal.classList.add('active');
 
-        if (activeCropper) {
-          activeCropper.destroy();
-        }
-
-        activeCropper = new Cropper(el.cropperImageTarget, {
-          aspectRatio: 1,
-          viewMode: 1,
-          dragMode: 'move',
-          autoCropArea: 1,
-          restore: false,
-          guides: true,
-          center: true,
-          highlight: false,
-          cropBoxMovable: true,
-          cropBoxResizable: false,
-          toggleDragModeOnDblclick: false
-        });
+        initCropper(el.cropperImageTarget);
 
         state.editingPremiumCardIndex = index;
       } else {
@@ -6083,23 +6082,7 @@ function setupPremiumCreatorEvents() {
         el.cropperModal.offsetHeight; // trigger reflow
         el.cropperModal.classList.add('active');
 
-        if (activeCropper) {
-          activeCropper.destroy();
-        }
-
-        activeCropper = new Cropper(el.cropperImageTarget, {
-          aspectRatio: 1,
-          viewMode: 1,
-          dragMode: 'move',
-          autoCropArea: 1,
-          restore: false,
-          guides: true,
-          center: true,
-          highlight: false,
-          cropBoxMovable: true,
-          cropBoxResizable: false,
-          toggleDragModeOnDblclick: false
-        });
+        initCropper(el.cropperImageTarget);
       };
       reader.readAsDataURL(file);
     });
@@ -6188,7 +6171,43 @@ function setupPremiumCreatorEvents() {
         activeCropper.destroy();
         activeCropper = null;
       }
-      el.premiumImageUpload.value = '';
+      if (el.premiumImageUpload) el.premiumImageUpload.value = '';
+      if (el.inputAvatarGallery) el.inputAvatarGallery.value = '';
+      if (el.inputAvatarCamera) el.inputAvatarCamera.value = '';
+    });
+  }
+
+  if (el.btnCropperCancel) {
+    el.btnCropperCancel.addEventListener('click', () => {
+      el.cropperModal.classList.remove('active');
+      el.cropperModal.style.display = 'none';
+      if (activeCropper) {
+        activeCropper.destroy();
+        activeCropper = null;
+      }
+      if (el.premiumImageUpload) el.premiumImageUpload.value = '';
+      if (el.inputAvatarGallery) el.inputAvatarGallery.value = '';
+      if (el.inputAvatarCamera) el.inputAvatarCamera.value = '';
+    });
+  }
+
+  if (el.btnCropperZoomIn) {
+    el.btnCropperZoomIn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (activeCropper) {
+        activeCropper.zoom(0.1);
+      }
+    });
+  }
+
+  if (el.btnCropperZoomOut) {
+    el.btnCropperZoomOut.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (activeCropper) {
+        activeCropper.zoom(-0.1);
+      }
     });
   }
 
@@ -6446,23 +6465,7 @@ function setupAvatarEvents() {
       el.cropperModal.offsetHeight; // trigger reflow
       el.cropperModal.classList.add('active');
 
-      if (activeCropper) {
-        activeCropper.destroy();
-      }
-
-      activeCropper = new Cropper(el.cropperImageTarget, {
-        aspectRatio: 1,
-        viewMode: 1,
-        dragMode: 'move',
-        autoCropArea: 1,
-        restore: false,
-        guides: true,
-        center: true,
-        highlight: false,
-        cropBoxMovable: true,
-        cropBoxResizable: false,
-        toggleDragModeOnDblclick: false
-      });
+      initCropper(el.cropperImageTarget);
     });
   }
 
@@ -6549,23 +6552,7 @@ function setupAvatarEvents() {
       el.cropperModal.offsetHeight; // trigger reflow
       el.cropperModal.classList.add('active');
 
-      if (activeCropper) {
-        activeCropper.destroy();
-      }
-
-      activeCropper = new Cropper(el.cropperImageTarget, {
-        aspectRatio: 1,
-        viewMode: 1,
-        dragMode: 'move',
-        autoCropArea: 1,
-        restore: false,
-        guides: true,
-        center: true,
-        highlight: false,
-        cropBoxMovable: true,
-        cropBoxResizable: false,
-        toggleDragModeOnDblclick: false
-      });
+      initCropper(el.cropperImageTarget);
     };
     reader.readAsDataURL(file);
   };
