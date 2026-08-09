@@ -4750,13 +4750,13 @@ input[type="submit"] {
   position: relative;
 }
 
-/* Titolo Brand Fisso Verticale al centro della Navbar Header (Solo Lobby) */
+/* Titolo Brand Fisso Verticale al centro della Navbar Header (Lobby & Gameplay) */
 .nav-header-brand {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  line-height: 0.95;
+  line-height: 0.92;
   font-family: var(--font-title);
   user-select: none;
   pointer-events: none;
@@ -4769,20 +4769,20 @@ input[type="submit"] {
 }
 
 .nav-brand-over {
-  font-size: 0.80rem;
+  font-size: 0.86rem;
   font-weight: 800;
   letter-spacing: 2px;
   color: var(--color-overrated, #FFB300);
-  text-shadow: 0 0 8px rgba(255, 179, 0, 0.4);
+  text-shadow: 0 0 10px var(--color-overrated-glow, rgba(255, 179, 0, 0.45));
   line-height: 1;
 }
 
 .nav-brand-under {
-  font-size: 0.70rem;
+  font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 2px;
   color: var(--color-underrated, #00A8E8);
-  text-shadow: 0 0 8px rgba(0, 168, 232, 0.4);
+  text-shadow: 0 0 10px var(--color-underrated-glow, rgba(0, 168, 232, 0.45));
   text-transform: uppercase;
   line-height: 1;
 }
