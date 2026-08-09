@@ -195,6 +195,7 @@ const AudioSynth = {
   ctx: null,
   isMuted: localStorage.getItem('overunder_muted') === 'true',
   _unlocked: false,
+  _victoryBuffer: null,
 
   init() {
     // Crea sempre l'AudioContext anche se l'utente è in mute.
@@ -207,11 +208,17 @@ const AudioSynth = {
           this.ctx = new AudioCtx();
         }
       }
-      if (this.ctx && this.ctx.state === 'suspended') {
-        this.ctx.resume().catch(() => {});
-      }
-      if (this.ctx && this.ctx.state === 'running') {
-        this._unlocked = true;
+      if (this.ctx) {
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+        if (this.ctx.state === 'running') {
+          this._unlocked = true;
+        }
+        // Pre-carica e sintetizza il buffer di vittoria in memoria in background (ZERO LATENZA)
+        if (!this._victoryBuffer) {
+          this._buildVictoryBuffer(this.ctx);
+        }
       }
     } catch (e) {
       console.warn("AudioSynth init error:", e);
@@ -409,6 +416,170 @@ const AudioSynth = {
     } catch (e) {
       console.warn("Audio error:", e);
     }
+  },
+
+  // 7. PRE-LOADING / MEMORY BUFFER AUDIO DI VITTORIA (Web Audio API a Zero Latenza)
+  _buildVictoryBuffer(ctx) {
+    if (!ctx) return;
+    try {
+      const sampleRate = ctx.sampleRate || 44100;
+      const duration = 2.4;
+      const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!OfflineCtx) return;
+
+      const offline = new OfflineCtx(2, Math.floor(sampleRate * duration), sampleRate);
+
+      // Master Gain
+      const master = offline.createGain();
+      master.gain.setValueAtTime(0.55, 0);
+      master.connect(offline.destination);
+
+      // Riverbero / Echo spaziale celebrativo a 120ms
+      const delay = offline.createDelay();
+      delay.delayTime.setValueAtTime(0.12, 0);
+      const delayGain = offline.createGain();
+      delayGain.gain.setValueAtTime(0.25, 0);
+      master.connect(delay);
+      delay.connect(delayGain);
+      delayGain.connect(offline.destination);
+
+      // Sequenza Fanfara Trionfale (C5 -> E5 -> G5 -> C6 -> E6)
+      const sequence = [
+        { freq: 523.25, time: 0.00, dur: 0.14, type: 'triangle', vol: 0.40 }, // C5
+        { freq: 659.25, time: 0.12, dur: 0.14, type: 'triangle', vol: 0.45 }, // E5
+        { freq: 783.99, time: 0.24, dur: 0.16, type: 'triangle', vol: 0.50 }, // G5
+        { freq: 1046.50, time: 0.38, dur: 0.55, type: 'sine', vol: 0.60 },    // C6
+        { freq: 1318.51, time: 0.55, dur: 1.60, type: 'sine', vol: 0.55 }     // E6
+      ];
+
+      sequence.forEach(note => {
+        const osc = offline.createOscillator();
+        const gain = offline.createGain();
+        osc.type = note.type;
+        osc.frequency.setValueAtTime(note.freq, note.time);
+
+        gain.gain.setValueAtTime(0, note.time);
+        gain.gain.linearRampToValueAtTime(note.vol, note.time + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, note.time + note.dur);
+
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(note.time);
+        osc.stop(note.time + note.dur);
+      });
+
+      // Accordo Trionfale Finale Splendente (C-Major Brillante con Armoniche)
+      const finalChordTime = 0.55;
+      const finalChord = [
+        { freq: 261.63, vol: 0.45, dur: 1.8, type: 'triangle' }, // C4
+        { freq: 523.25, vol: 0.35, dur: 1.8, type: 'sine' },     // C5
+        { freq: 659.25, vol: 0.35, dur: 1.8, type: 'sine' },     // E5
+        { freq: 783.99, vol: 0.35, dur: 1.8, type: 'sine' },     // G5
+        { freq: 1046.50, vol: 0.40, dur: 1.8, type: 'sine' },    // C6
+        { freq: 1567.98, vol: 0.25, dur: 1.6, type: 'sine' },    // G6 (scintille)
+        { freq: 2093.00, vol: 0.18, dur: 1.2, type: 'sine' }     // C7 (cristallino)
+      ];
+
+      finalChord.forEach(chordNote => {
+        const osc = offline.createOscillator();
+        const gain = offline.createGain();
+        osc.type = chordNote.type;
+        osc.frequency.setValueAtTime(chordNote.freq, finalChordTime);
+
+        gain.gain.setValueAtTime(0, finalChordTime);
+        gain.gain.linearRampToValueAtTime(chordNote.vol, finalChordTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, finalChordTime + chordNote.dur);
+
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(finalChordTime);
+        osc.stop(finalChordTime + chordNote.dur);
+      });
+
+      // Campane/Sparkles ascendenti celebrativi
+      const chimes = [1046.5, 1174.66, 1318.51, 1567.98, 1760.0, 2093.0];
+      chimes.forEach((freq, idx) => {
+        const osc = offline.createOscillator();
+        const gain = offline.createGain();
+        const t = 0.65 + (idx * 0.06);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, t);
+
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.15, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(t);
+        osc.stop(t + 0.5);
+      });
+
+      offline.startRendering().then(renderedBuffer => {
+        this._victoryBuffer = renderedBuffer;
+      }).catch(err => {
+        console.warn("Victory buffer render fallback:", err);
+      });
+    } catch (e) {
+      console.warn("Build victory buffer error:", e);
+    }
+  },
+
+  _playVictoryRealtime() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      const notes = [
+        { freq: 523.25, time: 0.00, dur: 0.14 },
+        { freq: 659.25, time: 0.12, dur: 0.14 },
+        { freq: 783.99, time: 0.24, dur: 0.16 },
+        { freq: 1046.50, time: 0.38, dur: 0.8 },
+        { freq: 1318.51, time: 0.55, dur: 1.2 }
+      ];
+      notes.forEach(n => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(n.freq, now + n.time);
+        gain.gain.setValueAtTime(0.08, now + n.time);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + n.time + n.dur);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now + n.time);
+        osc.stop(now + n.time + n.dur);
+      });
+    } catch (e) {
+      console.warn("Realtime victory synth error:", e);
+    }
+  },
+
+  playVictory() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    try {
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+
+      if (this._victoryBuffer) {
+        // Riproduzione sincrona a ZERO LATENZA del buffer pre-decodificato
+        const source = this.ctx.createBufferSource();
+        source.buffer = this._victoryBuffer;
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.75, this.ctx.currentTime);
+        source.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        source.start(0);
+      } else {
+        this._playVictoryRealtime();
+      }
+    } catch (e) {
+      console.warn("playVictory error:", e);
+    }
   }
 };
 
@@ -431,6 +602,17 @@ function _unlockAudioContext() {
   window.addEventListener(evtType, _unlockAudioContext, { passive: true });
 });
 
+// Funzione Trigger Globale per Suono di Vittoria (Zero Latenza e Single-Play per sessione)
+function triggerVictorySoundOnce() {
+  if (state._victorySoundPlayed) return;
+  state._victorySoundPlayed = true;
+  try {
+    AudioSynth.playVictory();
+  } catch (e) {
+    console.warn("[AUDIO TRIGGER] Victory sound error:", e);
+  }
+}
+
 // ==========================================================================
 // CONFIGURAZIONE STATO & ELEMENTI DOM
 // ==========================================================================
@@ -440,6 +622,7 @@ const state = {
   roomCode: '',
   playerName: '',
   players: [],             // Elenco oggetti player: { id, name, isHost }
+  _victorySoundPlayed: false,
   
   // Timer e carte
   currentDeckName: '',
@@ -827,6 +1010,7 @@ async function startApp() {
   try { initClock(); } catch (e) { console.warn("initClock error:", e); }
   try { setupOnboardingTabs(); } catch (e) { console.warn("setupOnboardingTabs error:", e); }
   try { setupEventListeners(); } catch (e) { console.warn("setupEventListeners error:", e); }
+  try { AudioSynth.init(); } catch (e) { console.warn("AudioSynth init error:", e); }
   try { setupSocketListeners(); } catch (e) { console.warn("setupSocketListeners error:", e); }
   try { setupPremiumCreatorEvents(); } catch (e) { console.warn("setupPremiumCreatorEvents error:", e); }
   try { setupAvatarEvents(); } catch (e) { console.warn("setupAvatarEvents error:", e); }
@@ -2970,6 +3154,7 @@ function setupSocketListeners() {
     state.currentDeckName = deckName;
     state.totalCards = totalCards;
     state.gameplayStarted = true;
+    state._victorySoundPlayed = false;
     updateLockIcon();
     
     // Suono chime iniziale
@@ -3087,6 +3272,7 @@ function setupSocketListeners() {
 
   // 10. Fine Partita (Riepilogo e Premi)
   socket.on('game_over', (data) => {
+    triggerVictorySoundOnce();
     if (state.isSoloMode) {
       showSinglePlayerResults();
     } else {
@@ -3097,6 +3283,7 @@ function setupSocketListeners() {
   // 11. Reset del gioco (Host torna in Lobby)
   socket.on('lobby_reset', ({ players }) => {
     state.players = players;
+    state._victorySoundPlayed = false;
 
     if (state.roomIsPremium) {
       state.hasSubmittedPremiumCards = false;
@@ -4118,6 +4305,7 @@ function startSoloGame(length = 30) {
     state.currentCardIndex = 0;
     state.soloResponses = [];
     state.soloStreakType = null;
+    state._victorySoundPlayed = false;
     state.soloStreakCount = 0;
     state.userHasVoted = false;
     state.isSoloMode = true;
@@ -4351,6 +4539,7 @@ function cleanUpMultiplayerListeners() {
 
 function renderSinglePlayerFinalScreen() {
   try {
+    triggerVictorySoundOnce();
     cleanUpMultiplayerListeners();
 
     if (state.timerRequestId) {
@@ -4574,6 +4763,7 @@ function handleSinglePlayerRestart(e) {
   state.userHasVoted = false;
   state.isSoloMode = true;
   state.gameMode = 'single';
+  state._victorySoundPlayed = false;
   hideSoloPersonalityPopup();
 
   if (state.timerRequestId) {
@@ -4637,11 +4827,13 @@ function finishMatch(params) {
 }
 
 function showSinglePlayerResults() {
+  triggerVictorySoundOnce();
   cleanUpMultiplayerListeners();
   renderSinglePlayerFinalScreen();
 }
 
 function renderSoloGameOver() {
+  triggerVictorySoundOnce();
   cleanUpMultiplayerListeners();
   renderSinglePlayerFinalScreen();
 }
@@ -4717,6 +4909,7 @@ function handleSoloVote(voteType) {
 
     // Se l'indice corrente ha completato l'ultima carta del mazzo:
     if (!isInfinite && (state.soloCardIndex >= totalCards - 1)) {
+      triggerVictorySoundOnce();
       console.log("[FORCE ENDGAME] Ultima carta completata in handleSoloVote (indice " + state.soloCardIndex + "). Rendering finale istantaneo!");
       renderSinglePlayerFinalScreen();
       return;
@@ -4924,6 +5117,7 @@ function renderFilteredResultsList() {
 }
 
 function renderGameOver({ awards, summary } = {}) {
+  triggerVictorySoundOnce();
   const isSinglePlayer = !!(state.isSoloMode || state.gameMode === 'single');
   if (isSinglePlayer) {
     // Disattiva e scollega qualsiasi listener o socket attivo prima
