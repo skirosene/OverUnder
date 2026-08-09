@@ -1614,34 +1614,14 @@ io.on('connection', (socket) => {
       console.log(`[RESET] Stanza ${room.roomCode} resettata in Modalità Gogna. Tutti i giocatori rimandati alla creazione carte.`);
 
     } else {
-      // SCENARIO A: Nella "Stanza Normale" (Mazzo di Default)
-      room.state = 'playing';
+      // SCENARIO A: Nella "Stanza Normale" (Mazzo di Default) -> Torna alla Lobby
+      room.state = 'lobby';
+      room.deck = null;
 
-      const deck = DECK_DATA.decks[0];
-      if (deck) {
-        // Clona il mazzo unico e seleziona la quantità desiderata di carte casuali
-        const clonedDeck = JSON.parse(JSON.stringify(deck));
-        const shuffledCards = clonedDeck.cards.sort(() => 0.5 - Math.random());
-        const limit = parseInt(room.gameLength, 10) || 30;
-        clonedDeck.cards = shuffledCards.slice(0, limit);
-
-        room.deck = clonedDeck;
-        room.gameLength = limit;
-      }
-
-      // Invia l'evento globale di reset Default
-      io.to(room.roomCode).emit('game_reset_default');
-
-      // Notifica avvio partita classica
-      io.to(room.roomCode).emit('game_started', {
-        deckName: room.deck.deck_name,
-        totalCards: room.gameLength,
-        imageUrls: (room.deck.cards || []).map(c => c.image).filter(Boolean)
-      });
-
-      // Avvia immediatamente il primo round
-      startNewRound(room);
-      console.log(`[RESET] Stanza ${room.roomCode} resettata in Modalità Classica. Inizio partita immediato.`);
+      // Invia l'evento globale di reset Default con lista giocatori aggiornata
+      io.to(room.roomCode).emit('game_reset_default', { players: room.players });
+      io.to(room.roomCode).emit('player_list_update', { players: room.players });
+      console.log(`[RESET] Stanza ${room.roomCode} resettata in Modalità Classica. Tutti i giocatori rimandati alla Lobby.`);
     }
   });
 

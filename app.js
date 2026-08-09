@@ -3334,20 +3334,29 @@ function setupSocketListeners() {
     setupLobbyUI();
   });
 
-  // Reset Stanza Normale
-  socket.on('game_reset_default', () => {
+  // Reset Stanza Normale / Torna alla Lobby
+  socket.on('game_reset_default', (data) => {
     // Wipe della chat real-time o commenti
     const chatContainer = document.getElementById('chat-messages');
     if (chatContainer) chatContainer.innerHTML = '';
     
     // Ripristino stati locali
+    if (data && data.players) {
+      state.players = data.players;
+    }
+    state.currentCardIndex = 0;
+    state.userHasVoted = false;
     state.localPremiumCards = [];
     state.currentCroppedImage = null;
     state.hasSubmittedPremiumCards = false;
 
     // Reset overlay round precedente
-    el.roundEndOverlay.classList.remove('active');
-    el.roundEndOverlayVoteActions.style.display = 'none';
+    if (el.roundEndOverlay) el.roundEndOverlay.classList.remove('active');
+    if (el.roundEndOverlayVoteActions) el.roundEndOverlayVoteActions.style.display = 'none';
+
+    state.gameplayStarted = false;
+    updateLockIcon();
+    setupLobbyUI();
   });
 
   // Reset Modalità Gogna
