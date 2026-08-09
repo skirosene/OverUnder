@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=9900">
+  <link rel="stylesheet" href="/style.css?v=10000">
 </head>
 
 <body>
@@ -800,7 +800,7 @@
         </div>
 
         <!-- Pulsante Riavvio / Torna al menu -->
-        <div id="summary-host-controls" style="display: none; width: 100%; flex-direction: column; gap: 10px;">
+        <div id="summary-host-controls" style="display: none; width: 100%; flex-direction: column; gap: 8px; align-items: center;">
           <button id="btn-restart" class="btn btn-pulse-premium" style="width: 100%;">
             <span>RICOMINCIA</span>
             <svg class="btn-icon" viewBox="0 0 24 24">
@@ -809,14 +809,17 @@
                 fill="currentColor" />
             </svg>
           </button>
-          <button id="btn-solo-menu" class="btn glass-panel" type="button" style="display: none; width: 100%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 12px; font-weight: 700; padding: 12px; justify-content: center; align-items: center;">
-            <span>TORNA AL MENU</span>
+          <button type="button" id="btn-summary-cancel-host" class="btn-link-subtle">
+            Annulla e torna al menù principale
           </button>
         </div>
         <div id="summary-player-waiting" class="results-player-waiting glass-panel"
           style="display: block; text-align: center; padding: 15px;">
           <div class="loader-spinner"></div>
           <p class="waiting-text">In attesa che l'Host riavvii la stanza...</p>
+          <button type="button" id="btn-summary-cancel-player" class="btn-link-subtle" style="margin-top: 10px;">
+            Annulla e torna al menù principale
+          </button>
         </div>
       </section>
 
@@ -863,6 +866,7 @@
             <p id="single-player-summary" class="single-player-end-subtitle">Hai risposto a tutte le carte della sessione.</p>
             <div id="single-player-personality-badge" style="width: 100%;"></div>
             <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
+            <button type="button" id="btn-single-player-cancel-home" class="btn-link-subtle">Annulla e torna al menù principale</button>
           </div>
         </div>
       </div>
@@ -1477,7 +1481,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=9900"></script>
+  <script src="/app.js?v=10000"></script>
 </body>
 
 </html>

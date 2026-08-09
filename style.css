@@ -2798,7 +2798,7 @@ input[type="submit"] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)) 16px;
+  padding: max(28px, calc(20px + env(safe-area-inset-top))) 16px max(20px, calc(14px + env(safe-area-inset-bottom))) 16px;
   box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
@@ -3147,6 +3147,44 @@ input[type="submit"] {
 .btn-single-player-restart:active {
   transform: scale(0.96) translateY(0);
   filter: brightness(0.95);
+}
+
+/* Link Testuale Discreto "Annulla e torna al menù principale" */
+.btn-link-subtle {
+  background: transparent !important;
+  border: none !important;
+  color: #94a3b8 !important;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  padding: 8px 14px;
+  margin-top: 6px;
+  margin-bottom: 0;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: color 0.2s ease, opacity 0.2s ease, transform 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  opacity: 0.85;
+}
+
+.btn-link-subtle:hover {
+  color: #ffffff !important;
+  text-decoration: underline;
+  opacity: 1;
+}
+
+.btn-link-subtle:active {
+  transform: scale(0.97);
+  opacity: 1;
+  color: #ffffff !important;
 }
 
 .custom-modal-box {

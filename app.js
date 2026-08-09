@@ -2346,11 +2346,37 @@ function showPurchaseModal() {
     });
   }
 
+  const handleExitToMainMenu = (e) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    try { AudioSynth.playConfirm(false); } catch (err) {}
+    if (!state.isSoloMode && typeof socket !== 'undefined' && socket && socket.connected) {
+      try {
+        socket.emit('leave_room');
+        socket.disconnect();
+        socket.connect();
+      } catch (err) {}
+    }
+    resetToMenu();
+  };
+
   const btnSoloMenu = document.getElementById('btn-solo-menu');
   if (btnSoloMenu) {
-    btnSoloMenu.addEventListener('click', () => {
-      resetToMenu();
-    });
+    btnSoloMenu.addEventListener('click', handleExitToMainMenu);
+  }
+
+  const btnSingleCancel = document.getElementById('btn-single-player-cancel-home');
+  if (btnSingleCancel) {
+    bindFastClick(btnSingleCancel, handleExitToMainMenu);
+  }
+
+  const btnSummaryCancelHost = document.getElementById('btn-summary-cancel-host');
+  if (btnSummaryCancelHost) {
+    bindFastClick(btnSummaryCancelHost, handleExitToMainMenu);
+  }
+
+  const btnSummaryCancelPlayer = document.getElementById('btn-summary-cancel-player');
+  if (btnSummaryCancelPlayer) {
+    bindFastClick(btnSummaryCancelPlayer, handleExitToMainMenu);
   }
 
   // Tasto Segnala (Bandierina Silente)
@@ -4135,6 +4161,17 @@ function resetToMenu() {
     cancelAnimationFrame(state.timerRequestId);
     state.timerRequestId = null;
   }
+  stopTimerLoop();
+
+  if (el.screenGameplay) {
+    el.screenGameplay.classList.remove('is-solo-mode');
+  }
+
+  const endScreen = document.getElementById('single-player-end-screen');
+  if (endScreen) {
+    endScreen.style.display = 'none';
+    endScreen.classList.remove('active');
+  }
   
   clearSession();
   showScreen(el.screenWelcome);
@@ -4673,14 +4710,23 @@ function renderSinglePlayerFinalScreen() {
             </div>
           </div>
           <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
+          <button type="button" id="btn-single-player-cancel-home" class="btn-link-subtle">Annulla e torna al menù principale</button>
         </div>
       </div>
     `;
 
-    // 4. Collega l'evento di reset immediato al tasto RICOMINCIA
+    // 4. Collega gli eventi al tasto RICOMINCIA e al tasto Annulla e torna alla Home
     const btnRestartDirect = endScreen.querySelector('#btn-restart-direct');
     if (btnRestartDirect) {
       btnRestartDirect.onclick = handleSinglePlayerRestart;
+    }
+    const btnCancelHome = endScreen.querySelector('#btn-single-player-cancel-home');
+    if (btnCancelHome) {
+      btnCancelHome.onclick = (e) => {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        try { AudioSynth.playConfirm(false); } catch (err) {}
+        resetToMenu();
+      };
     }
   } catch (error) {
     console.error("[SAFE RENDER] Errore in renderSinglePlayerFinalScreen, attivo fallback:", error);
@@ -4738,12 +4784,21 @@ function renderSinglePlayerFinalScreen() {
               </div>
             </div>
             <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
+            <button type="button" id="btn-single-player-cancel-home" class="btn-link-subtle">Annulla e torna al menù principale</button>
           </div>
         </div>
       `;
       const btnFallback = fallbackScreen.querySelector('#btn-restart-direct');
       if (btnFallback) {
         btnFallback.onclick = handleSinglePlayerRestart;
+      }
+      const btnFallbackCancel = fallbackScreen.querySelector('#btn-single-player-cancel-home');
+      if (btnFallbackCancel) {
+        btnFallbackCancel.onclick = (e) => {
+          if (e && typeof e.preventDefault === 'function') e.preventDefault();
+          try { AudioSynth.playConfirm(false); } catch (err) {}
+          resetToMenu();
+        };
       }
     } catch (e) {
       console.error("[CRITICAL FALLBACK ERROR]", e);
