@@ -4645,7 +4645,7 @@ function renderSinglePlayerFinalScreen() {
       personalityDot = "🐌";
     }
 
-    // 3. Mostra la schermata finale Single Player isolata e centrata verticalmente
+    // 3. Mostra la schermata finale Single Player isolata
     let endScreen = document.getElementById('single-player-end-screen');
     if (!endScreen) {
       endScreen = document.createElement('div');
@@ -4655,7 +4655,7 @@ function renderSinglePlayerFinalScreen() {
     }
 
     endScreen.className = 'single-player-end-screen-overlay custom-modal-overlay active';
-    endScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 12px 16px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;';
+    endScreen.style.display = 'flex';
 
     endScreen.innerHTML = `
       <div class="single-player-bg-effects">
@@ -4674,6 +4674,23 @@ function renderSinglePlayerFinalScreen() {
           <span class="confetti c11"></span>
           <span class="confetti c12"></span>
         </div>
+      </div>
+
+      <!-- Header Superiore con icone Home e Impostazioni -->
+      <div class="single-player-end-nav-header">
+        <button id="btn-end-home" class="nav-btn-back" title="Home">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+        </button>
+        <button class="nav-btn-settings btn-open-settings" title="Impostazioni">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
       </div>
 
       <!-- Logo Animato OVER UNDER in alto -->
@@ -4715,7 +4732,7 @@ function renderSinglePlayerFinalScreen() {
       </div>
     `;
 
-    // 4. Collega gli eventi al tasto RICOMINCIA e al tasto Annulla e torna alla Home
+    // 4. Collega gli eventi al tasto RICOMINCIA, ai tasti Home e al tasto Impostazioni
     const btnRestartDirect = endScreen.querySelector('#btn-restart-direct');
     if (btnRestartDirect) {
       btnRestartDirect.onclick = handleSinglePlayerRestart;
@@ -4726,6 +4743,23 @@ function renderSinglePlayerFinalScreen() {
         if (e && typeof e.preventDefault === 'function') e.preventDefault();
         try { AudioSynth.playConfirm(false); } catch (err) {}
         resetToMenu();
+      };
+    }
+    const btnEndHome = endScreen.querySelector('#btn-end-home');
+    if (btnEndHome) {
+      btnEndHome.onclick = (e) => {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        try { AudioSynth.playConfirm(false); } catch (err) {}
+        resetToMenu();
+      };
+    }
+    const btnEndSettings = endScreen.querySelector('.btn-open-settings');
+    if (btnEndSettings) {
+      btnEndSettings.onclick = (e) => {
+        e.stopPropagation();
+        const backdrop = document.getElementById('settings-sidebar-backdrop');
+        if (backdrop) backdrop.classList.add('active');
+        syncAudioUI();
       };
     }
   } catch (error) {
@@ -4739,7 +4773,7 @@ function renderSinglePlayerFinalScreen() {
         container.appendChild(fallbackScreen);
       }
       fallbackScreen.className = 'single-player-end-screen-overlay custom-modal-overlay active';
-      fallbackScreen.style.cssText = 'display: flex !important; opacity: 1 !important; pointer-events: auto !important; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 999999; flex-direction: column; align-items: center; justify-content: flex-start; padding: max(48px, calc(34px + env(safe-area-inset-top))) 16px max(24px, calc(16px + env(safe-area-inset-bottom))) 16px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;';
+      fallbackScreen.style.display = 'flex';
       fallbackScreen.innerHTML = `
         <div class="single-player-bg-effects">
           <div class="single-player-light-rays"></div>
@@ -4751,6 +4785,23 @@ function renderSinglePlayerFinalScreen() {
             <span class="confetti c5"></span>
             <span class="confetti c6"></span>
           </div>
+        </div>
+
+        <!-- Header Superiore con icone Home e Impostazioni -->
+        <div class="single-player-end-nav-header">
+          <button id="btn-end-home" class="nav-btn-back" title="Home">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+          </button>
+          <button class="nav-btn-settings btn-open-settings" title="Impostazioni">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
         </div>
 
         <!-- Logo Animato OVER UNDER in alto -->
@@ -4798,6 +4849,23 @@ function renderSinglePlayerFinalScreen() {
           if (e && typeof e.preventDefault === 'function') e.preventDefault();
           try { AudioSynth.playConfirm(false); } catch (err) {}
           resetToMenu();
+        };
+      }
+      const btnFallbackHome = fallbackScreen.querySelector('#btn-end-home');
+      if (btnFallbackHome) {
+        btnFallbackHome.onclick = (e) => {
+          if (e && typeof e.preventDefault === 'function') e.preventDefault();
+          try { AudioSynth.playConfirm(false); } catch (err) {}
+          resetToMenu();
+        };
+      }
+      const btnFallbackSettings = fallbackScreen.querySelector('.btn-open-settings');
+      if (btnFallbackSettings) {
+        btnFallbackSettings.onclick = (e) => {
+          e.stopPropagation();
+          const backdrop = document.getElementById('settings-sidebar-backdrop');
+          if (backdrop) backdrop.classList.add('active');
+          syncAudioUI();
         };
       }
     } catch (e) {
