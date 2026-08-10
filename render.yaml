@@ -14,3 +14,5 @@ services:
         sync: false
       - key: EMAIL_FROM
         sync: false
+      - key: REDIS_URL
+        sync: false

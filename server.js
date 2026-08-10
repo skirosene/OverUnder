@@ -14,6 +14,8 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const { Resend } = require('resend');
 const nodemailer = require('nodemailer');
+const Redis = require('ioredis');
+const { createAdapter } = require('@socket.io/redis-adapter');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overunder_super_secret_key_12345_mvp';
 
@@ -193,6 +195,38 @@ function writeTrialDb(db) {
   }
 }
 
+// ==========================================================================
+// PERSISTENZA MINIMA STORICO PARTITE (GAME HISTORY DB)
+// ==========================================================================
+const GAME_HISTORY_DB_PATH = path.join(DATA_DIR, 'game_history.json');
+
+function readGameHistoryDb() {
+  try {
+    if (fs.existsSync(GAME_HISTORY_DB_PATH)) {
+      const data = fs.readFileSync(GAME_HISTORY_DB_PATH, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error("[DB HIST] Errore lettura game_history.json:", err);
+  }
+  return [];
+}
+
+function saveGameHistoryRecord(record) {
+  try {
+    const history = readGameHistoryDb();
+    history.push(record);
+    // Limite storico conservato a 1000 partite per non appesantire il file
+    if (history.length > 1000) {
+      history.splice(0, history.length - 1000);
+    }
+    fs.writeFileSync(GAME_HISTORY_DB_PATH, JSON.stringify(history, null, 2), 'utf8');
+    console.log(`[DB HIST] Salvato storico partita ${record.matchId} per stanza ${record.roomCode}`);
+  } catch (err) {
+    console.error("[DB HIST] Errore scrittura game_history.json:", err);
+  }
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json()); // support json encoded bodies
@@ -206,6 +240,63 @@ const io = socketIo(server, {
   pingTimeout: 60000,
   pingInterval: 25000
 });
+
+// ==========================================================================
+// REDIS IN-MEMORY ROOM STATE & PUB/SUB ADAPTER CONFIGURATION
+// ==========================================================================
+const REDIS_URL = process.env.REDIS_URL || process.env.REDIS_TLS_URL || null;
+const ROOM_TTL_SECONDS = 7200; // 2 ore TTL per Garbage Collection automatica stanze abbandonate
+
+let redisClient = null;
+let pubClient = null;
+let subClient = null;
+let isRedisConnected = false;
+
+if (REDIS_URL) {
+  try {
+    const redisOptions = {
+      retryStrategy(times) {
+        const delay = Math.min(times * 150, 3000);
+        return delay;
+      },
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false
+    };
+
+    if (REDIS_URL.startsWith('rediss://')) {
+      redisOptions.tls = { rejectUnauthorized: false };
+    }
+
+    redisClient = new Redis(REDIS_URL, redisOptions);
+    pubClient = new Redis(REDIS_URL, redisOptions);
+    subClient = pubClient.duplicate();
+
+    redisClient.on('connect', () => {
+      isRedisConnected = true;
+      console.log('[REDIS] Connesso con successo al server Redis per lo stato in-memory delle stanze (<1ms).');
+    });
+
+    redisClient.on('error', (err) => {
+      console.warn('[REDIS ERR] Errore client Redis (fallback in-memory attivo):', err.message);
+    });
+
+    pubClient.on('error', (err) => {
+      console.warn('[REDIS PUB ERR]:', err.message);
+    });
+
+    subClient.on('error', (err) => {
+      console.warn('[REDIS SUB ERR]:', err.message);
+    });
+
+    // Collega l'adapter Redis a Socket.io per sincronizzare eventi tra diverse istanze server
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log('[SOCKET.IO] Redis Pub/Sub Adapter configurato ed attivo!');
+  } catch (e) {
+    console.warn('[REDIS INIT ERR] Fallback su in-memory locale:', e.message);
+  }
+} else {
+  console.log('[REDIS] Nessun REDIS_URL configurato. Utilizzo in-memory locale con fallback attivo.');
+}
 
 const PORT = process.env.PORT || 3000;
 
@@ -383,12 +474,12 @@ app.get('/api/decks', (req, res) => {
 
 
 // Endpoint pubblico per verificare modalità (Standard vs Premium) e stato di una stanza
-app.get('/api/room-info', (req, res) => {
+app.get('/api/room-info', async (req, res) => {
   const code = String(req.query.code || req.query.room || '').toUpperCase().trim();
   if (!code) {
     return res.status(400).json({ error: 'Codice stanza mancante' });
   }
-  const room = rooms[code];
+  const room = rooms[code] || await getRoomState(code);
   if (!room) {
     return res.json({ exists: false });
   }
@@ -638,14 +729,14 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 // 3. Autenticazione Guest (Zero registrazioni)
-app.post('/api/auth/guest', (req, res) => {
+app.post('/api/auth/guest', async (req, res) => {
   const { roomCode, playerName, sessionId } = req.body;
   if (!roomCode || !playerName || !sessionId) {
     return res.status(400).json({ error: 'Codice stanza, nickname e sessionId obbligatori' });
   }
 
   const code = cleanRoomCode(roomCode);
-  const room = rooms[code];
+  const room = rooms[code] || await getRoomState(code);
   if (!room) {
     return res.status(404).json({ error: 'Codice stanza non esistente o terminata!' });
   }
@@ -926,9 +1017,88 @@ app.post('/upload', upload.single('file'), (req, res) => {
 });
 
 // ==========================================================================
-// GESTIONE STATO DELLE STANZE DI GIOCO (LOBBY / PLAYING / FREEZE)
+// GESTIONE STATO DELLE STANZE DI GIOCO (REDIS IN-MEMORY + LOCAL MIRROR)
 // ==========================================================================
-const rooms = {}; // roomCode => Room Object
+const rooms = {}; // roomCode => Room Object (local mirror in-memory cache)
+
+function serializeRoomForRedis(room) {
+  if (!room) return null;
+  // Esclude timer / timeout handles non serializzabili
+  const { roundTimeout, hostDisconnectTimeout, ...serializable } = room;
+  return JSON.stringify(serializable);
+}
+
+function deserializeRoomFromRedis(rawJson) {
+  if (!rawJson) return null;
+  try {
+    const parsed = JSON.parse(rawJson);
+    parsed.roundTimeout = null;
+    parsed.hostDisconnectTimeout = null;
+    return parsed;
+  } catch (err) {
+    console.error('[REDIS PARSE ERR]:', err);
+    return null;
+  }
+}
+
+/**
+ * Salva lo stato volatile della stanza su Redis con prefisso room:{roomId}:state e TTL di 2 ore (7200s)
+ */
+async function syncRoomToRedis(roomCode, room) {
+  if (!roomCode || !room) return;
+  const key = `room:${roomCode}:state`;
+  if (redisClient && isRedisConnected) {
+    try {
+      const payload = serializeRoomForRedis(room);
+      if (payload) {
+        await redisClient.set(key, payload, 'EX', ROOM_TTL_SECONDS);
+      }
+    } catch (err) {
+      console.warn(`[REDIS WRITE ERR] Impossibile salvare stanza ${roomCode}:`, err.message);
+    }
+  }
+}
+
+/**
+ * Recupera lo stato della stanza da Redis se non presente in memoria locale
+ */
+async function getRoomState(roomCode) {
+  if (!roomCode) return null;
+  if (rooms[roomCode]) {
+    return rooms[roomCode];
+  }
+  const key = `room:${roomCode}:state`;
+  if (redisClient && isRedisConnected) {
+    try {
+      const data = await redisClient.get(key);
+      if (data) {
+        const restored = deserializeRoomFromRedis(data);
+        if (restored) {
+          rooms[roomCode] = restored;
+          return restored;
+        }
+      }
+    } catch (err) {
+      console.warn(`[REDIS READ ERR] Impossibile leggere stanza ${roomCode}:`, err.message);
+    }
+  }
+  return null;
+}
+
+/**
+ * Elimina lo stato della stanza da Redis
+ */
+async function deleteRoomFromRedis(roomCode) {
+  if (!roomCode) return;
+  const key = `room:${roomCode}:state`;
+  if (redisClient && isRedisConnected) {
+    try {
+      await redisClient.del(key);
+    } catch (err) {
+      console.warn(`[REDIS DEL ERR] Impossibile eliminare stanza ${roomCode}:`, err.message);
+    }
+  }
+}
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -1036,6 +1206,7 @@ io.on('connection', (socket) => {
           cleanupRoomFiles(r);
         }
         delete rooms[rCode];
+        deleteRoomFromRedis(rCode);
       }
     });
 
@@ -1062,6 +1233,7 @@ io.on('connection', (socket) => {
       cleanupRoomAssets(existingRoom);
       cleanupRoomFiles(existingRoom);
       delete rooms[code];
+      deleteRoomFromRedis(code);
     }
 
     currentRoomCode = code;
@@ -1102,6 +1274,9 @@ io.on('connection', (socket) => {
       isLocked: false,
       timerDurationMs: 10000 // Durata timer round (5000 o 10000)
     };
+
+    // Sincronizza stato iniziale su Redis con TTL 2 ore
+    syncRoomToRedis(code, rooms[code]);
 
     socket.join(code);
     socket.emit('room_created', {
@@ -1876,6 +2051,8 @@ function broadcastRoomState(room) {
     isLocked: room.isLocked,
     isPremium: room.isPremium
   });
+  // Sincronizzazione in-memory su Redis con TTL di 2 ore
+  syncRoomToRedis(room.roomCode, room);
 }
 
 /**
@@ -1963,6 +2140,7 @@ function reassignHost(room, oldHostName = 'L\'Host') {
     cleanupRoomFiles(room);
     cleanupRoomAssets(room);
     delete rooms[room.roomCode];
+    deleteRoomFromRedis(room.roomCode);
     return false;
   }
 }
@@ -2085,6 +2263,9 @@ function startNewRound(room) {
     timerDurationMs: timerMs
   });
 
+  // Sincronizza stato volatile su Redis
+  syncRoomToRedis(room.roomCode, room);
+
   // Programmazione del voto dei Bot con ritardi casuali scalati sulla durata
   const botPlayers = room.players.filter(p => p.isBot);
   const scheduledCardIndex = room.currentCardIndex;
@@ -2196,6 +2377,9 @@ function freezeRound(room, message) {
     cardIndex: room.currentCardIndex,
     totalCards: room.gameLength || room.deck.cards.length
   });
+
+  // Sincronizza stato volatile su Redis
+  syncRoomToRedis(room.roomCode, room);
 }
 
 function endGame(room) {
@@ -2209,6 +2393,37 @@ function endGame(room) {
     awards: awards,
     summary: room.playerResponses
   });
+
+  // Aggiorna lo stato volatile su Redis con TTL 2h
+  syncRoomToRedis(room.roomCode, room);
+
+  // PERSISTENZA MINIMA SU DB: Salva SOLO lo storico partita finale sul DB permanente
+  try {
+    const matchRecord = {
+      matchId: crypto.randomUUID ? crypto.randomUUID() : `match_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      roomCode: room.roomCode,
+      playedAt: new Date().toISOString(),
+      isPremium: !!room.isPremium,
+      totalCards: room.playerResponses ? room.playerResponses.length : (room.currentCardIndex || 0),
+      players: (room.players || []).map(p => ({
+        name: p.name,
+        isHost: !!p.isHost,
+        isBot: !!p.isBot,
+        avatar: p.avatar || null
+      })),
+      awards: awards,
+      summaryStats: {
+        totalRounds: room.playerResponses ? room.playerResponses.length : 0,
+        groupStats: (room.playerResponses || []).map(r => ({
+          prompt: r.prompt,
+          votes: r.votes
+        }))
+      }
+    };
+    saveGameHistoryRecord(matchRecord);
+  } catch (err) {
+    console.error("[DB PERSISTENCE ERR] Errore salvataggio storico partita:", err);
+  }
 }
 
 // Calcolo premi speciali sul server
