@@ -1702,29 +1702,57 @@ function showPurchaseModal() {
   }
 }
 
-  // === RESTRIZIONE TOGGLE PREMIUM LOBBY ===
-  if (el.createPremiumToggle) {
-    el.createPremiumToggle.addEventListener('change', (e) => {
-      const access = checkJudgementDayAccess();
-      console.log("--> CLICK SWITCH JUDGEMENT DAY:", access);
+  // === GESTIONE IMMEDIATA SWITCH JUDGEMENT DAY (PAYWALL ON FIRST TAP) ===
+  const handleJudgementToggleAttempt = (e) => {
+    const access = checkJudgementDayAccess();
+    console.log("--> CLICK/TAP SWITCH JUDGEMENT DAY:", access);
 
-      if (el.createPremiumToggle.checked) {
-        if (access.hasAccess) {
-          console.log("Accesso Premium confermato!");
-          return;
-        }
-        
-        // Se NON ha acquistato o sessione scaduta, deseleziona lo switch
+    if (!access.hasAccess) {
+      if (e) {
         e.preventDefault();
-        el.createPremiumToggle.checked = false;
-
-        if (access.isExpired) {
-          showToast("Sessione di 5 giorni scaduta. Inserisci la tua email per riattivare la licenza.", 4000);
-          openTransferModal('expired');
-        } else {
-          showPurchaseModal();
-        }
+        e.stopPropagation();
       }
+      if (el.createPremiumToggle) {
+        el.createPremiumToggle.checked = false;
+      }
+      if (access.isExpired) {
+        showToast("Sessione di 5 giorni scaduta. Inserisci la tua email per riattivare la licenza.", 4000);
+        openTransferModal('expired');
+      } else {
+        showPurchaseModal();
+      }
+      return false;
+    }
+    return true;
+  };
+
+  if (el.createPremiumToggle) {
+    el.createPremiumToggle.addEventListener('click', (e) => {
+      handleJudgementToggleAttempt(e);
+    });
+
+    el.createPremiumToggle.addEventListener('change', (e) => {
+      handleJudgementToggleAttempt(e);
+    });
+  }
+
+  const switchContainerEl = document.querySelector('.switch-container');
+  if (switchContainerEl) {
+    ['click', 'touchend'].forEach(evtType => {
+      switchContainerEl.addEventListener(evtType, (e) => {
+        const access = checkJudgementDayAccess();
+        if (!access.hasAccess) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (el.createPremiumToggle) el.createPremiumToggle.checked = false;
+          if (access.isExpired) {
+            showToast("Sessione di 5 giorni scaduta. Inserisci la tua email per riattivare la licenza.", 4000);
+            openTransferModal('expired');
+          } else {
+            showPurchaseModal();
+          }
+        }
+      }, { passive: false });
     });
   }
 
@@ -1838,6 +1866,21 @@ function showPurchaseModal() {
     el.judgementDayCard.addEventListener('click', (e) => {
       // Evita intercettazione se l'utente clicca sul pulsante 'i' o sullo switch stesso
       if (e.target && (e.target.id === 'btn-info-gogna' || e.target.closest('#btn-info-gogna') || e.target.id === 'create-premium-toggle' || e.target.closest('.switch-container'))) return;
+      
+      const access = checkJudgementDayAccess();
+      if (!access.hasAccess) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (el.createPremiumToggle) el.createPremiumToggle.checked = false;
+        if (access.isExpired) {
+          showToast("Sessione di 5 giorni scaduta. Inserisci la tua email per riattivare la licenza.", 4000);
+          openTransferModal('expired');
+        } else {
+          showPurchaseModal();
+        }
+        return;
+      }
+
       if (el.createPremiumToggle) {
         el.createPremiumToggle.checked = !el.createPremiumToggle.checked;
       }
@@ -5868,9 +5911,15 @@ async function checkUrlParams() {
         const data = await res.json();
         if (data.token) {
           safeSessionStorage.setItem('overunder_token', data.token);
+          safeStorage.setItem('overunder_token', data.token);
+          safeStorage.setItem('overunder_premium_unlocked', 'true');
+          safeStorage.setItem('overunder_lastAuthTimestamp', String(Date.now()));
         }
         state.roomIsPremium = true;
-        showError("Pagamento confermato! Modalità \"Judgement Day\" sbloccata per sempre! 👑");
+        if (el.createPremiumToggle) {
+          el.createPremiumToggle.checked = true;
+        }
+        showToast("Pagamento confermato! Modalità \"Judgement Day\" sbloccata per sempre! 👑", 5000);
         updatePremiumUI();
       }
     } catch (e) {
