@@ -1836,20 +1836,27 @@ io.on('connection', (socket) => {
     const room = rooms[currentRoomCode];
     if (!room || room.hostId !== socket.id) return;
 
+    let targetIsPremium = !!room.isPremium;
+
+    // Se la stanza era in Modalità Gogna (Judgement Day), verifichiamo la licenza
     if (room.isPremium) {
       const licenseCheck = verifyJudgementDayLicense(socket);
       if (!licenseCheck.valid) {
-        console.warn(`[RESTART GAME LICENZA RIFIUTATA] Stanza ${room.roomCode} riavvio fallito: ${licenseCheck.reason} (${licenseCheck.code})`);
+        console.warn(`[RESTART GAME LICENZA SCADUTA/TRASFERITA] Stanza ${room.roomCode} degradata a Classica: ${licenseCheck.reason} (${licenseCheck.code})`);
+        targetIsPremium = false;
+        room.isPremium = false;
         if (socket.userData) {
           socket.userData.isPremium = false;
         }
         if (licenseCheck.code === 'TRANSFERRED') {
-          socket.emit('license_transferred_error', { message: licenseCheck.reason });
+          socket.emit('license_transferred_error', {
+            message: "Licenza trasferita su un altro dispositivo. Riapri la modalità Judgement Day per inserire l'email e ricevere il nuovo OTP."
+          });
         } else if (licenseCheck.code === 'EXPIRED') {
-          socket.emit('auth_session_expired', { message: licenseCheck.reason });
+          socket.emit('auth_session_expired', {
+            message: "Sessione di verifica scaduta. Riapri la modalità Judgement Day per inserire l'email e ricevere il nuovo OTP."
+          });
         }
-        socket.emit('room_error', licenseCheck.reason);
-        return;
       }
     }
 
@@ -1871,7 +1878,7 @@ io.on('connection', (socket) => {
     // Garbage Collection immediata degli Asset: elimina le immagini delle carte dal disco
     cleanupRoomAssets(room);
 
-    if (room.isPremium) {
+    if (targetIsPremium) {
       // SCENARIO B: Nella "Modalità Gogna" (Mazzo Creato dai Giocatori)
       room.state = 'lobby';
       room.customCards = [];
@@ -1916,20 +1923,75 @@ io.on('connection', (socket) => {
         }, delay);
       });
 
+      syncRoomToRedis(room.roomCode, room);
+
       // Invia l'evento globale di reset Gogna
       io.to(room.roomCode).emit('game_reset_gogna', { players: room.players });
       console.log(`[RESET] Stanza ${room.roomCode} resettata in Modalità Gogna. Tutti i giocatori rimandati alla creazione carte.`);
 
     } else {
-      // SCENARIO A: Nella "Stanza Normale" (Mazzo di Default) -> Torna alla Lobby
+      // SCENARIO A: Nella "Stanza Normale" (Mazzo di Default o downgrade per licenza scaduta) -> Torna alla Lobby Classica
       room.state = 'lobby';
       room.deck = null;
+      room.customCards = [];
+
+      syncRoomToRedis(room.roomCode, room);
 
       // Invia l'evento globale di reset Default con lista giocatori aggiornata
-      io.to(room.roomCode).emit('game_reset_default', { players: room.players });
+      io.to(room.roomCode).emit('game_reset_default', { players: room.players, isPremium: false });
+      io.to(room.roomCode).emit('room_state_update', {
+        roomCode: room.roomCode,
+        state: 'lobby',
+        players: room.players,
+        hostId: room.hostId,
+        hostName: room.hostName,
+        isLocked: room.isLocked,
+        isPremium: false
+      });
       io.to(room.roomCode).emit('player_list_update', { players: room.players });
       console.log(`[RESET] Stanza ${room.roomCode} resettata in Modalità Classica. Tutti i giocatori rimandati alla Lobby.`);
     }
+  });
+
+  // Evento 7c: Cambio Modalità Stanza nella Lobby (Solo Host)
+  socket.on('set_room_mode', ({ isPremium }) => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id) return;
+    if (room.state !== 'lobby') return;
+
+    let targetPremium = !!isPremium;
+    if (targetPremium) {
+      const licenseCheck = verifyJudgementDayLicense(socket);
+      if (!licenseCheck.valid) {
+        if (licenseCheck.code === 'TRANSFERRED') {
+          socket.emit('license_transferred_error', { message: licenseCheck.reason });
+        } else if (licenseCheck.code === 'EXPIRED') {
+          socket.emit('auth_session_expired', { message: licenseCheck.reason });
+        }
+        socket.emit('room_error', licenseCheck.reason);
+        return;
+      }
+      if (socket.userData) socket.userData.isPremium = true;
+    }
+
+    room.isPremium = targetPremium;
+    if (!targetPremium) {
+      room.customCards = [];
+    }
+    syncRoomToRedis(room.roomCode, room);
+
+    io.to(room.roomCode).emit('room_state_update', {
+      roomCode: room.roomCode,
+      state: room.state,
+      players: room.players,
+      hostId: room.hostId,
+      hostName: room.hostName,
+      isLocked: room.isLocked,
+      isPremium: room.isPremium
+    });
+
+    io.to(room.roomCode).emit('room_mode_changed', { isPremium: room.isPremium });
+    console.log(`[ROOM MODE] Stanza ${room.roomCode} cambiata a ${room.isPremium ? 'Judgement Day' : 'Standard'} dall'Host`);
   });
 
   // Evento 7b: Segnalazione Carta Corrente (Silente, Moderazione)

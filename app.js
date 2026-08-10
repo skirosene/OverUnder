@@ -2079,6 +2079,11 @@ function showPurchaseModal() {
       showToast("Dispositivo autorizzato con successo (valido 5 giorni)! 👑", 5000);
       updatePremiumUI();
 
+      // Se l'Host si trova attualmente dentro la stanza/lobby, attiva subito la modalità Judgement Day per tutti
+      if (socket && socket.connected && state.roomCode && state.isHost) {
+        socket.emit('set_room_mode', { isPremium: true });
+      }
+
       resetTransferModalState();
       if (restoreModal) {
         restoreModal.style.display = 'none';
@@ -3466,7 +3471,7 @@ function setupSocketListeners() {
     setupLobbyUI();
   });
 
-  // Reset Stanza Normale / Torna alla Lobby
+  // Reset Stanza Normale / Torna alla Lobby Classica (anche a seguito di licenza scaduta)
   socket.on('game_reset_default', (data) => {
     // Wipe della chat real-time o commenti
     const chatContainer = document.getElementById('chat-messages');
@@ -3476,11 +3481,23 @@ function setupSocketListeners() {
     if (data && data.players) {
       state.players = data.players;
     }
+    if (data && data.isPremium !== undefined) {
+      state.roomIsPremium = !!data.isPremium;
+    } else {
+      state.roomIsPremium = false;
+    }
     state.currentCardIndex = 0;
     state.userHasVoted = false;
     state.localPremiumCards = [];
     state.currentCroppedImage = null;
     state.hasSubmittedPremiumCards = false;
+
+    if (!state.roomIsPremium) {
+      if (el.createPremiumToggle) {
+        el.createPremiumToggle.checked = false;
+      }
+    }
+    updatePremiumUI();
 
     // Reset overlay round precedente
     if (el.roundEndOverlay) el.roundEndOverlay.classList.remove('active');
@@ -3489,6 +3506,21 @@ function setupSocketListeners() {
     state.gameplayStarted = false;
     updateLockIcon();
     setupLobbyUI();
+  });
+
+  // Notifica cambio modalità stanza in tempo reale
+  socket.on('room_mode_changed', ({ isPremium }) => {
+    state.roomIsPremium = !!isPremium;
+    if (el.createPremiumToggle) {
+      el.createPremiumToggle.checked = state.roomIsPremium;
+    }
+    updatePremiumUI();
+    setupLobbyUI();
+    if (state.roomIsPremium) {
+      showToast("👑 Modalità Judgement Day attivata per la stanza!");
+    } else {
+      showToast("🎮 Modalità Classica attivata per la stanza.");
+    }
   });
 
   // Reset Modalità Gogna
