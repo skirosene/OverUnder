@@ -5414,6 +5414,9 @@ function renderGameOver({ awards, summary } = {}) {
   // Controlli Host per riavvio / Single Player
   if (el.summaryHostControls && el.summaryPlayerWaiting) {
     const btnSoloMenu = document.getElementById('btn-solo-menu');
+    el.summaryHostControls.style.removeProperty('display');
+    el.summaryPlayerWaiting.style.removeProperty('display');
+
     if (state.isSoloMode) {
       el.summaryHostControls.style.display = 'flex';
       el.summaryPlayerWaiting.style.display = 'none';
@@ -5436,7 +5439,7 @@ function renderGameOver({ awards, summary } = {}) {
       }
     } else {
       el.summaryHostControls.style.display = 'none';
-      el.summaryPlayerWaiting.style.display = 'block';
+      el.summaryPlayerWaiting.style.display = 'flex';
       if (btnSoloMenu) {
         btnSoloMenu.style.display = 'none';
       }
@@ -6010,26 +6013,97 @@ function setupJoinRulesModalEvents() {
     });
   });
 
-  // Touch & Swipe Support su Mobile
+  // Touch & Swipe Support fluido su Mobile (Slide sinistra/destra)
   if (viewport) {
     let touchStartX = 0;
-    let touchEndX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    let isTouchActive = false;
 
     viewport.addEventListener('touchstart', (e) => {
-      if (e.touches && e.touches.length > 0) {
-        touchStartX = e.touches[0].clientX;
-      }
+      if (!e.touches || e.touches.length === 0) return;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      touchStartTime = Date.now();
+      isTouchActive = true;
     }, { passive: true });
 
-    viewport.addEventListener('touchend', (e) => {
-      if (e.changedTouches && e.changedTouches.length > 0) {
-        touchEndX = e.changedTouches[0].clientX;
-        const diff = touchStartX - touchEndX;
-        if (diff > 40) { // Swipe a sinistra -> Avanti
-          goToJoinRulesSlide(state.joinRulesCurrentSlide + 1);
+    viewport.addEventListener('touchmove', (e) => {
+      if (!isTouchActive || !e.touches || e.touches.length === 0) return;
+      const currentX = e.touches[0].clientX;
+      const currentY = e.touches[0].clientY;
+      const diffX = currentX - touchStartX;
+      const diffY = currentY - touchStartY;
+
+      // Se il movimento è prevalentemente orizzontale, previene rimbalzi verticali
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+        if (e.cancelable) e.preventDefault();
+      }
+    }, { passive: false });
+
+    const handleSwipeEnd = (e) => {
+      if (!isTouchActive) return;
+      isTouchActive = false;
+      const touch = (e.changedTouches && e.changedTouches.length > 0) ? e.changedTouches[0] : null;
+      if (!touch) return;
+
+      const deltaX = touch.clientX - touchStartX;
+      const deltaY = touch.clientY - touchStartY;
+      const elapsedTime = Date.now() - touchStartTime;
+
+      const isHorizontal = Math.abs(deltaX) > Math.abs(deltaY);
+      const isSignificantSwipe = Math.abs(deltaX) > 35 || (Math.abs(deltaX) > 20 && elapsedTime < 250);
+
+      if (isHorizontal && isSignificantSwipe) {
+        if (deltaX < 0) {
+          // Swipe a sinistra -> Slide Successiva (Avanti)
+          if (state.joinRulesCurrentSlide < 2) {
+            goToJoinRulesSlide(state.joinRulesCurrentSlide + 1);
+            try { AudioSynth.playConfirm(true); } catch (err) {}
+          }
+        } else if (deltaX > 0) {
+          // Swipe a destra -> Slide Precedente (Indietro)
+          if (state.joinRulesCurrentSlide > 0) {
+            goToJoinRulesSlide(state.joinRulesCurrentSlide - 1);
+            try { AudioSynth.playConfirm(false); } catch (err) {}
+          }
         }
       }
-    }, { passive: true });
+    };
+
+    viewport.addEventListener('touchend', handleSwipeEnd, { passive: true });
+    viewport.addEventListener('touchcancel', () => { isTouchActive = false; }, { passive: true });
+
+    // Supporto Drag con Mouse / Pointer per testing desktop
+    let mouseStartX = 0;
+    let mouseStartY = 0;
+    let isMouseDown = false;
+    let mouseStartTime = 0;
+
+    viewport.addEventListener('mousedown', (e) => {
+      isMouseDown = true;
+      mouseStartX = e.clientX;
+      mouseStartY = e.clientY;
+      mouseStartTime = Date.now();
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (!isMouseDown) return;
+      isMouseDown = false;
+      const deltaX = e.clientX - mouseStartX;
+      const deltaY = e.clientY - mouseStartY;
+      const elapsedTime = Date.now() - mouseStartTime;
+
+      if (Math.abs(deltaX) > Math.abs(deltaY) && (Math.abs(deltaX) > 40 || (Math.abs(deltaX) > 20 && elapsedTime < 250))) {
+        if (deltaX < 0 && state.joinRulesCurrentSlide < 2) {
+          goToJoinRulesSlide(state.joinRulesCurrentSlide + 1);
+          try { AudioSynth.playConfirm(true); } catch (err) {}
+        } else if (deltaX > 0 && state.joinRulesCurrentSlide > 0) {
+          goToJoinRulesSlide(state.joinRulesCurrentSlide - 1);
+          try { AudioSynth.playConfirm(false); } catch (err) {}
+        }
+      }
+    });
   }
 
   // Pre-render di base

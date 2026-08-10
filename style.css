@@ -823,25 +823,38 @@ input[type="submit"] {
   gap: 10px;
 }
 
-/* Spinner caricamento */
+/* Spinner caricamento fluido & continuo */
 .loader-spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(52, 152, 219, 0.2);
-  border-top-color: var(--color-accent-blue);
+  width: 28px;
+  height: 28px;
+  border: 3.5px solid rgba(0, 240, 255, 0.2);
+  border-top-color: var(--color-underrated, #00f0ff);
+  border-right-color: rgba(189, 51, 255, 0.75);
   border-radius: 50%;
-  animation: spin 1s infinite linear;
+  -webkit-animation: spin 0.85s linear infinite !important;
+  animation: spin 0.85s linear infinite !important;
   margin: 0 auto 10px auto;
+  will-change: transform;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.5));
 }
 
 .spinner-white {
   border-color: rgba(255, 255, 255, 0.2);
-  border-top-color: white;
+  border-top-color: #ffffff;
+  border-right-color: rgba(255, 255, 255, 0.7);
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.4));
 }
 
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+@-webkit-keyframes spin {
+  0% { -webkit-transform: rotate(0deg); }
+  100% { -webkit-transform: rotate(360deg); }
 }
 
 .lobby-player-waiting {
@@ -2138,11 +2151,33 @@ input[type="submit"] {
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top-color: white;
+  border-top-color: #ffffff;
   border-radius: 50%;
-  animation: spin 1s infinite linear;
+  -webkit-animation: spin 0.85s linear infinite !important;
+  animation: spin 0.85s linear infinite !important;
   position: absolute;
   right: 20px;
+  will-change: transform;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.results-player-waiting {
+  width: 100%;
+  padding: 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.results-player-waiting .loader-spinner {
+  width: 32px;
+  height: 32px;
+  border-width: 3.5px;
+  margin-bottom: 12px;
 }
 
 /* ==========================================================================
@@ -4962,7 +4997,7 @@ input[type="submit"] {
   stroke: currentColor;
 }
 
-/* Intestazione Brand Fissa per Modali (Regole Stanza) */
+/* Intestazione Brand Fissa per Modali (Regole Stanza / Invito - Impatto Potenziato) */
 .modal-fixed-brand-header {
   width: 100%;
   display: flex;
@@ -4970,8 +5005,8 @@ input[type="submit"] {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-top: 4px;
-  margin-bottom: clamp(22px, 5vh, 34px);
+  margin-top: clamp(6px, 1.5vh, 12px);
+  margin-bottom: clamp(14px, 2.8vh, 22px);
   user-select: none;
   pointer-events: none;
   position: relative;
@@ -4981,55 +5016,61 @@ input[type="submit"] {
 .modal-logo-area {
   margin: 0;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .modal-logo-area .logo-title {
   display: flex;
   flex-direction: column;
   align-items: center;
-  line-height: 1;
+  line-height: 0.92;
 }
 
 .modal-logo-area .logo-over {
   font-family: var(--font-title);
-  font-weight: 800;
-  font-size: 2.1rem;
-  letter-spacing: 4px;
+  font-weight: 900;
+  font-size: clamp(2.6rem, 7.5vw, 3.4rem);
+  letter-spacing: clamp(4px, 1.2vw, 6px);
   color: var(--color-overrated);
-  text-shadow: 0 0 15px var(--color-overrated-glow);
+  text-shadow: 0 0 18px rgba(255, 0, 127, 0.8), 0 0 36px rgba(255, 0, 127, 0.45);
   display: inline-block;
-  line-height: 0.95;
+  line-height: 0.9;
   transform-origin: center;
 }
 
 .modal-logo-area .logo-divider {
-  width: 75px;
-  height: 3px;
+  width: clamp(90px, 25vw, 130px);
+  height: 4px;
   background: linear-gradient(90deg, var(--color-overrated), var(--color-underrated));
-  margin: 4px 0;
-  border-radius: 2px;
+  margin: 5px 0;
+  border-radius: 3px;
+  box-shadow: 0 0 12px rgba(189, 51, 255, 0.7);
 }
 
 .modal-logo-area .logo-under {
   font-family: var(--font-title);
-  font-weight: 800;
-  font-size: 1.8rem;
-  letter-spacing: 4px;
+  font-weight: 900;
+  font-size: clamp(2.2rem, 6.5vw, 2.9rem);
+  letter-spacing: clamp(4px, 1.2vw, 6px);
   color: var(--color-underrated);
-  text-shadow: 0 0 15px var(--color-underrated-glow);
+  text-shadow: 0 0 18px rgba(0, 240, 255, 0.8), 0 0 36px rgba(0, 240, 255, 0.45);
   text-transform: uppercase;
   display: inline-block;
-  line-height: 0.95;
+  line-height: 0.9;
   transform-origin: center;
 }
 
 .modal-logo-area .logo-tagline {
-  font-size: 0.80rem;
+  font-size: clamp(0.78rem, 2.2vw, 0.88rem);
   color: var(--color-text-secondary);
-  margin-top: 5px;
+  margin-top: 6px;
   margin-bottom: 0;
-  font-weight: 400;
-  letter-spacing: 0.5px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  opacity: 0.92;
 }
 
 .qr-modal-overlay {
@@ -5858,6 +5899,77 @@ input[type="submit"] {
 @keyframes pulseGreenGlow {
   0%, 100% { box-shadow: 0 0 10px rgba(46, 204, 113, 0.4); }
   50% { box-shadow: 0 0 20px rgba(46, 204, 113, 0.8); }
+}
+
+/* Ottimizzazione Layout & Responsive per Modal Regole / Invito */
+@media (max-height: 740px) {
+  .modal-fixed-brand-header {
+    margin-top: 2px;
+    margin-bottom: 10px;
+  }
+  .modal-logo-area {
+    transform: scale(0.88);
+    transform-origin: center top;
+    margin-bottom: -6px;
+  }
+  .join-rules-modal-card {
+    padding: 16px 14px 12px 14px;
+    border-radius: 20px;
+  }
+  .join-slide {
+    padding: 10px 8px 12px 8px;
+    gap: 8px;
+  }
+  .join-slide-icon-box {
+    font-size: 2.8rem;
+    margin-bottom: 0;
+  }
+  .join-slide-title {
+    font-size: 1.05rem;
+  }
+  .join-slide-desc {
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+  .join-carousel-dots {
+    margin: 8px 0 12px 0;
+  }
+}
+
+@media (max-height: 640px) {
+  .modal-fixed-brand-header {
+    margin-top: 0;
+    margin-bottom: 6px;
+  }
+  .modal-logo-area {
+    transform: scale(0.76);
+    margin-bottom: -16px;
+  }
+  .join-rules-modal-card {
+    padding: 12px 10px 10px 10px;
+    border-radius: 16px;
+  }
+  .join-slide {
+    padding: 6px 6px 8px 6px;
+    gap: 6px;
+  }
+  .join-slide-icon-box {
+    font-size: 2.2rem;
+  }
+  .join-slide-title {
+    font-size: 0.95rem;
+  }
+  .join-slide-desc {
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+  .join-carousel-dots {
+    margin: 6px 0 8px 0;
+  }
+  .btn-carousel-nav {
+    padding: 8px 14px;
+    font-size: 0.78rem;
+  }
 }
 
 /* ==========================================================================
