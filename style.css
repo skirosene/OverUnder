@@ -2952,7 +2952,7 @@ input[type="submit"] {
   z-index: 6;
   margin: 0;
   margin-top: 0;
-  margin-bottom: clamp(34px, 7vh, 52px);
+  margin-bottom: clamp(24px, 4.5vh, 38px);
   flex-shrink: 0;
   text-align: center;
 }
@@ -2981,16 +2981,19 @@ input[type="submit"] {
   letter-spacing: 0.3px;
 }
 
-/* Wrapper centrato del modal */
+/* Wrapper centrato del modal che si espande armoniosamente nello spazio rimanente */
 .single-player-end-modal-wrapper {
   position: relative;
   z-index: 5;
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   display: flex;
   flex-direction: column;
   align-items: center;
   margin: 0 auto;
+  flex: 1;
+  min-height: 0;
+  justify-content: space-between;
 }
 
 /* Emoji Fuoco Grande in alto */
@@ -3000,7 +3003,8 @@ input[type="submit"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: -26px;
+  margin-bottom: -28px;
+  flex-shrink: 0;
 }
 
 .flame-glow-halo {
@@ -3032,18 +3036,21 @@ input[type="submit"] {
   100% { transform: translateY(-8px) scale(1.04); }
 }
 
-/* Modal Box con Bordo Gradiente Neon */
+/* Modal Box con Bordo Gradiente Neon esteso ed armonizzato */
 .single-player-end-modal-box {
   width: 100%;
-  padding: 34px 18px 18px 18px;
-  border-radius: 26px;
+  flex: 1;
+  min-height: clamp(340px, 48vh, 480px);
+  padding: clamp(32px, 5vh, 42px) 20px clamp(18px, 3vh, 26px) 20px;
+  border-radius: 28px;
   background: #080c1b;
   position: relative;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: clamp(14px, 2.5vh, 24px);
   text-align: center;
   box-shadow: 0 0 35px rgba(0, 136, 255, 0.25), 0 0 45px rgba(217, 38, 217, 0.25), 0 25px 60px rgba(0, 0, 0, 0.9);
 }
@@ -3056,8 +3063,32 @@ input[type="submit"] {
   right: -2px;
   bottom: -2px;
   background: linear-gradient(135deg, #0088ff 0%, #06b6d4 30%, #8b5cf6 70%, #d926d9 100%);
-  border-radius: 28px;
+  border-radius: 30px;
   z-index: -1;
+}
+
+.single-player-box-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.single-player-badge-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  margin: 4px 0;
+}
+
+.single-player-box-footer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .single-player-end-title {
@@ -3078,7 +3109,7 @@ input[type="submit"] {
   text-align: center;
   font-size: 0.85rem;
   line-height: 1.35;
-  margin: -6px 0 0 0;
+  margin: 0;
   font-weight: 400;
 }
 
@@ -3087,9 +3118,9 @@ input[type="submit"] {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 16px;
+  gap: 14px;
+  padding: clamp(14px, 2.2vh, 20px) 16px;
+  border-radius: 18px;
   background: rgba(12, 16, 28, 0.85);
   border: 1.5px solid rgba(234, 179, 8, 0.65);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 0 16px rgba(234, 179, 8, 0.06);
@@ -3098,16 +3129,16 @@ input[type="submit"] {
 }
 
 .single-player-award-icon-box {
-  width: 48px;
-  height: 48px;
+  width: clamp(48px, 6.5vh, 56px);
+  height: clamp(48px, 6.5vh, 56px);
   flex-shrink: 0;
-  border-radius: 12px;
+  border-radius: 14px;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, rgba(10, 15, 30, 0.7) 100%);
   border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.6rem;
+  font-size: clamp(1.6rem, 3.5vh, 2rem);
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
@@ -3115,14 +3146,14 @@ input[type="submit"] {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 
 .single-player-award-title {
   font-family: var(--font-title);
   font-weight: 800;
-  font-size: 0.92rem;
+  font-size: clamp(0.92rem, 2vh, 1.05rem);
   color: #FACC15;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -3141,9 +3172,9 @@ input[type="submit"] {
 
 .single-player-award-desc {
   font-family: var(--font-body);
-  font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.82);
-  line-height: 1.3;
+  font-size: clamp(0.78rem, 1.6vh, 0.86rem);
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.35;
   margin: 0;
   font-weight: 400;
 }
@@ -3151,16 +3182,16 @@ input[type="submit"] {
 /* Pulsante RICOMINCIA Neon Dinamico con Shimmer e Pulse */
 .btn-single-player-restart {
   width: 100%;
-  padding: 14px 20px;
-  border-radius: 18px;
+  padding: clamp(14px, 2.2vh, 18px) 20px;
+  border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.25) !important;
   background: linear-gradient(135deg, #00A8E8, #9b59b6, #e0115f, #00A8E8);
   background-size: 300% 100%;
   color: #ffffff !important;
   font-family: var(--font-title);
   font-weight: 800;
-  font-size: 1.05rem;
-  letter-spacing: 1.2px;
+  font-size: clamp(1.05rem, 2.2vh, 1.15rem);
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   cursor: pointer;
   position: relative;
@@ -3171,7 +3202,7 @@ input[type="submit"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 2px;
+  margin-top: 0;
 }
 
 .btn-single-player-restart::after {
@@ -3209,8 +3240,8 @@ input[type="submit"] {
   letter-spacing: 0.3px;
   cursor: pointer;
   padding: 8px 14px;
-  margin-top: 6px;
-  margin-bottom: 0;
+  margin-top: 8px;
+  margin-bottom: 2px;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -3222,6 +3253,7 @@ input[type="submit"] {
   -webkit-tap-highlight-color: transparent;
   outline: none;
   opacity: 0.85;
+  flex-shrink: 0;
 }
 
 .btn-link-subtle:hover {
@@ -5885,6 +5917,14 @@ input[type="submit"] {
   .join-carousel-dots {
     margin: 8px 0 12px 0;
   }
+  .single-player-end-modal-box {
+    min-height: 290px;
+    padding: 26px 14px 16px 14px;
+    gap: 12px;
+  }
+  .single-player-logo-area {
+    margin-bottom: clamp(14px, 3vh, 22px);
+  }
 }
 
 @media (max-height: 640px) {
@@ -5915,6 +5955,15 @@ input[type="submit"] {
   }
   .join-carousel-dots {
     margin: 6px 0 8px 0;
+  }
+  .single-player-end-modal-box {
+    min-height: 240px;
+    padding: 20px 12px 12px 12px;
+    gap: 8px;
+  }
+  .single-player-logo-area {
+    margin-bottom: 10px;
+    transform: scale(0.85);
   }
   .btn-carousel-nav {
     padding: 8px 14px;

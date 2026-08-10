@@ -4719,9 +4719,11 @@ function renderSinglePlayerFinalScreen() {
         </div>
 
         <div class="single-player-end-modal-box">
-          <h1 class="single-player-end-title">PARTITA COMPLETATA!</h1>
-          <p id="single-player-summary" class="single-player-end-subtitle">Hai risposto a tutte le carte della sessione.</p>
-          <div id="single-player-personality-badge" style="width: 100%;">
+          <div class="single-player-box-header">
+            <h1 class="single-player-end-title">PARTITA COMPLETATA!</h1>
+            <p id="single-player-summary" class="single-player-end-subtitle">Hai risposto a tutte le carte della sessione.</p>
+          </div>
+          <div id="single-player-personality-badge" class="single-player-badge-wrapper" style="width: 100%;">
             <div class="single-player-award-card">
               <div class="single-player-award-icon-box">
                 <span class="single-player-award-icon">${personalityIcon}</span>
@@ -4735,9 +4737,11 @@ function renderSinglePlayerFinalScreen() {
               </div>
             </div>
           </div>
-          <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
-          <button type="button" id="btn-single-player-cancel-home" class="btn-link-subtle">Annulla e torna al menù principale</button>
+          <div class="single-player-box-footer" style="width: 100%;">
+            <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
+          </div>
         </div>
+        <button type="button" id="btn-single-player-cancel-home" class="btn-link-subtle">Annulla e torna al menù principale</button>
       </div>
     `;
 
@@ -4829,23 +4833,29 @@ function renderSinglePlayerFinalScreen() {
             <span class="single-player-top-flame">🔥</span>
           </div>
           <div class="single-player-end-modal-box">
-            <h1 class="single-player-end-title">PARTITA COMPLETATA!</h1>
-            <p style="color: rgba(255,255,255,0.72); text-align: center; font-size: 0.85rem; margin: -6px 0 0 0;">Hai risposto a tutte le carte della sessione.</p>
-            <div class="single-player-award-card">
-              <div class="single-player-award-icon-box">
-                <span class="single-player-award-icon">⛔</span>
-              </div>
-              <div class="single-player-award-info">
-                <div class="single-player-award-title">
-                  <span class="single-player-award-dot">🔴</span>
-                  <span>IL SOPRA-VALUTATORE</span>
+            <div class="single-player-box-header">
+              <h1 class="single-player-end-title">PARTITA COMPLETATA!</h1>
+              <p style="color: rgba(255,255,255,0.72); text-align: center; font-size: 0.85rem; margin: 0;">Hai risposto a tutte le carte della sessione.</p>
+            </div>
+            <div class="single-player-badge-wrapper" style="width: 100%;">
+              <div class="single-player-award-card">
+                <div class="single-player-award-icon-box">
+                  <span class="single-player-award-icon">⛔</span>
                 </div>
-                <p class="single-player-award-desc">Sessione completata con successo!</p>
+                <div class="single-player-award-info">
+                  <div class="single-player-award-title">
+                    <span class="single-player-award-dot">🔴</span>
+                    <span>IL SOPRA-VALUTATORE</span>
+                  </div>
+                  <p class="single-player-award-desc">Sessione completata con successo!</p>
+                </div>
               </div>
             </div>
-            <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
-            <button type="button" id="btn-single-player-cancel-home" class="btn-link-subtle">Annulla e torna al menù principale</button>
+            <div class="single-player-box-footer" style="width: 100%;">
+              <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
+            </div>
           </div>
+          <button type="button" id="btn-single-player-cancel-home" class="btn-link-subtle">Annulla e torna al menù principale</button>
         </div>
       `;
       const btnFallback = fallbackScreen.querySelector('#btn-restart-direct');
