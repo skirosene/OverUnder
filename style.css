@@ -4997,80 +4997,33 @@ input[type="submit"] {
   stroke: currentColor;
 }
 
-/* Intestazione Brand Fissa per Modali (Regole Stanza / Invito - Impatto Potenziato) */
-.modal-fixed-brand-header {
+/* Header Standard Fisso per Modale Regole (Link Invito) */
+.modal-rules-nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 440px;
+  padding: 0 4px;
+  margin-top: clamp(28px, 5vh, 44px);
+  margin-bottom: 0;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 100;
+  box-sizing: border-box;
+}
+
+/* Wrapper centrale per garantire centratura verticale perfetta della card nello spazio restante */
+.modal-rules-body-wrapper {
+  flex: 1;
   width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  margin-top: clamp(6px, 1.5vh, 12px);
-  margin-bottom: clamp(14px, 2.8vh, 22px);
-  user-select: none;
-  pointer-events: none;
-  position: relative;
-  z-index: 10;
-}
-
-.modal-logo-area {
-  margin: 0;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
   align-items: center;
-}
-
-.modal-logo-area .logo-title {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 0.92;
-}
-
-.modal-logo-area .logo-over {
-  font-family: var(--font-title);
-  font-weight: 900;
-  font-size: clamp(2.6rem, 7.5vw, 3.4rem);
-  letter-spacing: clamp(4px, 1.2vw, 6px);
-  color: var(--color-overrated);
-  text-shadow: 0 0 18px rgba(255, 0, 127, 0.8), 0 0 36px rgba(255, 0, 127, 0.45);
-  display: inline-block;
-  line-height: 0.9;
-  transform-origin: center;
-}
-
-.modal-logo-area .logo-divider {
-  width: clamp(90px, 25vw, 130px);
-  height: 4px;
-  background: linear-gradient(90deg, var(--color-overrated), var(--color-underrated));
-  margin: 5px 0;
-  border-radius: 3px;
-  box-shadow: 0 0 12px rgba(189, 51, 255, 0.7);
-}
-
-.modal-logo-area .logo-under {
-  font-family: var(--font-title);
-  font-weight: 900;
-  font-size: clamp(2.2rem, 6.5vw, 2.9rem);
-  letter-spacing: clamp(4px, 1.2vw, 6px);
-  color: var(--color-underrated);
-  text-shadow: 0 0 18px rgba(0, 240, 255, 0.8), 0 0 36px rgba(0, 240, 255, 0.45);
-  text-transform: uppercase;
-  display: inline-block;
-  line-height: 0.9;
-  transform-origin: center;
-}
-
-.modal-logo-area .logo-tagline {
-  font-size: clamp(0.78rem, 2.2vw, 0.88rem);
-  color: var(--color-text-secondary);
-  margin-top: 6px;
-  margin-bottom: 0;
-  font-weight: 600;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  opacity: 0.92;
+  margin-top: clamp(16px, 3vh, 32px);
+  margin-bottom: clamp(16px, 3vh, 32px);
+  box-sizing: border-box;
 }
 
 .qr-modal-overlay {
@@ -5660,10 +5613,10 @@ input[type="submit"] {
   -webkit-backdrop-filter: blur(16px);
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   z-index: 20000;
-  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)) 16px;
+  padding: max(14px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)) 16px;
   box-sizing: border-box;
   opacity: 1;
   transition: opacity 0.3s ease;
@@ -5704,15 +5657,15 @@ input[type="submit"] {
 
 .join-rules-modal-close {
   position: absolute;
-  top: max(20px, calc(14px + env(safe-area-inset-top))) !important;
-  right: max(20px, calc(16px + env(safe-area-inset-right))) !important;
+  top: max(14px, calc(10px + env(safe-area-inset-top))) !important;
+  right: max(16px, calc(12px + env(safe-area-inset-right))) !important;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #ffffff;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   line-height: 1;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
@@ -5903,14 +5856,12 @@ input[type="submit"] {
 
 /* Ottimizzazione Layout & Responsive per Modal Regole / Invito */
 @media (max-height: 740px) {
-  .modal-fixed-brand-header {
-    margin-top: 2px;
-    margin-bottom: 10px;
+  .modal-rules-nav-header {
+    margin-top: clamp(22px, 4vh, 32px);
   }
-  .modal-logo-area {
-    transform: scale(0.88);
-    transform-origin: center top;
-    margin-bottom: -6px;
+  .modal-rules-body-wrapper {
+    margin-top: clamp(10px, 2vh, 18px);
+    margin-bottom: clamp(10px, 2vh, 18px);
   }
   .join-rules-modal-card {
     padding: 16px 14px 12px 14px;
@@ -5937,13 +5888,12 @@ input[type="submit"] {
 }
 
 @media (max-height: 640px) {
-  .modal-fixed-brand-header {
-    margin-top: 0;
-    margin-bottom: 6px;
+  .modal-rules-nav-header {
+    margin-top: 18px;
   }
-  .modal-logo-area {
-    transform: scale(0.76);
-    margin-bottom: -16px;
+  .modal-rules-body-wrapper {
+    margin-top: 6px;
+    margin-bottom: 6px;
   }
   .join-rules-modal-card {
     padding: 12px 10px 10px 10px;
