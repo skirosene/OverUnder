@@ -5001,11 +5001,11 @@ input[type="submit"] {
 .modal-rules-nav-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   width: 100%;
   max-width: 440px;
   padding: 0 4px;
-  margin-top: clamp(28px, 5vh, 44px);
+  margin-top: clamp(20px, 4vh, 36px);
   margin-bottom: 0;
   flex: 0 0 auto;
   position: relative;

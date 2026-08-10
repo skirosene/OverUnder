@@ -5977,14 +5977,6 @@ function setupJoinRulesModalEvents() {
     bindFastClick(closeBtn, closeJoinRulesModal);
   }
 
-  const rulesHomeBtn = document.getElementById('btn-rules-home');
-  if (rulesHomeBtn) {
-    bindFastClick(rulesHomeBtn, () => {
-      closeJoinRulesModal();
-      showScreen(el.screenWelcome);
-    });
-  }
-
   if (modalOverlay) {
     modalOverlay.addEventListener('click', (e) => {
       if (e.target === modalOverlay) {
