@@ -61,6 +61,20 @@ if (!sessionId) {
   safeStorage.setItem('overunder_sessionId', sessionId);
 }
 
+// Dispositivo Unico (UUID permanente) per l'accesso esclusivo (1 solo dispositivo attivo)
+let deviceId = safeStorage.getItem('overunder_deviceId');
+if (!deviceId || typeof deviceId !== 'string' || deviceId.trim().length < 8) {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    deviceId = crypto.randomUUID();
+  } else {
+    deviceId = 'dev_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+  }
+  safeStorage.setItem('overunder_deviceId', deviceId);
+}
+
+// Costante durata autorizzazione licenza: 5 giorni in millisecondi (432,000,000 ms)
+const AUTH_SESSION_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
+
 // Genera o recupera un playerId univoco e persistente per il browser del giocatore
 let playerId = safeStorage.getItem('overunder_playerId');
 if (!playerId) {
@@ -153,7 +167,13 @@ async function authenticateHost(hostName) {
   const logRes = await fetch('/api/auth/host', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: hostName, deviceUuid: sessionId, sessionId, fingerprint: getDeviceFingerprint() })
+    body: JSON.stringify({
+      username: hostName,
+      deviceId: deviceId,
+      deviceUuid: deviceId,
+      sessionId,
+      fingerprint: getDeviceFingerprint()
+    })
   });
 
   if (!logRes.ok) {
@@ -167,6 +187,11 @@ async function authenticateHost(hostName) {
     safeStorage.setItem('overunder_token', data.token);
     if (data.isPremium) {
       safeStorage.setItem('overunder_premium_unlocked', 'true');
+      if (data.lastAuthTimestamp) {
+        safeStorage.setItem('overunder_lastAuthTimestamp', String(data.lastAuthTimestamp));
+      }
+    } else {
+      safeStorage.removeItem('overunder_premium_unlocked');
     }
   }
   return data.token;
@@ -1517,17 +1542,44 @@ function getDecodedToken() {
 
 function checkPremiumStatusFromToken() {
   const decoded = getDecodedToken();
-  if (decoded && (decoded.isPremium || decoded.premiumStatus === 'PREMIUM_A_VITA')) {
+  if (!decoded) return false;
+  if (decoded.lastAuthTimestamp) {
+    const now = Date.now();
+    if (now - decoded.lastAuthTimestamp > AUTH_SESSION_MAX_AGE_MS) {
+      return false;
+    }
+  }
+  if (decoded.isPremium || decoded.premiumStatus === 'PREMIUM_A_VITA') {
     return true;
   }
   return false;
 }
 
 function checkJudgementDayAccess() {
-  const isPurchased = localStorage.getItem('overunder_judgement_purchased') === 'true' || localStorage.getItem('overunder_premium_unlocked') === 'true' || checkPremiumStatusFromToken();
+  const lastAuth = parseInt(safeStorage.getItem('overunder_lastAuthTimestamp') || '0', 10);
+  const now = Date.now();
+
+  // Controllo Scadenza Temporale (5 Giorni): se scaduti, resetta sblocco locale
+  if (lastAuth > 0 && (now - lastAuth > AUTH_SESSION_MAX_AGE_MS)) {
+    console.log('[LICENSE] Sessione di 5 giorni scaduta. Richiesta ri-autenticazione OTP.');
+    safeStorage.removeItem('overunder_premium_unlocked');
+    safeStorage.removeItem('overunder_judgement_purchased');
+    safeSessionStorage.removeItem('overunder_token');
+    safeStorage.removeItem('overunder_token');
+    return {
+      hasAccess: false,
+      isPurchased: false,
+      isExpired: true
+    };
+  }
+
+  const isPurchased = safeStorage.getItem('overunder_judgement_purchased') === 'true' || 
+                      safeStorage.getItem('overunder_premium_unlocked') === 'true' || 
+                      checkPremiumStatusFromToken();
   return {
     hasAccess: isPurchased,
-    isPurchased: isPurchased
+    isPurchased: isPurchased,
+    isExpired: false
   };
 }
 
@@ -1551,6 +1603,34 @@ function updatePremiumUI() {
       priceLabel.style.display = 'block';
     }
     descLabel.style.textAlign = 'left';
+  }
+}
+
+// Helper globale per apertura modale Trasferimento / Accesso Esclusivo con messaggio dinamico
+function openTransferModal(reason = null) {
+  const restoreModal = el.restorePurchaseModal || document.getElementById('restore-purchase-modal');
+  const titleEl = restoreModal ? restoreModal.querySelector('.title-floating') : null;
+  const descEl = document.getElementById('transfer-modal-desc');
+
+  if (typeof resetTransferModalState === 'function') {
+    resetTransferModalState();
+  }
+
+  if (reason === 'transferred') {
+    if (titleEl) titleEl.innerHTML = '<span style="display: block; font-size: 2rem; margin-bottom: 4px;">📱</span>LICENZA TRASFERITA';
+    if (descEl) descEl.textContent = "La tua licenza è stata presa da un altro dispositivo. Inserisci la tua email per ricevere il codice OTP e riattivare questo telefono per 5 giorni.";
+  } else if (reason === 'expired') {
+    if (titleEl) titleEl.innerHTML = '<span style="display: block; font-size: 2rem; margin-bottom: 4px;">⏳</span>SESSIONE SCADUTA (5G)';
+    if (descEl) descEl.textContent = "La tua sessione di 5 giorni per Judgement Day è scaduta. Inserisci la tua email per ricevere un nuovo codice OTP.";
+  } else {
+    if (titleEl) titleEl.innerHTML = '<span style="display: block; font-size: 2rem; margin-bottom: 4px;">📲</span>ACCEDI / TRASFERISCI';
+    if (descEl) descEl.textContent = "La licenza Judgement Day è ad accesso esclusivo (1 dispositivo attivo). Inserisci la tua email per ricevere l'OTP (valido 5 giorni).";
+  }
+
+  if (restoreModal) {
+    restoreModal.style.display = 'flex';
+    restoreModal.offsetHeight; // trigger reflow
+    restoreModal.classList.add('active');
   }
 }
 
@@ -1634,10 +1714,16 @@ function showPurchaseModal() {
           return;
         }
         
-        // Se NON ha acquistato, deseleziona lo switch e mostra direttamente la modale di acquisto
+        // Se NON ha acquistato o sessione scaduta, deseleziona lo switch
         e.preventDefault();
         el.createPremiumToggle.checked = false;
-        showPurchaseModal();
+
+        if (access.isExpired) {
+          showToast("Sessione di 5 giorni scaduta. Inserisci la tua email per riattivare la licenza.", 4000);
+          openTransferModal('expired');
+        } else {
+          showPurchaseModal();
+        }
       }
     });
   }
@@ -1967,7 +2053,7 @@ function showPurchaseModal() {
       const res = await fetch('/api/premium/verify-transfer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otpCode, deviceUuid: sessionId })
+        body: JSON.stringify({ email, otpCode, deviceId: deviceId, deviceUuid: deviceId, sessionId })
       });
 
       const data = await res.json().catch(() => ({}));
@@ -1980,13 +2066,17 @@ function showPurchaseModal() {
       }
 
       if (data.token) {
-        sessionStorage.setItem('overunder_token', data.token);
-        localStorage.setItem('overunder_token', data.token);
-        localStorage.setItem('overunder_premium_unlocked', 'true');
+        safeSessionStorage.setItem('overunder_token', data.token);
+        safeStorage.setItem('overunder_token', data.token);
+        safeStorage.setItem('overunder_premium_unlocked', 'true');
+        safeStorage.setItem('overunder_lastAuthTimestamp', String(data.lastAuthTimestamp || Date.now()));
       }
 
       state.roomIsPremium = true;
-      showToast("Trasferimento completato! Modalità \"Judgement Day\" sbloccata! 👑", 5000);
+      if (el.createPremiumToggle) {
+        el.createPremiumToggle.checked = true;
+      }
+      showToast("Dispositivo autorizzato con successo (valido 5 giorni)! 👑", 5000);
       updatePremiumUI();
 
       resetTransferModalState();
@@ -3082,6 +3172,40 @@ function setupSocketListeners() {
       el.nameErrorMsg.textContent = '';
     }
     showPurchaseModal();
+  });
+
+  // Gestione Errore Licenza Trasferita su altro dispositivo (Accesso Esclusivo)
+  socket.on('license_transferred_error', (data) => {
+    console.warn('[LICENSE] Licenza trasferita su un altro dispositivo:', data);
+    safeStorage.removeItem('overunder_premium_unlocked');
+    safeStorage.removeItem('overunder_judgement_purchased');
+    safeStorage.removeItem('overunder_lastAuthTimestamp');
+    state.roomIsPremium = false;
+    if (el.createPremiumToggle) {
+      el.createPremiumToggle.checked = false;
+    }
+    updatePremiumUI();
+
+    const msg = data && data.message ? data.message : "Licenza trasferita su un altro dispositivo. Effettua nuovamente l'accesso con la tua email.";
+    showToast(`⚠️ ${msg}`, 6000);
+    openTransferModal('transferred');
+  });
+
+  // Gestione Errore Sessione 5 Giorni Scaduta (Richiesta nuovo OTP)
+  socket.on('auth_session_expired', (data) => {
+    console.warn('[LICENSE] Sessione di 5 giorni scaduta:', data);
+    safeStorage.removeItem('overunder_premium_unlocked');
+    safeStorage.removeItem('overunder_judgement_purchased');
+    safeStorage.removeItem('overunder_lastAuthTimestamp');
+    state.roomIsPremium = false;
+    if (el.createPremiumToggle) {
+      el.createPremiumToggle.checked = false;
+    }
+    updatePremiumUI();
+
+    const msg = data && data.message ? data.message : "La sessione di 5 giorni per Judgement Day è scaduta. Inserisci la tua email per ricevere un nuovo codice OTP.";
+    showToast(`⏳ ${msg}`, 6000);
+    openTransferModal('expired');
   });
 
   socket.on('room_error', (message) => {

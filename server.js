@@ -172,6 +172,64 @@ function cleanRoomCode(rawCode) {
 // Controllo d'ambiente globale per la fase di testing
 const IS_PRODUCTION = true; // Impostare a false per tornare in fase di sviluppo
 
+// Costante durata autorizzazione licenza: 5 giorni in millisecondi (432,000,000 ms)
+const AUTH_SESSION_DURATION_MS = 5 * 24 * 60 * 60 * 1000;
+
+/**
+ * Verifica la validità della licenza Judgement Day in tempo reale:
+ * 1. Controllo Accesso Esclusivo (Max 1 dispositivo): deviceId === activeDeviceId
+ * 2. Controllo Scadenza Temporale: now - lastAuthTimestamp <= 5 giorni
+ */
+function verifyJudgementDayLicense(socket) {
+  if (!socket || !socket.userData) {
+    return { valid: false, reason: "Non sei autenticato.", code: 'UNAUTHENTICATED' };
+  }
+
+  const requestingDeviceId = socket.userData.deviceId || socket.userData.deviceUuid || socket.userData.userId;
+  const userEmail = socket.userData.email ? String(socket.userData.email).toLowerCase().trim() : null;
+  const userId = socket.userData.userId;
+
+  // 1. Cerca il record licenza in users.json
+  let user = null;
+  if (userEmail) {
+    user = Object.values(users).find(u => u.email && u.email.toLowerCase().trim() === userEmail && u.isPremium);
+  }
+  if (!user && userId && users[userId] && users[userId].isPremium) {
+    user = users[userId];
+  }
+  if (!user && requestingDeviceId) {
+    user = Object.values(users).find(u => (u.activeDeviceId === requestingDeviceId || u.deviceUuid === requestingDeviceId) && u.isPremium);
+  }
+
+  if (!user) {
+    return { valid: false, reason: "Nessuna licenza Judgement Day attiva trovata per questo account.", code: 'NOT_FOUND' };
+  }
+
+  // 2. Controllo Accesso Esclusivo: il deviceId deve corrispondere ESATTAMENTE ad activeDeviceId
+  if (user.activeDeviceId && requestingDeviceId && user.activeDeviceId !== requestingDeviceId) {
+    return {
+      valid: false,
+      reason: "Licenza trasferita su un altro dispositivo. Effettua nuovamente l'accesso con la tua email.",
+      code: 'TRANSFERRED',
+      user: user
+    };
+  }
+
+  // 3. Controllo Scadenza Temporale 5 Giorni
+  const now = Date.now();
+  const lastAuth = user.lastAuthTimestamp || 0;
+  if (lastAuth === 0 || (now - lastAuth > AUTH_SESSION_DURATION_MS)) {
+    return {
+      valid: false,
+      reason: "La sessione di 5 giorni per Judgement Day è scaduta. Effettua nuovamente l'accesso con la tua email per continuare.",
+      code: 'EXPIRED',
+      user: user
+    };
+  }
+
+  return { valid: true, user: user };
+}
+
 // Database persistente simulato per i regali di benvenuto (Trial)
 const TRIAL_DB_PATH = path.join(DATA_DIR, 'trial_db.json');
 
@@ -545,7 +603,7 @@ app.post('/api/premium/request-transfer', async (req, res) => {
   }
 });
 
-// 2. Verifica OTP e Promozione a Premium
+// 2. Verifica OTP e Promozione / Trasferimento a Licenza Esclusiva (5 Giorni)
 app.post('/api/premium/verify-transfer', (req, res) => {
   const { email } = req.body;
   const otpSubmitted = req.body.otp || req.body.otpCode;
@@ -569,10 +627,10 @@ app.post('/api/premium/verify-transfer', (req, res) => {
   // OTP corretto: cancella l'OTP utilizzato dalla memoria
   otpSessions.delete(normalizedEmail);
 
-  // Promuovi il client a PREMIUM e imposta isPremium = true
+  // Ottieni o genera deviceId e userId del client
   let userId = null;
   let username = 'Host';
-  let deviceUuid = req.body.deviceUuid || null;
+  let deviceId = req.body.deviceId || req.body.deviceUuid || req.body.sessionId || null;
 
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -580,60 +638,77 @@ app.post('/api/premium/verify-transfer', (req, res) => {
       const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
       userId = decoded.userId;
       username = decoded.username || username;
-      deviceUuid = decoded.deviceUuid || deviceUuid;
+      deviceId = decoded.deviceId || decoded.deviceUuid || deviceId;
     } catch (e) {}
   }
 
   if (!userId && req.body.userId) {
     userId = req.body.userId;
   }
-  if (!userId && req.body.deviceUuid) {
-    userId = req.body.deviceUuid;
+  if (!deviceId) {
+    deviceId = userId || 'dev_' + Date.now();
+  }
+  if (!userId) {
+    userId = deviceId;
   }
 
-  if (userId && users[userId]) {
-    users[userId].isPremium = true;
-    users[userId].premiumStatus = 'PREMIUM_A_VITA';
-    users[userId].email = normalizedEmail;
-    writeUsersDb(users);
-  } else {
-    let userByEmail = Object.values(users).find(u => u.email && u.email.toLowerCase() === normalizedEmail);
-    if (!userByEmail) {
-      const idKey = userId || 'host_' + Date.now();
-      userByEmail = {
-        id: idKey,
-        deviceUuid: deviceUuid || idKey,
-        username: username.toLowerCase(),
-        displayName: username,
-        email: normalizedEmail,
-        isPremium: true,
-        premiumStatus: 'PREMIUM_A_VITA'
-      };
-      users[idKey] = userByEmail;
-    } else {
-      userByEmail.isPremium = true;
-      userByEmail.premiumStatus = 'PREMIUM_A_VITA';
-    }
-    userId = userByEmail.id;
-    username = userByEmail.displayName || username;
-    writeUsersDb(users);
+  const now = Date.now();
+
+  // OVERRIDE ISTANTANEO: Cerca o crea il record utente per questa email
+  let user = Object.values(users).find(u => u.email && u.email.toLowerCase() === normalizedEmail);
+  if (!user && users[userId]) {
+    user = users[userId];
   }
+
+  if (user) {
+    // Aggiorna l'utente esistente assegnando la licenza esclusivamente al nuovo dispositivo
+    user.isPremium = true;
+    user.premiumStatus = 'PREMIUM_A_VITA';
+    user.email = normalizedEmail;
+    user.activeDeviceId = deviceId; // Unico dispositivo attivo autorizzato
+    user.deviceUuid = deviceId;
+    user.lastAuthTimestamp = now;  // Timestamp di inizio sessione 5 giorni
+  } else {
+    // Nuovo record utente licenziato
+    const idKey = userId || 'host_' + Date.now();
+    user = {
+      id: idKey,
+      deviceUuid: deviceId,
+      activeDeviceId: deviceId,
+      lastAuthTimestamp: now,
+      username: username.toLowerCase(),
+      displayName: username,
+      email: normalizedEmail,
+      isPremium: true,
+      premiumStatus: 'PREMIUM_A_VITA'
+    };
+    users[idKey] = user;
+  }
+
+  writeUsersDb(users);
 
   const token = jwt.sign({
-    userId: userId,
-    deviceUuid: deviceUuid || userId,
-    username: username,
+    userId: user.id,
+    deviceUuid: deviceId,
+    deviceId: deviceId,
+    activeDeviceId: deviceId,
+    email: normalizedEmail,
+    lastAuthTimestamp: now,
+    username: user.displayName || username,
     role: 'host',
     isPremium: true,
     premiumStatus: 'PREMIUM_A_VITA'
   }, JWT_SECRET, { expiresIn: '365d' });
 
-  console.log(`[OTP PREMIUM] Utente ${normalizedEmail} (ID: ${userId}) promosso a PREMIUM con successo.`);
+  console.log(`[OTP VERIFICATO] Licenza Judgement Day impostata su dispositivo esclusivo ${deviceId} per email ${normalizedEmail}. Auth timestamp: ${now}`);
 
   return res.status(200).json({
     success: true,
     token: token,
-    isPremium: true
+    isPremium: true,
+    deviceId: deviceId,
+    lastAuthTimestamp: now,
+    expiresInDays: 5
   });
 });
 
@@ -642,53 +717,84 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-// 1. Autenticazione Host unificata (Zero attrito - Riconoscimento dispositivo a vita)
+// 1. Autenticazione Host unificata (Controllo Accesso Esclusivo & 5 Giorni)
 app.post('/api/auth/host', (req, res) => {
-  const { username, deviceUuid, sessionId } = req.body;
+  const { username, deviceId, deviceUuid, sessionId } = req.body;
   if (!username) {
     return res.status(400).json({ error: 'Nome Host obbligatorio' });
   }
   const cleanUsername = username.trim();
-  const idKey = deviceUuid || sessionId || 'host_' + cleanUsername.toLowerCase();
+  const currentDeviceId = deviceId || deviceUuid || sessionId || 'host_' + cleanUsername.toLowerCase();
+  const idKey = currentDeviceId;
 
-  // Controlla se questo dispositivo o sessione ha un acquisto a vita registrato nel DB
-  const hasLifetimePurchase = Object.values(users).some(u => u.isPremium && (
-    (deviceUuid && u.deviceUuid === deviceUuid) ||
-    (sessionId && u.deviceUuid === sessionId)
-  ));
+  // Cerca se esiste un record utente licenziato con questo activeDeviceId
+  const matchingUser = Object.values(users).find(u => 
+    u.isPremium && (u.activeDeviceId === currentDeviceId || u.deviceUuid === currentDeviceId)
+  );
+
+  let isPremiumUser = false;
+  let userEmail = null;
+  let lastAuth = null;
+
+  if (matchingUser) {
+    const now = Date.now();
+    lastAuth = matchingUser.lastAuthTimestamp || 0;
+    const isWithin5Days = (lastAuth > 0) && (now - lastAuth <= AUTH_SESSION_DURATION_MS);
+    const isExclusiveMatch = matchingUser.activeDeviceId === currentDeviceId;
+
+    if (isWithin5Days && isExclusiveMatch) {
+      isPremiumUser = true;
+      userEmail = matchingUser.email;
+    } else {
+      console.log(`[AUTH HOST] Licenza non attiva per device ${currentDeviceId}: isWithin5Days=${isWithin5Days}, isExclusiveMatch=${isExclusiveMatch}`);
+    }
+  }
 
   let user = users[idKey];
   if (!user) {
     user = {
       id: idKey,
-      deviceUuid: deviceUuid || idKey,
+      deviceUuid: currentDeviceId,
+      activeDeviceId: isPremiumUser ? currentDeviceId : null,
+      lastAuthTimestamp: isPremiumUser ? lastAuth : null,
+      email: userEmail,
       username: cleanUsername.toLowerCase(),
       displayName: cleanUsername,
-      isPremium: hasLifetimePurchase ? true : false,
-      premiumStatus: hasLifetimePurchase ? 'PREMIUM_A_VITA' : 'STANDARD'
+      isPremium: isPremiumUser,
+      premiumStatus: isPremiumUser ? 'PREMIUM_A_VITA' : 'STANDARD'
     };
     users[idKey] = user;
   } else {
     user.displayName = cleanUsername;
-    if (deviceUuid) user.deviceUuid = deviceUuid;
-    if (hasLifetimePurchase) {
-      user.isPremium = true;
-      user.premiumStatus = 'PREMIUM_A_VITA';
-    }
+    user.deviceUuid = currentDeviceId;
+    user.isPremium = isPremiumUser;
+    user.premiumStatus = isPremiumUser ? 'PREMIUM_A_VITA' : 'STANDARD';
+    if (userEmail) user.email = userEmail;
+    if (lastAuth) user.lastAuthTimestamp = lastAuth;
   }
 
   writeUsersDb(users);
 
   const token = jwt.sign({
     userId: user.id,
-    deviceUuid: user.deviceUuid || deviceUuid || user.id,
+    deviceUuid: currentDeviceId,
+    deviceId: currentDeviceId,
+    activeDeviceId: user.activeDeviceId || null,
+    email: user.email || userEmail || null,
+    lastAuthTimestamp: user.lastAuthTimestamp || lastAuth || null,
     username: cleanUsername,
     role: 'host',
-    isPremium: !!user.isPremium,
+    isPremium: isPremiumUser,
     premiumStatus: user.premiumStatus || 'STANDARD'
-  }, JWT_SECRET, { expiresIn: '365d' }); // Valido 1 anno per il dispositivo
+  }, JWT_SECRET, { expiresIn: '365d' });
 
-  res.json({ token, isPremium: !!user.isPremium, username: cleanUsername });
+  res.json({
+    token,
+    isPremium: isPremiumUser,
+    username: cleanUsername,
+    deviceId: currentDeviceId,
+    lastAuthTimestamp: user.lastAuthTimestamp || null
+  });
 });
 
 // 2. Registrazione Host (retrocompatibilità)
@@ -1153,12 +1259,27 @@ io.on('connection', (socket) => {
       authenticated = true;
       clearTimeout(authTimeout);
       socket.userData = decoded;
+
+      // Se l'utente tenta di autenticarsi come Premium, verifichiamo la licenza
+      if (decoded.isPremium || decoded.premiumStatus === 'PREMIUM_A_VITA') {
+        const licenseCheck = verifyJudgementDayLicense(socket);
+        if (!licenseCheck.valid) {
+          console.warn(`[AUTH LICENSE CHECK] Socket ${socket.id} non ha licenza valida: ${licenseCheck.reason} (${licenseCheck.code})`);
+          socket.userData.isPremium = false;
+          if (licenseCheck.code === 'TRANSFERRED') {
+            socket.emit('license_transferred_error', { message: licenseCheck.reason });
+          } else if (licenseCheck.code === 'EXPIRED') {
+            socket.emit('auth_session_expired', { message: licenseCheck.reason });
+          }
+        }
+      }
+
       socket.emit('AUTH_SUCCESS', {
-        role: decoded.role,
-        isPremium: decoded.isPremium || false,
-        playerName: decoded.playerName || decoded.username
+        role: socket.userData.role,
+        isPremium: socket.userData.isPremium || false,
+        playerName: socket.userData.playerName || socket.userData.username
       });
-      console.log(`[AUTH] Socket ${socket.id} autenticato con successo come ${decoded.role}:${decoded.playerName || decoded.username}`);
+      console.log(`[AUTH] Socket ${socket.id} autenticato con successo come ${decoded.role}:${decoded.playerName || decoded.username} | isPremium: ${!!socket.userData.isPremium}`);
     } catch (err) {
       console.error(`[AUTH] Autenticazione fallita per socket ${socket.id}:`, err.message);
       socket.emit('AUTH_ERROR', { error: 'Token non valido o scaduto' });
@@ -1175,7 +1296,7 @@ io.on('connection', (socket) => {
     const hostName = socket.userData.username;
     const isPremiumUser = socket.userData.isPremium;
     const sessionId = socket.userData.userId;
-    const deviceUuid = socket.userData.deviceUuid;
+    const deviceUuid = socket.userData.deviceId || socket.userData.deviceUuid;
 
     let code = cleanRoomCode(roomCode);
 
@@ -1244,7 +1365,22 @@ io.on('connection', (socket) => {
 
     console.log("--> [SERVER] Richiesta create_room ricevuta:", { code, hostName, isPremium: finalIsPremium, socketId: socket.id });
 
+    // Verifica server-side real-time della licenza Judgement Day
     if (finalIsPremium) {
+      const licenseCheck = verifyJudgementDayLicense(socket);
+      if (!licenseCheck.valid) {
+        console.warn(`[CREATE ROOM LICENZA RIFIUTATA] Stanza ${code} rifiutata: ${licenseCheck.reason} (${licenseCheck.code})`);
+        if (socket.userData) {
+          socket.userData.isPremium = false;
+        }
+        if (licenseCheck.code === 'TRANSFERRED') {
+          socket.emit('license_transferred_error', { message: licenseCheck.reason });
+        } else if (licenseCheck.code === 'EXPIRED') {
+          socket.emit('auth_session_expired', { message: licenseCheck.reason });
+        }
+        socket.emit('room_error', licenseCheck.reason);
+        return;
+      }
       if (socket.userData) {
         socket.userData.isPremium = true;
       }
@@ -1701,23 +1837,19 @@ io.on('connection', (socket) => {
     if (!room || room.hostId !== socket.id) return;
 
     if (room.isPremium) {
-      const hostSessionId = socket.userData ? socket.userData.userId : null;
-      if (hostSessionId) {
-        const db = readTrialDb();
-        const trialRecord = db.find(r => r.userId === hostSessionId || r.deviceUuid === hostSessionId);
-        if (trialRecord && Date.now() > trialRecord.trial_end_date) {
-          const user = users[hostSessionId];
-          if (user && user.premiumStatus !== 'PREMIUM_A_VITA') {
-            user.isPremium = false;
-            writeUsersDb(users);
-          }
-          if (!user || user.premiumStatus !== 'PREMIUM_A_VITA') {
-            socket.emit('trial_expired_error', {
-              message: "Il tuo periodo di prova di 30 giorni per la Modalità \"Judgement Day\" è scaduto! Non puoi riavviare la partita."
-            });
-            return;
-          }
+      const licenseCheck = verifyJudgementDayLicense(socket);
+      if (!licenseCheck.valid) {
+        console.warn(`[RESTART GAME LICENZA RIFIUTATA] Stanza ${room.roomCode} riavvio fallito: ${licenseCheck.reason} (${licenseCheck.code})`);
+        if (socket.userData) {
+          socket.userData.isPremium = false;
         }
+        if (licenseCheck.code === 'TRANSFERRED') {
+          socket.emit('license_transferred_error', { message: licenseCheck.reason });
+        } else if (licenseCheck.code === 'EXPIRED') {
+          socket.emit('auth_session_expired', { message: licenseCheck.reason });
+        }
+        socket.emit('room_error', licenseCheck.reason);
+        return;
       }
     }
 
