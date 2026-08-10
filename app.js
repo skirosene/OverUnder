@@ -904,6 +904,11 @@ const el = {
   // Custom Premium Image elements
   premiumImageUpload: document.getElementById('premium-image-upload'),
   lblPremiumImageUpload: document.getElementById('lbl-premium-image-upload'),
+  btnTriggerPremiumPhoto: document.getElementById('btn-trigger-premium-photo'),
+  premiumPhotoPopover: document.getElementById('premium-photo-popover'),
+  btnPremiumSelectCamera: document.getElementById('btn-premium-select-camera'),
+  btnPremiumSelectUpload: document.getElementById('btn-premium-select-upload'),
+  inputPremiumCamera: document.getElementById('input-premium-camera'),
   premiumImagePreviewContainer: document.getElementById('premium-image-preview-container'),
   premiumImagePreview: document.getElementById('premium-image-preview'),
   btnClearImage: document.getElementById('btn-clear-image'),
@@ -955,6 +960,9 @@ const el = {
   cameraVideo: document.getElementById('camera-video'),
   btnCameraCapture: document.getElementById('btn-camera-capture'),
   btnCameraClose: document.getElementById('btn-camera-close'),
+  btnCameraSwitch: document.getElementById('btn-camera-switch'),
+  btnCameraSwitchFloating: document.getElementById('btn-camera-switch-floating'),
+  cameraFacingLabel: document.getElementById('camera-facing-label'),
   
   // In-game avatars list
   gameplayAvatarsList: document.getElementById('gameplay-avatars-list'),
@@ -6539,29 +6547,74 @@ function setupPremiumCreatorEvents() {
       setupLobbyUI();
     });
   }
+  
+  const handleCardFile = (file) => {
+    if (!file) return;
+
+    state.cropperTarget = 'card';
+    state.cropperSource = 'upload';
+    const cardCount = (state.localPremiumCards ? state.localPremiumCards.length : 0) + 1;
+    state.currentUploadedFilename = `image_${Date.now()}_${cardCount}.webp`;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      el.cropperImageTarget.src = event.target.result;
+      el.cropperModal.style.display = 'flex';
+      el.cropperModal.offsetHeight; // trigger reflow
+      el.cropperModal.classList.add('active');
+
+      initCropper(el.cropperImageTarget);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Image upload and Cropper events
   if (el.premiumImageUpload) {
     el.premiumImageUpload.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      state.cropperTarget = 'card';
-      const cardCount = (state.localPremiumCards ? state.localPremiumCards.length : 0) + 1;
-      state.currentUploadedFilename = `image_${Date.now()}_${cardCount}.webp`;
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        el.cropperImageTarget.src = event.target.result;
-        el.cropperModal.style.display = 'flex';
-        el.cropperModal.offsetHeight; // trigger reflow
-        el.cropperModal.classList.add('active');
-
-        initCropper(el.cropperImageTarget);
-      };
-      reader.readAsDataURL(file);
+      handleCardFile(e.target.files[0]);
     });
   }
+
+  if (el.inputPremiumCamera) {
+    el.inputPremiumCamera.addEventListener('change', (e) => {
+      handleCardFile(e.target.files[0]);
+    });
+  }
+
+  // Trigger Popover Scatta / Carica per Modalità Judgement Day
+  if (el.btnTriggerPremiumPhoto) {
+    el.btnTriggerPremiumPhoto.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (el.premiumPhotoPopover) {
+        const isOpen = el.premiumPhotoPopover.style.display === 'flex';
+        el.premiumPhotoPopover.style.display = isOpen ? 'none' : 'flex';
+      }
+    });
+  }
+
+  if (el.btnPremiumSelectCamera) {
+    el.btnPremiumSelectCamera.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (el.premiumPhotoPopover) el.premiumPhotoPopover.style.display = 'none';
+      openInAppCamera('card');
+    });
+  }
+
+  if (el.btnPremiumSelectUpload) {
+    el.btnPremiumSelectUpload.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (el.premiumPhotoPopover) el.premiumPhotoPopover.style.display = 'none';
+      if (el.premiumImageUpload) el.premiumImageUpload.click();
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (el.premiumPhotoPopover && el.premiumPhotoPopover.style.display === 'flex') {
+      if (!el.premiumPhotoPopover.contains(e.target) && e.target !== el.btnTriggerPremiumPhoto && !el.btnTriggerPremiumPhoto.contains(e.target)) {
+        el.premiumPhotoPopover.style.display = 'none';
+      }
+    }
+  });
 
   if (el.btnCropperConfirm) {
     el.btnCropperConfirm.addEventListener('click', async () => {
@@ -6628,6 +6681,9 @@ function setupPremiumCreatorEvents() {
                 if (el.lblPremiumImageUpload) {
                   el.lblPremiumImageUpload.style.display = 'none';
                 }
+                if (el.btnTriggerPremiumPhoto) {
+                  el.btnTriggerPremiumPhoto.style.display = 'none';
+                }
               }
             }
           }
@@ -6647,6 +6703,7 @@ function setupPremiumCreatorEvents() {
         activeCropper = null;
       }
       if (el.premiumImageUpload) el.premiumImageUpload.value = '';
+      if (el.inputPremiumCamera) el.inputPremiumCamera.value = '';
       if (el.inputAvatarGallery) el.inputAvatarGallery.value = '';
       if (el.inputAvatarCamera) el.inputAvatarCamera.value = '';
     });
@@ -6661,8 +6718,19 @@ function setupPremiumCreatorEvents() {
         activeCropper = null;
       }
       if (el.premiumImageUpload) el.premiumImageUpload.value = '';
+      if (el.inputPremiumCamera) el.inputPremiumCamera.value = '';
       if (el.inputAvatarGallery) el.inputAvatarGallery.value = '';
       if (el.inputAvatarCamera) el.inputAvatarCamera.value = '';
+      state.editingPremiumCardIndex = null;
+      
+      const wasCamera = state.cropperSource === 'camera';
+      const lastTarget = state.cropperTarget || 'avatar';
+      state.cropperTarget = null;
+      state.cropperSource = null;
+
+      if (wasCamera && openInAppCamera) {
+        openInAppCamera(lastTarget);
+      }
     });
   }
 
@@ -6722,29 +6790,6 @@ async function uploadImage(dataUrl, filename) {
   return data.url;
 }
 
-  if (el.btnCropperCancel) {
-    el.btnCropperCancel.addEventListener('click', () => {
-      el.cropperModal.classList.remove('active');
-      el.cropperModal.style.display = 'none';
-      if (activeCropper) {
-        activeCropper.destroy();
-        activeCropper = null;
-      }
-      el.premiumImageUpload.value = '';
-      if (el.inputAvatarGallery) el.inputAvatarGallery.value = '';
-      if (el.inputAvatarCamera) el.inputAvatarCamera.value = '';
-      state.editingPremiumCardIndex = null;
-      
-      const wasCamera = state.cropperSource === 'camera';
-      state.cropperTarget = null;
-      state.cropperSource = null;
-
-      if (wasCamera && openInAppCamera) {
-        openInAppCamera();
-      }
-    });
-  }
-
   if (el.btnClearImage) {
     el.btnClearImage.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -6761,6 +6806,9 @@ async function uploadImage(dataUrl, filename) {
       }
       if (el.lblPremiumImageUpload) {
         el.lblPremiumImageUpload.style.display = 'inline-flex';
+      }
+      if (el.btnTriggerPremiumPhoto) {
+        el.btnTriggerPremiumPhoto.style.display = 'inline-flex';
       }
     });
   }
@@ -6862,38 +6910,121 @@ function setupAvatarEvents() {
 
   const isInAppBrowser = /Instagram|FBAN|FBAV|TikTok|WhatsApp/i.test(navigator.userAgent);
   let cameraStream = null;
+  let currentFacingMode = 'user'; // 'user' (selfie/front) | 'environment' (rear/main)
 
-  const closeCamera = () => {
+  const applyVideoMirror = () => {
+    if (!el.cameraVideo) return;
+    if (currentFacingMode === 'user') {
+      el.cameraVideo.style.transform = 'scaleX(-1)';
+    } else {
+      el.cameraVideo.style.transform = 'scaleX(1)';
+    }
+    const labelEl = el.cameraFacingLabel || document.getElementById('camera-facing-label');
+    if (labelEl) {
+      labelEl.textContent = currentFacingMode === 'user' ? 'Selfie' : 'Retro';
+    }
+  };
+
+  const stopCameraStream = () => {
     if (cameraStream) {
       cameraStream.getTracks().forEach(track => track.stop());
       cameraStream = null;
-    }
-    if (el.cameraModal) {
-      el.cameraModal.classList.remove('active');
-      el.cameraModal.style.display = 'none';
     }
     if (el.cameraVideo) {
       el.cameraVideo.srcObject = null;
     }
   };
 
-  openInAppCamera = async () => {
+  const closeCamera = () => {
+    stopCameraStream();
+    if (el.cameraModal) {
+      el.cameraModal.classList.remove('active');
+      el.cameraModal.style.display = 'none';
+    }
+  };
+
+  const startCameraStream = async (facingMode) => {
+    currentFacingMode = facingMode || currentFacingMode || 'user';
+    stopCameraStream();
+
+    const constraints = {
+      video: {
+        facingMode: { ideal: currentFacingMode },
+        width: { ideal: 1280 },
+        height: { ideal: 1280 }
+      },
+      audio: false
+    };
+
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err) {
+      console.warn(`[CAMERA] Fallback facingMode generico per "${currentFacingMode}":`, err);
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      } catch (e) {
+        console.error("[CAMERA] Impossibile accedere alla fotocamera:", e);
+        throw e;
+      }
+    }
+
+    if (el.cameraVideo && cameraStream) {
+      el.cameraVideo.srcObject = cameraStream;
+      try {
+        await el.cameraVideo.play();
+      } catch (e) {
+        console.warn("[CAMERA] Play video in attesa di interazione:", e);
+      }
+      applyVideoMirror();
+    }
+  };
+
+  const switchCamera = async () => {
+    const switchBtn = el.btnCameraSwitch || document.getElementById('btn-camera-switch');
+    const floatingSwitchBtn = el.btnCameraSwitchFloating || document.getElementById('btn-camera-switch-floating');
+
+    if (switchBtn) switchBtn.classList.add('rotating');
+    if (floatingSwitchBtn) floatingSwitchBtn.classList.add('rotating');
+
+    const newFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+
+    try {
+      await startCameraStream(newFacingMode);
+      try { AudioSynth.playPop(); } catch (e) {}
+    } catch (err) {
+      console.error("[CAMERA] Errore cambio fotocamera:", err);
+      showToast("Impossibile passare all'altra fotocamera.");
+    } finally {
+      setTimeout(() => {
+        if (switchBtn) switchBtn.classList.remove('rotating');
+        if (floatingSwitchBtn) floatingSwitchBtn.classList.remove('rotating');
+      }, 400);
+    }
+  };
+
+  openInAppCamera = async (target = 'avatar') => {
     if (el.avatarOptionsPopover) el.avatarOptionsPopover.style.display = 'none';
+    if (el.premiumPhotoPopover) el.premiumPhotoPopover.style.display = 'none';
+
+    state.cropperTarget = target; // 'avatar' | 'card'
+
+    // Per avatar il default naturale è la fotocamera frontale (selfie), per le carte Judgement Day è la posteriore (retro)
+    const defaultFacing = (target === 'card') ? 'environment' : 'user';
 
     if (isInAppBrowser) {
-      if (el.inputAvatarCamera) el.inputAvatarCamera.click();
+      if (target === 'card' && el.inputPremiumCamera) {
+        el.inputPremiumCamera.click();
+      } else if (el.inputAvatarCamera) {
+        el.inputAvatarCamera.click();
+      }
       return;
     }
 
     try {
-      cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } },
-        audio: false
-      });
-      if (el.cameraVideo) {
-        el.cameraVideo.srcObject = cameraStream;
-        el.cameraVideo.play();
-      }
+      await startCameraStream(defaultFacing);
       if (el.cameraModal) {
         el.cameraModal.style.display = 'flex';
         el.cameraModal.offsetHeight; // trigger reflow
@@ -6901,14 +7032,18 @@ function setupAvatarEvents() {
       }
     } catch (err) {
       console.warn("Accesso fotocamera fallito, fallback su input file nativo", err);
-      if (el.inputAvatarCamera) el.inputAvatarCamera.click();
+      if (target === 'card' && el.inputPremiumCamera) {
+        el.inputPremiumCamera.click();
+      } else if (el.inputAvatarCamera) {
+        el.inputAvatarCamera.click();
+      }
     }
   };
 
   if (el.btnSelectCamera) {
     el.btnSelectCamera.addEventListener('click', (e) => {
       e.stopPropagation();
-      openInAppCamera();
+      openInAppCamera('avatar');
     });
   }
 
@@ -6916,24 +7051,52 @@ function setupAvatarEvents() {
     el.btnCameraClose.addEventListener('click', closeCamera);
   }
 
+  if (el.btnCameraSwitch) {
+    el.btnCameraSwitch.addEventListener('click', (e) => {
+      e.stopPropagation();
+      switchCamera();
+    });
+  }
+
+  if (el.btnCameraSwitchFloating) {
+    el.btnCameraSwitchFloating.addEventListener('click', (e) => {
+      e.stopPropagation();
+      switchCamera();
+    });
+  }
+
   if (el.btnCameraCapture) {
     el.btnCameraCapture.addEventListener('click', () => {
       if (!cameraStream || !el.cameraVideo) return;
       const video = el.cameraVideo;
+      const videoWidth = video.videoWidth || 640;
+      const videoHeight = video.videoHeight || 640;
+      const size = Math.min(videoWidth, videoHeight);
+
       const canvas = document.createElement('canvas');
-      const size = Math.min(video.videoWidth, video.videoHeight);
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext('2d');
-      const sx = (video.videoWidth - size) / 2;
-      const sy = (video.videoHeight - size) / 2;
-      ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
 
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      const sx = (videoWidth - size) / 2;
+      const sy = (videoHeight - size) / 2;
 
+      if (currentFacingMode === 'user') {
+        // Inverti orizzontalmente per specchiare fedelmente l'anteprima selfie
+        ctx.translate(size, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
+      } else {
+        // Fotocamera posteriore / principale: resa diretta naturale
+        ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
+      }
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+      const targetType = state.cropperTarget || 'avatar';
       closeCamera();
 
-      state.cropperTarget = 'avatar';
+      state.cropperTarget = targetType;
       state.cropperSource = 'camera';
       el.cropperImageTarget.src = dataUrl;
       el.cropperModal.style.display = 'flex';
