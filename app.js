@@ -4739,16 +4739,47 @@ function renderSinglePlayerFinalScreen() {
           </div>
           <div class="single-player-box-footer" style="width: 100%;">
             <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
+            <button id="btn-try-room-direct" class="btn-single-player-rooms">
+              <span>PROVA LA MODALITÀ STANZA</span>
+              <svg class="btn-icon" viewBox="0 0 24 24">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </button>
           </div>
         </div>
         <button type="button" id="btn-single-player-cancel-home" class="btn-link-subtle">Annulla e torna al menù principale</button>
       </div>
     `;
 
-    // 4. Collega gli eventi al tasto RICOMINCIA, ai tasti Home e al tasto Impostazioni
+    // 4. Collega gli eventi al tasto RICOMINCIA, PROVA STANZA, ai tasti Home e al tasto Impostazioni
     const btnRestartDirect = endScreen.querySelector('#btn-restart-direct');
     if (btnRestartDirect) {
       btnRestartDirect.onclick = handleSinglePlayerRestart;
+    }
+    const handleGoToRooms = (e) => {
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      try { AudioSynth.playConfirm(true); } catch (err) {}
+      const endOverlay = document.getElementById('single-player-end-screen');
+      if (endOverlay) {
+        endOverlay.style.display = 'none';
+        endOverlay.classList.remove('active');
+      }
+      showScreen(el.screenOnboarding);
+      if (el.tabCreate) el.tabCreate.click();
+      if (el.tabCreate) el.tabCreate.classList.add('active');
+      if (el.tabSolo) el.tabSolo.classList.remove('active');
+      if (el.formCreateRoom) el.formCreateRoom.style.display = 'block';
+      if (el.formSoloPlay) el.formSoloPlay.style.display = 'none';
+      try {
+        if (el.screenOnboarding) el.screenOnboarding.scrollTop = 0;
+      } catch (err) {}
+    };
+    const btnTryRoomDirect = endScreen.querySelector('#btn-try-room-direct');
+    if (btnTryRoomDirect) {
+      btnTryRoomDirect.onclick = handleGoToRooms;
     }
     const btnCancelHome = endScreen.querySelector('#btn-single-player-cancel-home');
     if (btnCancelHome) {
@@ -4853,6 +4884,15 @@ function renderSinglePlayerFinalScreen() {
             </div>
             <div class="single-player-box-footer" style="width: 100%;">
               <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
+              <button id="btn-try-room-direct" class="btn-single-player-rooms">
+                <span>PROVA LA MODALITÀ STANZA</span>
+                <svg class="btn-icon" viewBox="0 0 24 24">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+              </button>
             </div>
           </div>
           <button type="button" id="btn-single-player-cancel-home" class="btn-link-subtle">Annulla e torna al menù principale</button>
@@ -4861,6 +4901,10 @@ function renderSinglePlayerFinalScreen() {
       const btnFallback = fallbackScreen.querySelector('#btn-restart-direct');
       if (btnFallback) {
         btnFallback.onclick = handleSinglePlayerRestart;
+      }
+      const btnFallbackRooms = fallbackScreen.querySelector('#btn-try-room-direct');
+      if (btnFallbackRooms) {
+        btnFallbackRooms.onclick = handleGoToRooms;
       }
       const btnFallbackCancel = fallbackScreen.querySelector('#btn-single-player-cancel-home');
       if (btnFallbackCancel) {

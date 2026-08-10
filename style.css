@@ -2952,7 +2952,7 @@ input[type="submit"] {
   z-index: 6;
   margin: 0;
   margin-top: 0;
-  margin-bottom: clamp(24px, 4.5vh, 38px);
+  margin-bottom: clamp(20px, 3.8vh, 32px);
   flex-shrink: 0;
   text-align: center;
 }
@@ -2996,14 +2996,15 @@ input[type="submit"] {
   justify-content: space-between;
 }
 
-/* Emoji Fuoco Grande in alto */
+/* Emoji Fuoco Grande in alto - abbassata e con stacco pulito dall'header */
 .single-player-top-flame-wrapper {
   position: relative;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: -28px;
+  margin-top: clamp(8px, 1.8vh, 16px);
+  margin-bottom: -22px;
   flex-shrink: 0;
 }
 
@@ -3040,8 +3041,8 @@ input[type="submit"] {
 .single-player-end-modal-box {
   width: 100%;
   flex: 1;
-  min-height: clamp(340px, 48vh, 480px);
-  padding: clamp(32px, 5vh, 42px) 20px clamp(18px, 3vh, 26px) 20px;
+  min-height: clamp(370px, 50vh, 520px);
+  padding: clamp(30px, 4.5vh, 38px) 20px clamp(18px, 2.8vh, 24px) 20px;
   border-radius: 28px;
   background: #080c1b;
   position: relative;
@@ -3050,7 +3051,7 @@ input[type="submit"] {
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  gap: clamp(14px, 2.5vh, 24px);
+  gap: clamp(12px, 2vh, 20px);
   text-align: center;
   box-shadow: 0 0 35px rgba(0, 136, 255, 0.25), 0 0 45px rgba(217, 38, 217, 0.25), 0 25px 60px rgba(0, 0, 0, 0.9);
 }
@@ -3073,6 +3074,7 @@ input[type="submit"] {
   align-items: center;
   gap: 8px;
   width: 100%;
+  margin-top: 6px;
 }
 
 .single-player-badge-wrapper {
@@ -3081,7 +3083,7 @@ input[type="submit"] {
   align-items: center;
   justify-content: center;
   flex: 1;
-  margin: 4px 0;
+  margin: 2px 0;
 }
 
 .single-player-box-footer {
@@ -3089,6 +3091,7 @@ input[type="submit"] {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 10px;
 }
 
 .single-player-end-title {
@@ -3182,15 +3185,15 @@ input[type="submit"] {
 /* Pulsante RICOMINCIA Neon Dinamico con Shimmer e Pulse */
 .btn-single-player-restart {
   width: 100%;
-  padding: clamp(14px, 2.2vh, 18px) 20px;
-  border-radius: 20px;
+  padding: clamp(12px, 1.8vh, 16px) 20px;
+  border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.25) !important;
   background: linear-gradient(135deg, #00A8E8, #9b59b6, #e0115f, #00A8E8);
   background-size: 300% 100%;
   color: #ffffff !important;
   font-family: var(--font-title);
   font-weight: 800;
-  font-size: clamp(1.05rem, 2.2vh, 1.15rem);
+  font-size: clamp(0.98rem, 2vh, 1.08rem);
   letter-spacing: 1.5px;
   text-transform: uppercase;
   cursor: pointer;
@@ -3203,6 +3206,80 @@ input[type="submit"] {
   align-items: center;
   justify-content: center;
   margin-top: 0;
+}
+
+.btn-single-player-restart::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 30%;
+  height: 200%;
+  background: rgba(255, 255, 255, 0.25);
+  transform: rotate(30deg);
+  pointer-events: none;
+  animation: sweep-shimmer 3.2s infinite ease-in-out;
+}
+
+.btn-single-player-restart:hover {
+  transform: scale(1.02) translateY(-1px);
+  box-shadow: 0 12px 30px rgba(224, 17, 95, 0.6), 0 0 20px rgba(0, 168, 232, 0.5);
+  border-color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.btn-single-player-restart:active {
+  transform: scale(0.96) translateY(0);
+  filter: brightness(0.95);
+}
+
+/* Pulsante CTA "PROVA LA MODALITÀ STANZA" - Multiplayer */
+.btn-single-player-rooms {
+  width: 100%;
+  padding: clamp(12px, 1.8vh, 15px) 18px;
+  border-radius: 18px;
+  border: 1.5px solid rgba(0, 240, 255, 0.65) !important;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.28) 0%, rgba(6, 182, 212, 0.32) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #ffffff !important;
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: clamp(0.9rem, 1.8vh, 1rem);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.3), 0 0 15px rgba(139, 92, 246, 0.25);
+  transition: all 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-single-player-rooms:hover {
+  transform: scale(1.02) translateY(-1px);
+  border-color: #00f0ff !important;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.45) 0%, rgba(6, 182, 212, 0.48) 100%);
+  box-shadow: 0 8px 25px rgba(6, 182, 212, 0.55), 0 0 20px rgba(223, 51, 255, 0.4);
+}
+
+.btn-single-player-rooms:active {
+  transform: scale(0.97) translateY(0);
+  filter: brightness(0.95);
+}
+
+.btn-single-player-rooms .btn-icon {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  flex-shrink: 0;
 }
 
 .btn-single-player-restart::after {
@@ -5918,12 +5995,20 @@ input[type="submit"] {
     margin: 8px 0 12px 0;
   }
   .single-player-end-modal-box {
-    min-height: 290px;
-    padding: 26px 14px 16px 14px;
-    gap: 12px;
+    min-height: 330px;
+    padding: 24px 14px 14px 14px;
+    gap: 10px;
   }
   .single-player-logo-area {
-    margin-bottom: clamp(14px, 3vh, 22px);
+    margin-bottom: clamp(12px, 2.5vh, 18px);
+  }
+  .single-player-top-flame-wrapper {
+    margin-top: 4px;
+    margin-bottom: -18px;
+  }
+  .btn-single-player-rooms, .btn-single-player-restart {
+    padding: 10px 14px;
+    font-size: 0.88rem;
   }
 }
 
@@ -5957,13 +6042,21 @@ input[type="submit"] {
     margin: 6px 0 8px 0;
   }
   .single-player-end-modal-box {
-    min-height: 240px;
-    padding: 20px 12px 12px 12px;
-    gap: 8px;
+    min-height: 280px;
+    padding: 16px 10px 10px 10px;
+    gap: 6px;
   }
   .single-player-logo-area {
-    margin-bottom: 10px;
-    transform: scale(0.85);
+    margin-bottom: 6px;
+    transform: scale(0.8);
+  }
+  .single-player-top-flame-wrapper {
+    margin-top: 2px;
+    margin-bottom: -16px;
+  }
+  .btn-single-player-rooms, .btn-single-player-restart {
+    padding: 8px 12px;
+    font-size: 0.82rem;
   }
   .btn-carousel-nav {
     padding: 8px 14px;
