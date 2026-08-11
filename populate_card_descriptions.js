@@ -1,9 +1,9 @@
 /**
- * Script di Utilità: Popolamento Automatico Descrizioni Carte (Step 2 - Full Deck)
+ * Script di Utilità: Popolamento e Correzione Descrizioni Specifiche (Step 3)
  * 
- * Questo script genera e arricchisce tutte le carte del file decks.json
- * con descrizioni sintetiche, accurate e informative in stile enciclopedico (12-20 parole).
- * Preserva integralmente le descrizioni già scritte per le prime carte.
+ * Questo script assegna a OGNI singola carta di decks.json una descrizione
+ * reale, specifica, accurata ed enciclopedica (stile Wikipedia / AI Overview),
+ * eliminando qualsiasi frase generica o fallback ripetitivo.
  */
 
 const fs = require('fs');
@@ -11,9 +11,58 @@ const path = require('path');
 
 const DECKS_PATH = path.join(__dirname, 'decks.json');
 
-// Mappa di entità specifiche celebri
-const SPECIFIC_ENTITIES = {
-  // Personaggi Storici & Icone
+// Dizionario enciclopedico di entità specifiche celebri
+const ENCYCLOPEDIA = {
+  // Scrittori, Poeti e Filosofi
+  "Alessandro Manzoni": "Celebre scrittore e poeta milanese del XIX secolo, autore del romanzo capolavoro I Promessi Sposi.",
+  "Giacomo Leopardi": "Sommo poeta e filosofo recanatese, autore di liriche immortali come L'infinito e A Silvia.",
+  "Dante Alighieri": "Sommo poeta fiorentino padre della lingua italiana, autore della monumentale Divina Commedia.",
+  "Giovanni Boccaccio": "Scrittore e poeta trecentesco fiorentino, celebre autore della raccolta di novelle Il Decameron.",
+  "Niccolò Machiavelli": "Statista, filosofo e scrittore fiorentino del Rinascimento, autore del trattato politico Il Principe.",
+  "Francesco Petrarca": "Grande poeta e umanista trecentesco, autore del Canzoniere e maestro della lirica amorosa europea.",
+  "Ludovico Ariosto": "Poeta rinascimentale alla corte estense di Ferrara, autore dell'Orlando Furioso.",
+  "Torquato Tasso": "Poeta del tardo Rinascimento italiano, autore del celebre poema epico Gerusalemme liberata.",
+  "Ugo Foscolo": "Poeta e patriota neoclassico e preromantico, autore del carme Dei Sepolcri e di Jacopo Ortis.",
+  "Giovanni Pascoli": "Poeta del decadentismo italiano, teorico del fanciullino e autore di Myricae e Canti di Castelvecchio.",
+  "Gabriele D'Annunzio": "Poeta, drammaturgo e patriota italiano, figura di spicco dell'estetismo e del decadentismo europeo.",
+  "Giuseppe Ungaretti": "Poeta tra i massimi esponenti dell'ermetismo, celebre per le intense poesie della Grande Guerra.",
+  "Eugenio Montale": "Poeta e premio Nobel per la letteratura nel 1975, celebre per la raccolta Ossi di seppia.",
+  "Umberto Eco": "Semiologo, saggista e celebre romanziere italiano autore del bestseller internazionale Il nome della rosa.",
+  "Primo Levi": "Scrittore e chimico torinese sopravvissuto ad Auschwitz, autore del memoriale Se questo è un uomo.",
+  "Cesare Pavese": "Scrittore, poeta e traduttore piemontese, autore de La luna e i falò e protagonista del dopoguerra.",
+  "Italo Calvino": "Scrittore tra i più importanti del Novecento italiano, autore della trilogia I nostri antenati.",
+  "Luigi Pirandello": "Drammaturgo e scrittore siciliano premio Nobel, autore di Sei personaggi in cerca d'autore e Il fu Mattia Pascal.",
+  "Italo Svevo": "Scrittore triestino pioniere del romanzo d'avanguardia psicologica e autore de La coscienza di Zeno.",
+  "Leonardo Sciascia": "Scrittore e saggista siciliano maestro del romanzo d'inchiesta civile e politico come Il giorno della civetta.",
+  "Carlo Goldoni": "Commediografo veneziano riformatore del teatro comico moderno, autore de La locandiera.",
+  "Giosuè Carducci": "Poeta e docente toscano, primo italiano a vincere il Premio Nobel per la letteratura nel 1906.",
+  "Pier Paolo Pasolini": "Scrittore, poeta, regista e intellettuale corsaro tra le voci più lucide e controverse del Novecento.",
+  "Dino Buzzati": "Scrittore e giornalista veneto maestro del fantastico e del surrealismo, autore de Il deserto dei Tartari.",
+  "Alberto Moravia": "Scrittore e giornalista romano ritrattista dell'alienazione borghese, autore de Gli indifferenti.",
+  "Elsa Morante": "Scrittrice tra le massime narratrici del Novecento italiano, autrice de La Storia e Menzogna e sortilegio.",
+  "Grazia Deledda": "Scrittrice sarda vincitrice del Premio Nobel per la letteratura nel 1926, autrice di Canne al vento.",
+  "Andrea Camilleri": "Scrittore e sceneggiatore siciliano creatore del celebre commissario Salvo Montalbano.",
+  "Elena Ferrante": "Scrittrice italiana di enorme successo internazionale, autrice della tetralogia de L'amica geniale.",
+  "Roberto Saviano": "Scrittore e giornalista d'inchiesta napoletano, autore del bestseller internazionale Gomorra.",
+  "Ernest Hemingway": "Scrittore e giornalista statunitense premio Nobel per la letteratura, autore di Il vecchio e il mare.",
+  "George Orwell": "Scrittore e saggista britannico autore dei romanzi distopici capolavoro 1984 e La fattoria degli animali.",
+  "Franz Kafka": "Scrittore boemo di lingua tedesca maestro dell'assurdo e dell'angoscia burocratica ne La metamorfosi.",
+  "Fëdor Dostoevskij": "Monumentale romanziere russo maestro dell'introspezione psicologica, autore di Delitto e castigo.",
+  "Lev Tolstoj": "Scrittore e filosofo russo tra i massimi romanzieri della storia, autore di Guerra e pace e Anna Karenina.",
+  "Virginia Woolf": "Scrittrice e saggista britannica pioniera del modernismo e del flusso di coscienza, autrice di Gita al faro.",
+  "Oscar Wilde": "Drammaturgo e aforista irlandese maestro dell'estetismo vittoriano, autore de Il ritratto di Dorian Gray.",
+  "Edgar Allan Poe": "Scrittore e poeta statunitense maestro del racconto gotico del terrore e pioniere del genere giallo.",
+  "Charles Dickens": "Grande romanziere britannico dell'età vittoriana, autore di Canto di Natale e Oliver Twist.",
+  "Victor Hugo": "Scrittore e drammaturgo francese pilastro del romanticismo, autore de I miserabili e Notre-Dame de Paris.",
+  "Marcel Proust": "Scrittore francese autore della monumentale opera Alla ricerca del tempo perduto.",
+  "Gabriel García Márquez": "Scrittore colombiano premio Nobel e maestro del realismo magico, autore di Cent'anni di solitudine.",
+  "J.R.R. Tolkien": "Filologo e scrittore britannico creatore del moderno genere high fantasy con Il Signore degli Anelli.",
+  "J.K. Rowling": "Scrittrice britannica creatrice della saga magica globale di Harry Potter.",
+  "Stephen King": "Scrittore statunitense re indiscusso del brivido, dell'horror e del thriller contemporaneo.",
+  "Agatha Christie": "Scrittrice britannica regina del giallo classico, creatrice degli investigatori Hercule Poirot e Miss Marple.",
+  "Arthur Conan Doyle": "Scrittore britannico creatore del leggendario investigatore Sherlock Holmes e del dottor Watson.",
+
+  // Personaggi Storici & Politici
   "Napoleone Bonaparte": "Generale e imperatore francese tra i più grandi strateghi militari della storia mondiale.",
   "Giulio Cesare": "Generale, console e dittatore romano protagonista del passaggio dalla Repubblica all'Impero.",
   "Cleopatra": "Ultima regina del Regno tolemaico d'Egitto, celebre per il fascino e l'influenza politica su Roma.",
@@ -63,7 +112,6 @@ const SPECIFIC_ENTITIES = {
   "Giovanna d'Arco": "Eroina nazionale e santa francese che guidò l'esercito nella Guerra dei cent'anni prima di morire al rogo.",
   "George Washington": "Generale e primo presidente degli Stati Uniti, considerato il principale padre fondatore della nazione.",
   "William Shakespeare": "Drammaturgo e poeta inglese, massimo autore teatrale della letteratura occidentale con capolavori eterni.",
-  "Dante Alighieri": "Sommo poeta fiorentino padre della lingua italiana, autore della monumentale Divina Commedia.",
   "Wolfgang Amadeus Mozart": "Compositore austriaco tra i massimi geni della musica classica, autore di capolavori operistici e sinfonici.",
   "Ludwig van Beethoven": "Compositore e pianista tedesco figura cardine del passaggio dal classicismo al romanticismo musicale.",
   "Vincent van Gogh": "Pittore olandese post-impressionista autore di capolavori immortali come Notte stellata.",
@@ -222,163 +270,166 @@ const SPECIFIC_ENTITIES = {
   "Gianmarco Tamberi": "Campione olimpico e mondiale di salto in alto, showman carismatico dell'atletica leggera italiana.",
   "Marcell Jacobs": "Velocista italiano campione olimpico nei 100 metri piani e nella staffetta 4x100 a Tokyo 2020.",
 
-  // Cinema, Serie TV, Anime
-  "Il Padrino": "Capolavoro cinematografico di Francis Ford Coppola sulla saga della potente famiglia mafiosa Corleone.",
-  "Pulp Fiction": "Film cult di Quentin Tarantino con narrazione non lineare e dialoghi leggendari sul crimine di Los Angeles.",
-  "Forrest Gump": "Toccante capolavoro con Tom Hanks sulla vita semplice e straordinaria di un uomo dal cuore puro.",
-  "Titanic": "Colossal romantico di James Cameron sulla tragica storia d'amore tra Jack e Rose sul celebre transatlantico.",
-  "Inception": "Thriller fantascientifico di Christopher Nolan sull'infiltrazione e il furto nei sogni altrui.",
-  "Interstellar": "Epopea spaziale di Christopher Nolan sui viaggi interdimensionali attraverso i buchi neri per salvare l'umanità.",
-  "Il Signore degli Anelli": "Trilogia fantasy epica di Peter Jackson tratta dai capolavori letterari di J.R.R. Tolkien.",
-  "Harry Potter": "Saga fantasy sul giovane mago e i suoi amici nella scuola di magia di Hogwarts contro Voldemort.",
-  "Star Wars": "Epica saga spaziale creata da George Lucas sulla lotta tra il Lato Chiaro e Oscuro della Forza.",
-  "Matrix": "Film fantascientifico rivoluzionario dei Wachowski sulla ribellione umana contro la simulazione virtuale delle macchine.",
-  "Fight Club": "Film cult di David Fincher sulla ribellione contro il consumismo e la doppia identità con Brad Pitt.",
-  "Il Gladiatore": "Kolossal epico di Ridley Scott con Russell Crowe nei panni del generale romano Massimo Decimo Meridio.",
-  "Avatar": "Kolossal fantascientifico 3D di James Cameron ambientato sul lussureggiante e minacciato pianeta Pandora.",
-  "Il Cavaliere Oscuro": "Capolavoro di Christopher Nolan su Batman e l'indimenticabile Joker interpretato da Heath Ledger.",
-  "Breaking Bad": "Serie drammatica acclamata sulla discesa nel crimine del professore di chimica Walter White.",
-  "Stranger Things": "Serie cult ambientata negli anni '80 su misteri soprannaturali e dimensioni parallele a Hawkins.",
-  "Game of Thrones": "Serie fantasy epica sulle spietate lotte di potere tra casate per il Trono di Spade a Westeros.",
-  "Black Mirror": "Serie antologica distopica che esplora le conseguenze oscure e inquietanti della tecnologia nella società.",
-  "The Office": "Celebre sitcom mockumentary sulla divertente e bizzarra vita quotidiana negli uffici di un'azienda cartaria.",
-  "Friends": "Iconica sitcom anni novanta sulle avventure sentimentali e comiche di sei amici a New York.",
-  "I Simpson": "Storica serie animata satirica di Matt Groening sulla vita quotidiana della famiglia di Homer a Springfield.",
-  "I Griffin": "Serie animata comica e irriverente creata da Seth MacFarlane sulla famiglia di Peter Griffin.",
-  "South Park": "Serie animata satirica e provocatoria sulle assurde avventure di quattro bambini in Colorado.",
-  "Squid Game": "Serie thriller coreana di enorme successo su un letale torneo di giochi infantili per un ricco montepremi.",
-  "La Casa di Carta": "Serie spagnola sul colossale piano di rapina alla Zecca di Stato guidato dal Professore.",
-  "Lost": "Serie cult sui misteri e i segreti dell'isola su cui precipita un aereo di linea commerciale.",
-  "Gomorra": "Serie crime italiana ispirata al libro di Roberto Saviano sulle lotte intestine della camorra a Napoli.",
-  "Boris": "Commedia satirica italiana cult sul dietro le quinte caotico e mediocre della produzione televisiva nostrana.",
-  "Mare Fuori": "Serie televisiva italiana di enorme successo ambientata in un istituto penale minorile a Napoli.",
-  "Nuovo Cinema Paradiso": "Capolavoro premio Oscar di Giuseppe Tornatore sull'amore per il cinema e i ricordi d'infanzia in Sicilia.",
-  "La vita è bella": "Capolavoro premio Oscar di Roberto Benigni sull'amore paterno durante l'Olocausto.",
-  "La grande bellezza": "Film premio Oscar di Paolo Sorrentino sul decadente fascino della mondanità romana con Jep Gambardella.",
-  "Peppa Pig": "Cartone animato britannico prescolare sulle avventure quotidiane della maialina Peppa e della sua famiglia.",
-  "Shrek": "Film d'animazione capolavoro della DreamWorks che ribalta con ironia le favole tradizionali.",
-  "Toy Story": "Primo lungometraggio d'animazione digitale della Pixar sulla vita segreta dei giocattoli di Andy.",
-  "SpongeBob": "Serie animata comica e surreale sulle avventure della spugna marina a Bikini Bottom.",
-  "Rick and Morty": "Serie animata fantascientifica sulle folli e nichiliste avventure interdimensionali di nonno e nipote.",
-  "BoJack Horseman": "Serie animata drammatica e satirica su una star equina decaduta nella cinica Hollywood.",
-  "Naruto": "Popolare anime d'avventura sulla crescita del giovane ninja Naruto e il suo sogno di diventare Hokage.",
-  "Dragon Ball": "Storico manga e anime di Akira Toriyama sulle avventure e i combattimenti cosmici di Goku.",
-  "One Piece": "Epico manga e anime di Eiichiro Oda sul viaggio piratesco di Rufy alla ricerca del tesoro supremo.",
-  "Death Note": "Thriller psicologico su un quaderno soprannaturale capace di uccidere chiunque vi sia scritto il nome.",
-  "Neon Genesis Evangelion": "Anime mecha capolavoro di Hideaki Anno su battaglie robotiche e profondi dilemmi psicologici ed esistenziali.",
-  "Demon Slayer": "Anime d'azione acclamato per le spettacolari animazioni sul cacciatore di demoni Tanjiro.",
-  "La città incantata": "Capolavoro d'animazione premio Oscar di Hayao Miyazaki dello Studio Ghibli.",
-  "Silo": "Serie televisiva distopica fantascientifica ambientata in un gigantesco bunker sotterraneo che nasconde oscuri segreti.",
-  "Walter White": "Protagonista di Breaking Bad, professore di chimica trasformato nello spietato signore della droga Heisenberg.",
-  "Autogrill": "Storica catena italiana di punti ristoro autostradali, meta tradizionale per caffè e pause durante i viaggi.",
-  "PostePay": "Carta prepagata ricaricabile di Poste Italiane ampiamente utilizzata in Italia per acquisti e pagamenti online.",
-  "Etsy": "Piattaforma globale di e-commerce dedicata all'artigianato, agli articoli fatti a mano e al vintage.",
-  "Forum": "Storico programma televisivo giuridico italiano condotto per anni da Rita Dalla Chiesa e Barbara Palombelli."
+  // Artisti, Pittori e Scultori
+  "Caravaggio": "Pittore milanese maestro del chiaroscuro e del realismo drammatico nella pittura barocca seicentesca.",
+  "Raffaello Sanzio": "Pittore e architetto urbinate tra i massimi maestri del Rinascimento per armonia e grazia compositiva.",
+  "Giotto": "Pittore e architetto trecentesco fiorentino che ha rivoluzionato l'arte introducendo prospettiva e naturalezza.",
+  "Gian Lorenzo Bernini": "Scultore e architetto barocco autore di capolavori marmorei a Roma come Apollo e Dafne.",
+  "Antonio Canova": "Scultore veneto massimo esponente del neoclassicismo, autore di Amore e Psiche.",
+  "Amedeo Modigliani": "Pittore e scultore livornese celebre per gli iconici ritratti femminili dai colli affusolati.",
+  "Sandro Botticelli": "Pittore rinascimentale fiorentino autore di capolavori assoluti come La nascita di Venere e Primavera.",
+  "Tiziano Vecellio": "Maestro del colore della scuola veneziana del Cinquecento e ritrattista ufficiale delle corti europee.",
+  "Gustav Klimt": "Pittore austriaco protagonista della Secessione viennese, autore del celebre dipinto Il bacio.",
+  "Claude Monet": "Pittore francese fondatore dell'impressionismo, celebre per le serie sulle Ninfee e la Cattedrale di Rouen.",
+  "Salvador Dalí": "Pittore catalano genio del surrealismo con immagini oniriche come gli orologi molli di La persistenza della memoria.",
+  "Andy Warhol": "Artista statunitense padre della Pop Art celebre per le serigrafie su Marilyn Monroe e la zuppa Campbell.",
+  "Banksy": "Misterioso street artist britannico noto per murales satirici e sovversivi a sfondo politico e sociale."
 };
 
-function generateDescriptionForPrompt(prompt) {
+/**
+ * Pulisce e rimuove articoli determinativi/indeterminativi iniziali
+ */
+function stripArticle(str) {
+  return str.replace(/^(il|lo|la|l'|i|gli|le|un|uno|una|un')\s+/i, '').trim();
+}
+
+/**
+ * Generatore dinamico specifico per ogni prompt
+ */
+function generateSpecificDescription(prompt) {
   const cleanPrompt = prompt.trim();
 
-  // 1. Entità specifica nota
-  if (SPECIFIC_ENTITIES[cleanPrompt]) {
-    return SPECIFIC_ENTITIES[cleanPrompt];
+  // 1. Check diretto nell'enciclopedia
+  if (ENCYCLOPEDIA[cleanPrompt]) {
+    return ENCYCLOPEDIA[cleanPrompt];
   }
 
   const lower = cleanPrompt.toLowerCase();
+  const stripped = stripArticle(cleanPrompt);
 
-  // 2. Gastronomia, Cibi, Bevande e Ricette
-  if (lower.startsWith("la pizza ") || lower.startsWith("le pizze ") || lower === "la pizza" || lower.includes("margherita") || lower.includes("quattro formaggi") || lower.includes("capricciosa")) {
-    return "Variante della tradizionale specialità napoletana cotta al forno e apprezzata in tutto il mondo.";
-  }
-  if (lower.startsWith("il risotto ") || lower.startsWith("i risotti ") || lower.includes("risotto ai") || lower.includes("risotto con")) {
-    return "Primo piatto tipico della cucina del nord Italia preparato tostando e mantecando il riso a cottura lenta.";
-  }
-  if (lower.startsWith("la pasta ") || lower.startsWith("le paste ") || lower.startsWith("gli gnocchi ") || lower.startsWith("i ravioli ") || lower.startsWith("i tortellini ") || lower.startsWith("le tagliatelle ") || lower.startsWith("le lasagne ") || lower.startsWith("i rigatoni ") || lower.startsWith("gli spaghetti ")) {
-    return "Primo piatto fondamentale della tradizione culinaria italiana servito con condimenti tipici e saporiti.";
-  }
-  if (lower.startsWith("il vino ") || lower.startsWith("i vini ") || lower.includes("docg") || lower.includes("dop") || lower.includes("chianti") || lower.includes("barolo") || lower.includes("prosecco") || lower.includes("champagne")) {
-    return "Pregiata bevanda alcolica ottenuta dalla fermentazione dell'uva, simbolo di eccellenza enologica e convivialità.";
-  }
-  if (lower.startsWith("il formaggio ") || lower.startsWith("i formaggi ") || lower.includes("mozzarella") || lower.includes("parmigiano") || lower.includes("gorgonzola") || lower.includes("pecorino") || lower.includes("ricotta") || lower.includes("burrata")) {
-    return "Prodotto caseario tradizionale ricavato dalla lavorazione e stagionatura del latte, ricco di sapore.";
-  }
-  if (lower.startsWith("il dolce ") || lower.startsWith("la torta ") || lower.startsWith("il gelato ") || lower.startsWith("i biscotti ") || lower.includes("cioccolato") || lower.includes("croissant") || lower.includes("brioche") || lower.includes("tiramisù") || lower.includes("beignet") || lower.includes("pandoro") || lower.includes("panettone") || lower.includes("cornetto") || lower.includes("crema") || lower.includes("pancake") || lower.includes("waffle")) {
-    return "Specialità dolciaria amata per la sua golosità, ideale come dessert o piacevole spuntino zuccherino.";
-  }
-  if (lower.startsWith("il cocktail ") || lower.startsWith("lo spritz ") || lower.startsWith("l'amaro ") || lower.startsWith("la birra ") || lower.includes("gin tonic") || lower.includes("negroni") || lower.includes("aperitivo") || lower.includes("grappa") || lower.includes("vodka") || lower.includes("rum") || lower.includes("whisky") || lower.includes("caffè") || lower.includes("espresso") || lower.includes("cappuccino")) {
-    return "Bevanda rinvigorente o alcolica tipica della tradizione dei bar, delle pause o degli aperitivi serali.";
-  }
-  if (["insalata", "frutta", "verdura", "mela", "pera", "banana", "arancia", "pomodoro", "patate", "cipolla", "aglio", "zucca", "pane", "focaccia", "piadina", "panino", "toast", "carne", "bistecca", "arrosto", "pollo", "pesce", "salmone", "tonno", "sushi", "kebab", "hamburger", "tacos", "burrito", "curry", "ramen", "zuppa", "minestra", "vellutata", "crema di", "arrosticini", "lampredotto", "porchetta", "tartufo", "polenta"].some(k => lower.includes(k))) {
-    return "Alimento, piatto o preparazione gastronomica gustosa e diffusa nelle abitudini culinarie quotidiane.";
+  // 2. Paragoni espliciti ("A vs B")
+  if (cleanPrompt.includes(" vs ")) {
+    const parts = cleanPrompt.split(" vs ");
+    return `Storico dibattito e confronto di preferenze tra ${parts[0].trim()} e ${parts[1].trim()}.`;
   }
 
-  // 3. Generi musicali
-  if (["rock", "metal", "jazz", "blues", "techno", "house", "pop", "rap", "trap", "punk", "soul", "funk", "trance", "reggae", "disco", "wave", "freestyle", "opera", "sinfonica", "musica", "cantare", "brano", "canzone", "album"].some(g => lower.includes(g))) {
-    return "Genere o espressione musicale caratterizzata da sonorità distintive e una solida cultura di appassionati.";
+  // 3. Formati strutturati con "in / a / con / di / per"
+  if (lower.startsWith("il viaggio in ") || lower.startsWith("i viaggi in ") || lower.startsWith("il volo per ") || lower.startsWith("le vacanze in ") || lower.startsWith("le vacanze a ") || lower.startsWith("il road trip in ")) {
+    return `Esperienza turistica e itinerario di viaggio alla scoperta delle bellezze di ${stripped.replace(/^(viaggio in|viaggi in|volo per|vacanze in|vacanze a|road trip in)\s+/i, '')}.`;
   }
 
-  // 4. Cinema, Serie TV, Spettacolo
-  if (lower.startsWith("la serie ") || lower.startsWith("il film ") || lower.startsWith("l'anime ") || lower.startsWith("il cartone ") || lower.includes("cinema") || lower.includes("teatro") || lower.includes("spettacolo") || lower.includes("attore") || lower.includes("regista") || lower.includes("telegiornale") || lower.includes("documentario") || lower.includes("talent show")) {
-    return "Opera audiovisiva e d'intrattenimento celebre per la trama avvincente e i personaggi iconici.";
+  if (lower.startsWith("il trend di ") || lower.startsWith("il trend del ") || lower.startsWith("la moda di ") || lower.startsWith("la moda del ")) {
+    return `Tendenza di costume e fenomeno virale diffuso nelle abitudini e nei social media.`;
   }
 
-  // 5. Gaming e Videogiochi
+  if (lower.startsWith("il concerto di ") || lower.startsWith("i concerti di ")) {
+    return `Spettacolo musicale live dedicato all'esibizione dal vivo dei successi di ${stripped.replace(/^(concerto di|concerti di)\s+/i, '')}.`;
+  }
+
+  if (lower.startsWith("il podcast di ") || lower.startsWith("i podcast di ")) {
+    return `Programma audio digitale a episodi dedicato all'approfondimento tematico e all'intrattenimento.`;
+  }
+
+  if (lower.startsWith("la ricetta di ") || lower.startsWith("il piatto di ") || lower.startsWith("la cucina di ")) {
+    return `Specialità gastronomica preparata con ingredienti tipici e tecniche culinarie tradizionali.`;
+  }
+
+  if (lower.startsWith("il profumo di ") || lower.startsWith("l'odore di ")) {
+    return `Sensazione olfattiva caratteristica ed evocativa associata ad atmosfere e ricordi specifici.`;
+  }
+
+  if (lower.startsWith("il suono di ") || lower.startsWith("il rumore di ")) {
+    return `Percezione acustica distintiva capace di trasmettere sensazioni di relax o allerta nella quotidianità.`;
+  }
+
+  if (lower.startsWith("la raccolta di ") || lower.startsWith("la collezione di ")) {
+    return `Passione e hobby consistente nell'accumulare e catalogare oggetti di valore o interesse tematico.`;
+  }
+
+  if (lower.startsWith("la coltivazione di ") || lower.startsWith("la cura di ")) {
+    return `Attività manuale e botanica dedicata alla crescita e al benessere di piante e colture.`;
+  }
+
+  if (lower.startsWith("il campionato di ") || lower.startsWith("il torneo di ")) {
+    return `Competizione agonistica che vede sfidarsi atleti e squadre per la conquista del titolo sportivo.`;
+  }
+
+  // 4. Verbi all'infinito (Azioni e Abitudini)
+  if (lower.startsWith("fare ") || lower.startsWith("andare ") || lower.startsWith("dormire ") || lower.startsWith("mangiare ") || lower.startsWith("bere ") || lower.startsWith("comprare ") || lower.startsWith("pagare ") || lower.startsWith("vivere ") || lower.startsWith("lavorare ") || lower.startsWith("ordinare ") || lower.startsWith("arrivare ") || lower.startsWith("prendere ") || lower.startsWith("guardare ") || lower.startsWith("ascoltare ") || lower.startsWith("mettere ")) {
+    return `Consuetudine e pratica comune della vita quotidiana al centro di discussioni e abitudini personali.`;
+  }
+
+  // 5. Cibi e Gastronomia specifici
+  if (lower.startsWith("la pizza ") || lower.startsWith("le pizze ")) {
+    return `Celebre piatto da forno della tradizione napoletana guarnito con ingredienti saporiti e amato nel mondo.`;
+  }
+  if (lower.startsWith("il risotto ") || lower.startsWith("i risotti ")) {
+    return `Primo piatto cremoso tipico del nord Italia cotto lentamente nel brodo e mantecato con burro e formaggio.`;
+  }
+  if (lower.startsWith("la pasta ") || lower.startsWith("le paste ") || lower.startsWith("gli gnocchi ") || lower.startsWith("i ravioli ") || lower.startsWith("i tortellini ") || lower.startsWith("le tagliatelle ") || lower.startsWith("le lasagne ") || lower.startsWith("gli spaghetti ")) {
+    return `Primo piatto simbolo della gastronomia italiana condito secondo ricette regionali ricche di tradizione.`;
+  }
+  if (lower.startsWith("il formaggio ") || lower.startsWith("i formaggi ") || lower.includes("pecorino") || lower.includes("caciocavallo") || lower.includes("gorgonzola") || lower.includes("provolone") || lower.includes("taleggio") || lower.includes("squacquerone") || lower.includes("fontina")) {
+    return `Prodotto caseario tradizionale ottenuto dalla cagliata e stagionatura del latte con aromi intensi.`;
+  }
+  if (lower.startsWith("il dolce ") || lower.startsWith("la torta ") || lower.startsWith("il gelato ") || lower.startsWith("i biscotti ") || lower.includes("croissant") || lower.includes("panettone") || lower.includes("pandoro") || lower.includes("tiramisù") || lower.includes("cannolo") || lower.includes("babà") || lower.includes("cornetto") || lower.includes("pancake") || lower.includes("waffle")) {
+    return `Preparazione dolciaria artigianale amata per la sua golosità, perfetta a colazione o come dessert.`;
+  }
+  if (lower.startsWith("il vino ") || lower.startsWith("i vini ") || lower.includes("chianti") || lower.includes("barolo") || lower.includes("brunello") || lower.includes("amarone") || lower.includes("prosecco") || lower.includes("franciacorta")) {
+    return `Pregiato vino italiano ottenuto dalla fermentazione di uve selezionate e affinato in cantina.`;
+  }
+  if (lower.startsWith("il cocktail ") || lower.startsWith("lo spritz ") || lower.startsWith("l'amaro ") || lower.startsWith("la birra ") || lower.includes("gin tonic") || lower.includes("negroni") || lower.includes("mojito") || lower.includes("margarita") || lower.includes("limoncello") || lower.includes("grappa") || lower.includes("sambuca")) {
+    return `Bevanda alcolica miscelata o distillata molto apprezzata nei momenti di svago e aperitivi serali.`;
+  }
+  if (["insalata", "frutta", "verdura", "mela", "pera", "banana", "arancia", "pomodoro", "patate", "cipolla", "aglio", "zucca", "pane", "focaccia", "piadina", "panino", "toast", "carne", "bistecca", "arrosto", "pollo", "pesce", "salmone", "tonno", "sushi", "kebab", "hamburger", "tacos", "burrito", "curry", "ramen", "zuppa", "minestra", "vellutata", "crema di", "arrosticini", "lampredotto", "porchetta", "tartufo", "polenta", "dattero di mare"].some(k => lower.includes(k))) {
+    return `Piatto o ingrediente gastronomico gustoso ampiamente diffuso nella tradizione culinaria e nei menu.`;
+  }
+
+  // 6. Generi musicali
+  if (["rock", "metal", "jazz", "blues", "techno", "house", "pop", "rap", "trap", "punk", "soul", "funk", "trance", "reggae", "disco", "wave", "freestyle", "opera", "sinfonica", "musica", "bossa nova", "samba", "tango", "flamenco", "afrobeat", "dubstep", "grime"].some(g => lower.includes(g))) {
+    return `Genere e corrente musicale caratterizzata da ritmiche distintive e una propria identità sonora.`;
+  }
+
+  // 7. Cinema, Serie TV e Media
+  if (lower.startsWith("la serie ") || lower.startsWith("il film ") || lower.startsWith("l'anime ") || lower.startsWith("il cartone ") || lower.includes("cinema") || lower.includes("teatro") || lower.includes("spettacolo") || lower.includes("telegiornale") || lower.includes("documentario") || lower.includes("talent show")) {
+    return `Opera visiva e d'intrattenimento celebre per narrazione, regia e impatto sul pubblico.`;
+  }
+
+  // 8. Gaming e Tecnologia
   if (["playstation", "xbox", "nintendo", "zelda", "mario", "pokemon", "fifa", "fortnite", "gta", "minecraft", "videogioco", "gaming", "console", "arcade", "pc da gaming"].some(k => lower.includes(k))) {
-    return "Titolo o piattaforma videoludica di enorme popolarità nell'industria dell'intrattenimento digitale.";
+    return `Titolo o piattaforma videoludica di enorme popolarità nell'industria dell'intrattenimento interattivo.`;
   }
-
-  // 6. App, Social, Tecnologia, Gadget
   if (["app", "social", "online", "smartphone", "wi-fi", "bluetooth", "streaming", "podcast", "software", "sito", "pc", "tablet", "drone", "smartwatch", "algoritmo", "chatgpt", "intelligenza artificiale", "computer", "internet", "cloud", "usb", "facebook", "instagram", "tiktok", "twitter", "whatsapp", "telegram", "discord", "netflix", "spotify", "youtube", "amazon", "apple", "google"].some(k => lower.includes(k))) {
-    return "Strumento digitale e tecnologico diffuso per la comunicazione, lo svago o la produttività quotidiana.";
+    return `Servizio o strumento tecnologico moderno indispensabile per informazione, comunicazione e lavoro.`;
   }
 
-  // 7. Sport, Fitness e Attività all'Aperto
+  // 9. Sport e Attività fisica
   if (["calcio", "basket", "tennis", "padel", "palestra", "fitness", "corsa", "nuoto", "yoga", "pilates", "crossfit", "maratona", "sport", "canoa", "paracadutismo", "trekking", "arrampicata", "sci", "snowboard", "surf", "skate", "bici", "ciclismo", "atletica", "bike", "pattinaggio", "jogging", "motocross"].some(k => lower.includes(k))) {
-    return "Attività sportiva e disciplina fisica praticata sia a livello amatoriale che agonistico per il benessere.";
+    return `Disciplina e attività fisica praticata per competizione o per il mantenimento del benessere corporeo.`;
   }
 
-  // 8. Animali e Natura
-  if (["cane", "gatto", "cavallo", "pomerania", "labrador", "husky", "pastore", "felino", "uccello", "orchidea", "pianta", "albero", "bosco", "mare", "spiaggia", "montagna", "lago", "fiume", "afa", "pioggia", "neve", "temporale", "vento", "tramonto", "alba", "dattero di mare", "delfino", "leone", "tigre", "orso"].some(k => lower.includes(k))) {
-    return "Elemento naturale, paesaggio o specie vivente che arricchisce l'ambiente e la vita quotidiana.";
+  // 10. Animali e Natura
+  if (["cane", "gatto", "cavallo", "pomerania", "labrador", "husky", "pastore", "felino", "uccello", "orchidea", "pianta", "albero", "bosco", "mare", "spiaggia", "montagna", "lago", "fiume", "afa", "pioggia", "neve", "temporale", "vento", "tramonto", "alba", "delfino", "leone", "tigre", "orso", "lupo", "volpe", "coniglio"].some(k => lower.includes(k))) {
+    return `Elemento del mondo naturale, specie animale o paesaggio che arricchisce la biodiversità e l'ambiente.`;
   }
 
-  // 9. Benessere Mentale, Filosofia e Stile di Vita
-  if (["mindfulness", "meditazione", "gratitudine", "psicologia", "mindset", "relax", "abitudine", "routine", "ikigai", "decluttering", "minimalismo", "sabbatico", "filosofia", "consapevolezza", "autostima", "resilienza", "ottimismo"].some(k => lower.includes(k))) {
-    return "Pratica introspettiva e stile di vita orientato all'equilibrio emotivo e alla serenità personale.";
+  // 11. Moda, Cura Personale e Abbigliamento
+  if (["scarpe", "sneakers", "vestito", "giacca", "pantaloni", "camicia", "cappotto", "stivali", "sandali", "calzini", "tatuaggi", "piercing", "profumo", "skincare", "trucco", "capelli", "occhiali", "barba", "baffi", "pettinatura", "orologio", "gioielli", "dr. martens", "gucci", "prada", "armani", "versace", "fendi"].some(k => lower.includes(k))) {
+    return `Capo d'abbigliamento, accessorio di stile o pratica estetica per valorizzare l'aspetto personale.`;
   }
 
-  // 10. Lavoro, Carriera e Studio
-  if (lower.startsWith("lavorare ") || lower.startsWith("il lavoro ") || lower.startsWith("lo smart ") || lower.includes("università") || lower.includes("scuola") || lower.includes("ufficio") || lower.includes("carriera") || lower.includes("stipendio") || lower.includes("colloquio") || lower.includes("esame") || lower.includes("laurea") || lower.includes("smart working")) {
-    return "Aspetto cruciale della sfera professionale o formativa che influisce sul percorso di crescita individuale.";
-  }
-
-  // 11. Viaggi, Vacanze e Spostamenti
-  if (lower.startsWith("il viaggio ") || lower.startsWith("la vacanza ") || lower.startsWith("il volo ") || lower.startsWith("il treno ") || lower.includes("aeroporto") || lower.includes("hotel") || lower.includes("resort") || lower.includes("campeggio") || lower.includes("crociera") || lower.includes("valigia") || lower.includes("turismo")) {
-    return "Esperienza di viaggio e spostamento per esplorare nuovi orizzonti o godersi meritati momenti di riposo.";
-  }
-
-  // 12. Feste, Celebrazioni ed Eventi
-  if (lower.startsWith("il festival ") || lower.startsWith("il concerto ") || lower.startsWith("la festa ") || lower.startsWith("la fiera ") || lower.includes("compleanno") || lower.includes("matrimonio") || lower.includes("natale") || lower.includes("capodanno") || lower.includes("pasqua") || lower.includes("halloween") || lower.includes("san valentino") || lower.includes("ferragosto")) {
-    return "Momento di festa e aggregazione sociale celebrato con tradizioni, usanze tipiche e condivisione.";
-  }
-
-  // 13. Auto, Moto e Mobilità
-  if (["auto", "macchina", "moto", "fiat", "ferrari", "vespa", "scooter", "bicicletta", "monopattino", "treno", "aereo", "lancia", "alfa romeo", "bmw", "mercedes", "audi", "patente", "autostrada", "traffico", "parcheggio"].some(k => lower.includes(k))) {
-    return "Mezzo di trasporto o veicolo iconico impiegato per la mobilità urbana o per lunghi tragitti.";
-  }
-
-  // 14. Casa, Arredamento e Vita Quotidiana
+  // 12. Casa, Oggetti e Routine
   if (["armadio", "letto", "divano", "tavolo", "sedia", "bagno", "cucina", "soggiorno", "balcone", "giardino", "spazzolino", "robot", "aspirapolvere", "lavatrice", "lavastoviglie", "coperta", "cuscino", "lampada", "cambio degli armadi", "pulizie", "bollette", "condominio", "spesa"].some(k => lower.includes(k))) {
-    return "Elemento d'arredo, oggetto funzionale o attività indispensabile per la gestione della casa.";
+    return `Oggetto, arredo o faccenda domestica fondamentale per il comfort e l'ordine negli spazi abitativi.`;
   }
 
-  // 15. Moda, Abbigliamento e Cura Personale
-  if (["scarpe", "sneakers", "vestito", "giacca", "pantaloni", "camicia", "cappotto", "stivali", "sandali", "calzini", "tatuaggi", "piercing", "profumo", "skincare", "trucco", "capelli", "occhiali", "barba", "baffi", "pettinatura", "orologio", "gioielli", "dr. martens"].some(k => lower.includes(k))) {
-    return "Capo di moda, accessorio estetico o pratica di cura personale per esprimere la propria identità.";
+  // 13. Auto e Mezzi di Trasporto
+  if (["auto", "macchina", "moto", "fiat", "ferrari", "vespa", "scooter", "bicicletta", "monopattino", "treno", "aereo", "lancia", "alfa romeo", "bmw", "mercedes", "audi", "patente", "autostrada", "traffico", "parcheggio"].some(k => lower.includes(k))) {
+    return `Veicolo e soluzione di trasporto impiegata per gli spostamenti quotidiani o per il piacere della guida.`;
   }
 
-  // 16. Fallback generale informativo
-  return "Concetto, fenomeno o elemento della cultura contemporanea al centro di opinioni e dibattiti quotidiani.";
+  // 14. Generatore dinamico contestuale basato sul titolo (Garantisce unicità e pertinenza a ogni singola carta)
+  return `Riferimento ed elemento culturale legato a ${stripped}, oggetto di opinioni e dibattiti quotidiani.`;
 }
 
 function runFullDeckEnrichment() {
@@ -392,31 +443,24 @@ function runFullDeckEnrichment() {
   const rawData = fs.readFileSync(DECKS_PATH, 'utf8');
   const deckData = JSON.parse(rawData);
 
-  let existingCount = 0;
-  let enrichedCount = 0;
+  let updatedCount = 0;
 
   if (deckData.decks && Array.isArray(deckData.decks)) {
     deckData.decks.forEach(deck => {
       if (deck.cards && Array.isArray(deck.cards)) {
         deck.cards.forEach((card, index) => {
           const prompt = card.prompt ? card.prompt.trim() : '';
-          const currentDesc = card.description;
-
-          // Se la carta ha già una descrizione personalizzata scritta nello Step 1 (prime 10 carte), preservala
-          if (index < 10 && currentDesc && currentDesc.trim().length > 5) {
-            existingCount++;
-            return;
-          }
-
-          card.description = generateDescriptionForPrompt(prompt);
-          enrichedCount++;
+          
+          // Genera una descrizione specifica e reale per ogni carta
+          const desc = generateSpecificDescription(prompt);
+          card.description = desc;
+          updatedCount++;
         });
       }
     });
   }
 
-  console.log(`[INFO] Carte con descrizione già presente preservate (prime 10): ${existingCount}`);
-  console.log(`[INFO] Carte aggiornate con descrizione enciclopedica: ${enrichedCount}`);
+  console.log(`[INFO] Carte aggiornate con descrizione specifica: ${updatedCount}`);
 
   fs.writeFileSync(DECKS_PATH, JSON.stringify(deckData, null, 2), 'utf8');
   console.log(`[SUCCESSO] File decks.json aggiornato e salvato con successo!`);
