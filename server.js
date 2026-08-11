@@ -2309,6 +2309,7 @@ function sendStateSync(socket, room, player) {
     cardIndex: room.currentCardIndex,
     prompt: currentCard ? currentCard.prompt : '',
     image: currentCard ? (currentCard.image || null) : null,
+    description: currentCard ? (currentCard.description || null) : null,
     userHasVoted: !!(room.votes && room.votes[socket.id]),
     userVote: (room.votes && room.votes[socket.id]) ? room.votes[socket.id] : null,
     votedPlayers: room.players.filter(p => room.votes && room.votes[p.id] && room.votes[p.id] !== 'timeout').map(p => p.name),
@@ -2406,10 +2407,11 @@ function startNewRound(room) {
     clearTimeout(room.roundTimeout);
   }
 
-  // Notifica tutti i client della nuova carta (include la durata timer corrente)
+  // Notifica tutti i client della nuova carta (include la durata timer corrente e la descrizione)
   io.to(room.roomCode).emit('new_card', {
     prompt: card.prompt,
     image: card.image || null,
+    description: card.description || null,
     cardIndex: room.currentCardIndex,
     totalCards: room.gameLength || room.deck.cards.length,
     timerDurationMs: timerMs

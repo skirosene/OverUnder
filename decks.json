@@ -10,7 +10,8 @@
           "global_stats": {
             "underrated": 77,
             "overrated": 23
-          }
+          },
+          "description": "Pratica pseudoscientifica che sfrutta gli aromi degli oli essenziali per favorire il rilassamento e il benessere psicofisico."
         },
         {
           "card_id": "c2",
@@ -18,7 +19,8 @@
           "global_stats": {
             "underrated": 39,
             "overrated": 61
-          }
+          },
+          "description": "Dispositivo domotico connesso a Internet per programmare e gestire il riscaldamento di casa direttamente da smartphone."
         },
         {
           "card_id": "c3",
@@ -26,7 +28,8 @@
           "global_stats": {
             "underrated": 28,
             "overrated": 72
-          }
+          },
+          "description": "Celebre bevanda calda simbolo di accoglienza e convivialità nel Maghreb, preparata con tè verde, menta e zucchero."
         },
         {
           "card_id": "c4",
@@ -34,7 +37,8 @@
           "global_stats": {
             "underrated": 73,
             "overrated": 27
-          }
+          },
+          "description": "Mercato della moda circolare dedicato all'acquisto di capi e accessori firmati usati, tra sostenibilità e status symbol."
         },
         {
           "card_id": "c5",
@@ -42,7 +46,8 @@
           "global_stats": {
             "underrated": 17,
             "overrated": 83
-          }
+          },
+          "description": "Acclamato manga e anime giapponese ambientato in una società cinta da mura assediata da giganteschi umanoidi carnivori."
         },
         {
           "card_id": "c6",
@@ -50,7 +55,8 @@
           "global_stats": {
             "underrated": 46,
             "overrated": 54
-          }
+          },
+          "description": "Forma espressiva ed estetica della creatività umana, capace di suscitare profonde emozioni ed accesi dibattiti culturali."
         },
         {
           "card_id": "c7",
@@ -58,7 +64,8 @@
           "global_stats": {
             "underrated": 65,
             "overrated": 35
-          }
+          },
+          "description": "Comportamento poco rispettoso consistente nell'effettuare chiamate o ascoltare musica ad alto volume nei trasporti pubblici senza cuffie."
         },
         {
           "card_id": "c8",
@@ -66,7 +73,8 @@
           "global_stats": {
             "underrated": 29,
             "overrated": 71
-          }
+          },
+          "description": "Primo piatto tipico della cucina valtellinese a base di tagliatelle di grano saraceno, verze, patate e formaggio Casera."
         },
         {
           "card_id": "c9",
@@ -74,7 +82,8 @@
           "global_stats": {
             "underrated": 60,
             "overrated": 40
-          }
+          },
+          "description": "Classico momento conviviale all'aperto dedicato alla cottura di carne, pesce o verdure alla brace in compagnia di amici."
         },
         {
           "card_id": "c10",
@@ -82,7 +91,8 @@
           "global_stats": {
             "underrated": 33,
             "overrated": 67
-          }
+          },
+          "description": "Dispositivo riscaldante elettrico da posizionare tra lenzuolo e materasso per mantenere il letto caldo durante le notti invernali."
         },
         {
           "card_id": "c11",
@@ -4762,7 +4772,8 @@
           "global_stats": {
             "underrated": 52,
             "overrated": 48
-          }
+          },
+          "description": "Controversa pizza con pomodoro, formaggio e fette di ananas, al centro di infiniti dibattiti gastronomici mondiali."
         },
         {
           "card_id": "c596",

@@ -2504,7 +2504,7 @@ function showPurchaseModal() {
       e.stopPropagation();
       e.preventDefault();
       try { AudioSynth.playConfirm(false); } catch (err) {}
-      openCardInfoModal(state.currentPromptText);
+      openCardInfoModal(state.currentPromptText, state.currentCardDescription);
     });
   }
 
@@ -3069,6 +3069,7 @@ function setupSocketListeners() {
       state.currentDeckName = gameData.deckName || 'OVER / UNDER';
       state.totalCards = gameData.totalCards || 0;
       state.currentPromptText = gameData.prompt || '';
+      state.currentCardDescription = gameData.description || null;
       
       const isNewCardIndex = (state.currentCardIndex !== gameData.cardIndex);
       state.currentCardIndex = gameData.cardIndex || 0;
@@ -3348,7 +3349,7 @@ function setupSocketListeners() {
   });
 
   // 6. Nuova Carta Inviata dal Server
-  socket.on('new_card', ({ prompt, image, cardIndex, totalCards, roundId, timerDurationMs }) => {
+  socket.on('new_card', ({ prompt, image, description, cardIndex, totalCards, roundId, timerDurationMs }) => {
     clearWatchdog();
 
     // 4. GUARD CHECK SU UNDEFINED (Stanza Standard)
@@ -3358,6 +3359,7 @@ function setupSocketListeners() {
     }
 
     state.currentPromptText = prompt;
+    state.currentCardDescription = description || null;
     state.currentCardIndex = cardIndex;
     state.userHasVoted = false;
     state.roundEndActive = false;
@@ -3822,7 +3824,7 @@ function updateGameplayCardMedia(prompt, image) {
 // ==========================================================================
 // FUNZIONI INFO CARTA (SINGLE PLAYER & STANZA STANDARD)
 // ==========================================================================
-function openCardInfoModal(cardTitle) {
+function openCardInfoModal(cardTitle, cardDesc) {
   const modal = el.cardInfoModal || document.getElementById('card-info-modal');
   const titleEl = el.cardInfoModalTitle || document.getElementById('card-info-modal-title');
   const textEl = el.cardInfoModalText || document.getElementById('card-info-modal-text');
@@ -3835,9 +3837,15 @@ function openCardInfoModal(cardTitle) {
     title = 'Carta Attuale';
   }
 
+  const desc = (cardDesc !== undefined && cardDesc !== null) ? cardDesc : state.currentCardDescription;
+
   if (titleEl) titleEl.textContent = title;
   if (textEl) {
-    textEl.textContent = `Info: Stiamo preparando la descrizione per "${title}".`;
+    if (desc && typeof desc === 'string' && desc.trim().length > 0) {
+      textEl.textContent = desc.trim();
+    } else {
+      textEl.textContent = `Info: Stiamo preparando la descrizione per "${title}".`;
+    }
   }
 
   if (modal) {
@@ -4423,16 +4431,16 @@ function getDefaultSoloDecks() {
     deck_id: 'gli_intoccabili',
     deck_name: '🔥 Gli Intoccabili',
     cards: [
-      { card_id: 'c001', prompt: "La pizza con l'ananas", global_stats: { underrated: 15, overrated: 85 } },
-      { card_id: 'c002', prompt: "L'applauso all'atterraggio dell'aereo", global_stats: { underrated: 10, overrated: 90 } },
-      { card_id: 'c003', prompt: "Ordinare un cappuccino dopo le 12:00", global_stats: { underrated: 20, overrated: 80 } },
-      { card_id: 'c004', prompt: "L'uso quotidiano del bidet", global_stats: { underrated: 96, overrated: 4 } },
-      { card_id: 'c005', prompt: "Aggiungere la panna nella carbonara", global_stats: { underrated: 12, overrated: 88 } },
-      { card_id: 'c006', prompt: "Inviare messaggi vocali di oltre 3 minuti", global_stats: { underrated: 8, overrated: 92 } },
-      { card_id: 'c007', prompt: "Arrivare 15 minuti in anticipo ad un appuntamento", global_stats: { underrated: 72, overrated: 28 } },
-      { card_id: 'c008', prompt: "Mettere i calzini con i sandali in estate", global_stats: { underrated: 18, overrated: 82 } },
-      { card_id: 'c009', prompt: "Mangiare la pasta riscaldata il giorno dopo", global_stats: { underrated: 88, overrated: 12 } },
-      { card_id: 'c010', prompt: "Fare spoiler di serie TV senza preavviso", global_stats: { underrated: 3, overrated: 97 } },
+      { card_id: 'c001', prompt: "La pizza con l'ananas", description: "Controversa pizza con pomodoro, formaggio e fette di ananas, al centro di infiniti dibattiti gastronomici mondiali.", global_stats: { underrated: 15, overrated: 85 } },
+      { card_id: 'c002', prompt: "L'applauso all'atterraggio dell'aereo", description: "Abitudine tipicamente italiana di applaudire l'equipaggio non appena le ruote dell'aereo toccano la pista di atterraggio.", global_stats: { underrated: 10, overrated: 90 } },
+      { card_id: 'c003', prompt: "Ordinare un cappuccino dopo le 12:00", description: "Tabù della cultura culinaria italiana, che riserva la bevanda al latte e caffè esclusivamente alla prima colazione.", global_stats: { underrated: 20, overrated: 80 } },
+      { card_id: 'c004', prompt: "L'uso quotidiano del bidet", description: "Sanitario indispensabile nelle case italiane per la cura dell'igiene personale intima quotidiana, raro in molti paesi esteri.", global_stats: { underrated: 96, overrated: 4 } },
+      { card_id: 'c005', prompt: "Aggiungere la panna nella carbonara", description: "Eresia per i puristi della ricetta romana, che richiede rigorosamente uova, guanciale, pecorino e pepe nero.", global_stats: { underrated: 12, overrated: 88 } },
+      { card_id: 'c006', prompt: "Inviare messaggi vocali di oltre 3 minuti", description: "Monologhi vocali su WhatsApp che sostituiscono una vera telefonata, spesso fonte di disperazione per chi li riceve.", global_stats: { underrated: 8, overrated: 92 } },
+      { card_id: 'c007', prompt: "Arrivare 15 minuti in anticipo ad un appuntamento", description: "Rara dimostrazione di puntualità e rispetto del tempo altrui, talvolta al confine con l'ansia sociale anticipatoria.", global_stats: { underrated: 72, overrated: 28 } },
+      { card_id: 'c008', prompt: "Mettere i calzini con i sandali in estate", description: "Abbinamento a lungo deriso come anti-estetico ma recentemente sdoganato nel mondo della moda da trendsetter internazionali.", global_stats: { underrated: 18, overrated: 82 } },
+      { card_id: 'c009', prompt: "Mangiare la pasta riscaldata il giorno dopo", description: "Abitudine culinaria domestica in cui la pasta avanzata guadagna sapore e croccantezza venendo ripassata in padella.", global_stats: { underrated: 88, overrated: 12 } },
+      { card_id: 'c010', prompt: "Fare spoiler di serie TV senza preavviso", description: "Rivelare a tradimento colpi di scena o finali di film e serie prima che gli altri abbiano potuto guardarli.", global_stats: { underrated: 3, overrated: 97 } },
       { card_id: 'c011', prompt: "Usare la modalità scura su qualsiasi app", global_stats: { underrated: 91, overrated: 9 } },
       { card_id: 'c012', prompt: "Ballare da soli in camera con le cuffie", global_stats: { underrated: 84, overrated: 16 } },
       { card_id: 'c013', prompt: "Comprare libri e non leggerli mai", global_stats: { underrated: 35, overrated: 65 } },
@@ -4656,6 +4664,7 @@ function showSoloCard() {
     state.userHasVoted = false;
     const promptStr = card.prompt || card.text || card.promptText || '';
     state.currentPromptText = promptStr;
+    state.currentCardDescription = card.description || null;
     state.currentCardIndex = state.soloCardIndex;
 
     if (el.currentDeckName) el.currentDeckName.textContent = state.currentDeckName || 'OVER UNDER';
