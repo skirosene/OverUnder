@@ -4219,14 +4219,14 @@ input[type="submit"] {
   transform: scale(0.9);
 }
 
-/* Tasto Info Carta (i) - Single Player & Stanza Standard (Bagliore Neon Statico) */
+/* Tasto Info Carta (i) - Single Player & Stanza Standard (Bagliore Bianco Statico) */
 .btn-card-info {
   position: absolute;
   top: 12px;
   left: 12px;
-  background: rgba(0, 240, 255, 0.08);
-  border: 1px solid rgba(0, 240, 255, 0.45);
-  color: #00f0ff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #ffffff;
   cursor: pointer;
   padding: 4px;
   display: inline-flex;
@@ -4234,8 +4234,8 @@ input[type="submit"] {
   justify-content: center;
   z-index: 15;
   border-radius: 50%;
-  box-shadow: 0 0 6px rgba(0, 212, 255, 0.4), inset 0 0 4px rgba(0, 212, 255, 0.2);
-  filter: drop-shadow(0 0 3px rgba(0, 212, 255, 0.4));
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.5), inset 0 0 4px rgba(255, 255, 255, 0.25);
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5));
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
@@ -4243,21 +4243,21 @@ input[type="submit"] {
 }
 
 .btn-card-info:hover {
-  color: #00f0ff;
-  background-color: rgba(0, 240, 255, 0.2);
-  border-color: #00f0ff;
-  box-shadow: 0 0 12px rgba(0, 212, 255, 0.8), inset 0 0 6px rgba(0, 212, 255, 0.35);
-  filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.85));
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.95), inset 0 0 6px rgba(255, 255, 255, 0.4);
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.95));
   transform: scale(1.12);
 }
 
 .btn-card-info:active {
   transform: scale(0.94);
-  color: #00f0ff;
-  background-color: rgba(0, 240, 255, 0.3);
-  border-color: #00f0ff;
-  box-shadow: 0 0 14px rgba(0, 212, 255, 0.9), inset 0 0 8px rgba(0, 212, 255, 0.5);
-  filter: drop-shadow(0 0 8px rgba(0, 212, 255, 1));
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-color: #ffffff;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 1), inset 0 0 8px rgba(255, 255, 255, 0.6);
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 1));
 }
 
 /* Stili Pulsante Lucchetto (Lock Room) */
