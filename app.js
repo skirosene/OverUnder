@@ -877,6 +877,11 @@ const el = {
   summaryPlayerWaiting: document.getElementById('summary-player-waiting'),
   btnRestart: document.getElementById('btn-restart'),
   btnReportCard: document.getElementById('btn-report-card'),
+  btnCardInfo: document.getElementById('btn-card-info'),
+  cardInfoModal: document.getElementById('card-info-modal'),
+  cardInfoModalTitle: document.getElementById('card-info-modal-title'),
+  cardInfoModalText: document.getElementById('card-info-modal-text'),
+  btnCardInfoClose: document.getElementById('btn-card-info-close'),
   
   // Orologio barra di stato
   statusClock: document.getElementById('status-clock'),
@@ -1146,6 +1151,10 @@ function showScreen(targetScreen) {
     targetScreen.style.removeProperty('display');
     targetScreen.style.display = '';
     try { targetScreen.scrollTop = 0; } catch (e) {}
+  }
+
+  if (targetScreen !== el.screenGameplay) {
+    closeCardInfoModal();
   }
 
   // Configura il timer counter cliccabile solo in gameplay per l'host
@@ -2489,6 +2498,32 @@ function showPurchaseModal() {
     });
   }
 
+  // Tasto Info Carta (i) - Solo Single Player e Stanza Standard
+  if (el.btnCardInfo) {
+    el.btnCardInfo.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      try { AudioSynth.playConfirm(false); } catch (err) {}
+      openCardInfoModal(state.currentPromptText);
+    });
+  }
+
+  if (el.btnCardInfoClose) {
+    el.btnCardInfoClose.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      closeCardInfoModal();
+    });
+  }
+
+  if (el.cardInfoModal) {
+    el.cardInfoModal.addEventListener('click', (e) => {
+      if (e.target === el.cardInfoModal) {
+        closeCardInfoModal();
+      }
+    });
+  }
+
   // Disabilitati i click sulle immagini (Visualizzazione Full-Card diretta)
   if (el.gameplayPromptImage) {
     el.gameplayPromptImage.style.pointerEvents = 'none';
@@ -3774,6 +3809,49 @@ function updateGameplayCardMedia(prompt, image) {
       el.currentPromptText.style.display = 'block';
       el.currentPromptText.textContent = cleanPrompt;
     }
+  }
+
+  // Gestione visibilità Tasto Info (i): ESCLUSO in Judgement Day (Gogna), VISIBILE in Solo e Stanza Standard
+  const btnCardInfo = el.btnCardInfo || document.getElementById('btn-card-info');
+  if (btnCardInfo) {
+    const isJudgementDay = !!state.roomIsPremium;
+    btnCardInfo.style.display = isJudgementDay ? 'none' : 'inline-flex';
+  }
+}
+
+// ==========================================================================
+// FUNZIONI INFO CARTA (SINGLE PLAYER & STANZA STANDARD)
+// ==========================================================================
+function openCardInfoModal(cardTitle) {
+  const modal = el.cardInfoModal || document.getElementById('card-info-modal');
+  const titleEl = el.cardInfoModalTitle || document.getElementById('card-info-modal-title');
+  const textEl = el.cardInfoModalText || document.getElementById('card-info-modal-text');
+
+  let title = (cardTitle && typeof cardTitle === 'string' && cardTitle.trim().length > 0)
+    ? cardTitle.trim()
+    : (state.currentPromptText || 'Carta Attuale');
+
+  if (title === 'Caricamento domanda...' || title === 'Carta Immagine') {
+    title = 'Carta Attuale';
+  }
+
+  if (titleEl) titleEl.textContent = title;
+  if (textEl) {
+    textEl.textContent = `Info: Stiamo preparando la descrizione per "${title}".`;
+  }
+
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.offsetHeight; // trigger reflow
+    modal.classList.add('active');
+  }
+}
+
+function closeCardInfoModal() {
+  const modal = el.cardInfoModal || document.getElementById('card-info-modal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
   }
 }
 

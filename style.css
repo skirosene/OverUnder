@@ -4219,6 +4219,38 @@ input[type="submit"] {
   transform: scale(0.9);
 }
 
+/* Tasto Info Carta (i) - Single Player & Stanza Standard */
+.btn-card-info {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 15;
+  border-radius: 50%;
+  transition: color 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.btn-card-info:hover {
+  color: #00f0ff !important;
+  background-color: rgba(0, 240, 255, 0.12);
+  transform: scale(1.1);
+}
+
+.btn-card-info:active {
+  transform: scale(0.9);
+  color: #00f0ff !important;
+}
+
 /* Stili Pulsante Lucchetto (Lock Room) */
 .btn-lock-room.unlocked {
   color: #9E9E9E;
