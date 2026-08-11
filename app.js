@@ -4881,7 +4881,7 @@ function renderSinglePlayerFinalScreen() {
           <div class="single-player-box-footer" style="width: 100%;">
             <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
             <button id="btn-try-room-direct" class="btn-single-player-rooms">
-              <span>PROVA LA MODALITÀ STANZA</span>
+              <span>GIOCA CON I TUOI AMICI</span>
               <svg class="btn-icon" viewBox="0 0 24 24">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                 <circle cx="9" cy="7" r="4"></circle>
@@ -5026,7 +5026,7 @@ function renderSinglePlayerFinalScreen() {
             <div class="single-player-box-footer" style="width: 100%;">
               <button id="btn-restart-direct" class="btn-single-player-restart">RICOMINCIA</button>
               <button id="btn-try-room-direct" class="btn-single-player-rooms">
-                <span>PROVA LA MODALITÀ STANZA</span>
+                <span>GIOCA CON I TUOI AMICI</span>
                 <svg class="btn-icon" viewBox="0 0 24 24">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                   <circle cx="9" cy="7" r="4"></circle>

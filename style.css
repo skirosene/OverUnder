@@ -3232,7 +3232,7 @@ input[type="submit"] {
   filter: brightness(0.95);
 }
 
-/* Pulsante CTA "PROVA LA MODALITÀ STANZA" - Multiplayer */
+/* Pulsante CTA "GIOCA CON I TUOI AMICI" - Multiplayer */
 .btn-single-player-rooms {
   width: 100%;
   padding: clamp(12px, 1.8vh, 15px) 18px;
