@@ -72,9 +72,6 @@ if (!deviceId || typeof deviceId !== 'string' || deviceId.trim().length < 8) {
   safeStorage.setItem('overunder_deviceId', deviceId);
 }
 
-// Costante durata autorizzazione licenza: 5 giorni in millisecondi (432,000,000 ms)
-const AUTH_SESSION_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
-
 // Genera o recupera un playerId univoco e persistente per il browser del giocatore
 let playerId = safeStorage.getItem('overunder_playerId');
 if (!playerId) {
@@ -187,9 +184,6 @@ async function authenticateHost(hostName) {
     safeStorage.setItem('overunder_token', data.token);
     if (data.isPremium) {
       safeStorage.setItem('overunder_premium_unlocked', 'true');
-      if (data.lastAuthTimestamp) {
-        safeStorage.setItem('overunder_lastAuthTimestamp', String(data.lastAuthTimestamp));
-      }
     } else {
       safeStorage.removeItem('overunder_premium_unlocked');
     }
@@ -1543,12 +1537,6 @@ function getDecodedToken() {
 function checkPremiumStatusFromToken() {
   const decoded = getDecodedToken();
   if (!decoded) return false;
-  if (decoded.lastAuthTimestamp) {
-    const now = Date.now();
-    if (now - decoded.lastAuthTimestamp > AUTH_SESSION_MAX_AGE_MS) {
-      return false;
-    }
-  }
   if (decoded.isPremium || decoded.premiumStatus === 'PREMIUM_A_VITA') {
     return true;
   }
@@ -1556,23 +1544,6 @@ function checkPremiumStatusFromToken() {
 }
 
 function checkJudgementDayAccess() {
-  const lastAuth = parseInt(safeStorage.getItem('overunder_lastAuthTimestamp') || '0', 10);
-  const now = Date.now();
-
-  // Controllo Scadenza Temporale (5 Giorni): se scaduti, resetta sblocco locale
-  if (lastAuth > 0 && (now - lastAuth > AUTH_SESSION_MAX_AGE_MS)) {
-    console.log('[LICENSE] Sessione di 5 giorni scaduta. Richiesta ri-autenticazione OTP.');
-    safeStorage.removeItem('overunder_premium_unlocked');
-    safeStorage.removeItem('overunder_judgement_purchased');
-    safeSessionStorage.removeItem('overunder_token');
-    safeStorage.removeItem('overunder_token');
-    return {
-      hasAccess: false,
-      isPurchased: false,
-      isExpired: true
-    };
-  }
-
   const isPurchased = safeStorage.getItem('overunder_judgement_purchased') === 'true' || 
                       safeStorage.getItem('overunder_premium_unlocked') === 'true' || 
                       checkPremiumStatusFromToken();
@@ -1618,13 +1589,10 @@ function openTransferModal(reason = null) {
 
   if (reason === 'transferred') {
     if (titleEl) titleEl.innerHTML = '<span style="display: block; font-size: 2rem; margin-bottom: 4px;">📱</span>LICENZA TRASFERITA';
-    if (descEl) descEl.textContent = "La tua licenza è stata presa da un altro dispositivo. Inserisci la tua email per ricevere il codice OTP e riattivare questo telefono per 5 giorni.";
-  } else if (reason === 'expired') {
-    if (titleEl) titleEl.innerHTML = '<span style="display: block; font-size: 2rem; margin-bottom: 4px;">⏳</span>SESSIONE SCADUTA (5G)';
-    if (descEl) descEl.textContent = "La tua sessione di 5 giorni per Judgement Day è scaduta. Inserisci la tua email per ricevere un nuovo codice OTP.";
+    if (descEl) descEl.textContent = "La tua licenza è stata presa da un altro dispositivo. Inserisci la tua email per ricevere il codice OTP e trasferirla su questo dispositivo.";
   } else {
     if (titleEl) titleEl.innerHTML = '<span style="display: block; font-size: 2rem; margin-bottom: 4px;">📲</span>ACCEDI / TRASFERISCI';
-    if (descEl) descEl.textContent = "La licenza Judgement Day è ad accesso esclusivo (1 dispositivo attivo). Inserisci la tua email per ricevere l'OTP (valido 5 giorni).";
+    if (descEl) descEl.textContent = "La licenza Judgement Day è ad accesso esclusivo (1 solo dispositivo attivo). Inserisci la tua email per ricevere il codice OTP e attivare questo dispositivo.";
   }
 
   if (restoreModal) {
@@ -1715,12 +1683,7 @@ function showPurchaseModal() {
       if (el.createPremiumToggle) {
         el.createPremiumToggle.checked = false;
       }
-      if (access.isExpired) {
-        showToast("Sessione di 5 giorni scaduta. Inserisci la tua email per riattivare la licenza.", 4000);
-        openTransferModal('expired');
-      } else {
-        showPurchaseModal();
-      }
+      showPurchaseModal();
       return false;
     }
     return true;
@@ -1745,12 +1708,7 @@ function showPurchaseModal() {
           e.preventDefault();
           e.stopPropagation();
           if (el.createPremiumToggle) el.createPremiumToggle.checked = false;
-          if (access.isExpired) {
-            showToast("Sessione di 5 giorni scaduta. Inserisci la tua email per riattivare la licenza.", 4000);
-            openTransferModal('expired');
-          } else {
-            showPurchaseModal();
-          }
+          showPurchaseModal();
         }
       }, { passive: false });
     });
@@ -1872,12 +1830,7 @@ function showPurchaseModal() {
         e.preventDefault();
         e.stopPropagation();
         if (el.createPremiumToggle) el.createPremiumToggle.checked = false;
-        if (access.isExpired) {
-          showToast("Sessione di 5 giorni scaduta. Inserisci la tua email per riattivare la licenza.", 4000);
-          openTransferModal('expired');
-        } else {
-          showPurchaseModal();
-        }
+        showPurchaseModal();
         return;
       }
 
@@ -2112,14 +2065,13 @@ function showPurchaseModal() {
         safeSessionStorage.setItem('overunder_token', data.token);
         safeStorage.setItem('overunder_token', data.token);
         safeStorage.setItem('overunder_premium_unlocked', 'true');
-        safeStorage.setItem('overunder_lastAuthTimestamp', String(data.lastAuthTimestamp || Date.now()));
       }
 
       state.roomIsPremium = true;
       if (el.createPremiumToggle) {
         el.createPremiumToggle.checked = true;
       }
-      showToast("Dispositivo autorizzato con successo (valido 5 giorni)! 👑", 5000);
+      showToast("Dispositivo autorizzato con successo! 👑", 5000);
       updatePremiumUI();
 
       // Se l'Host si trova attualmente dentro la stanza/lobby, attiva subito la modalità Judgement Day per tutti
@@ -3227,7 +3179,6 @@ function setupSocketListeners() {
     console.warn('[LICENSE] Licenza trasferita su un altro dispositivo:', data);
     safeStorage.removeItem('overunder_premium_unlocked');
     safeStorage.removeItem('overunder_judgement_purchased');
-    safeStorage.removeItem('overunder_lastAuthTimestamp');
     state.roomIsPremium = false;
     if (el.createPremiumToggle) {
       el.createPremiumToggle.checked = false;
@@ -3237,23 +3188,6 @@ function setupSocketListeners() {
     const msg = data && data.message ? data.message : "Licenza trasferita su un altro dispositivo. Effettua nuovamente l'accesso con la tua email.";
     showToast(`⚠️ ${msg}`, 6000);
     openTransferModal('transferred');
-  });
-
-  // Gestione Errore Sessione 5 Giorni Scaduta (Richiesta nuovo OTP)
-  socket.on('auth_session_expired', (data) => {
-    console.warn('[LICENSE] Sessione di 5 giorni scaduta:', data);
-    safeStorage.removeItem('overunder_premium_unlocked');
-    safeStorage.removeItem('overunder_judgement_purchased');
-    safeStorage.removeItem('overunder_lastAuthTimestamp');
-    state.roomIsPremium = false;
-    if (el.createPremiumToggle) {
-      el.createPremiumToggle.checked = false;
-    }
-    updatePremiumUI();
-
-    const msg = data && data.message ? data.message : "La sessione di 5 giorni per Judgement Day è scaduta. Inserisci la tua email per ricevere un nuovo codice OTP.";
-    showToast(`⏳ ${msg}`, 6000);
-    openTransferModal('expired');
   });
 
   socket.on('room_error', (message) => {
@@ -5913,7 +5847,6 @@ async function checkUrlParams() {
           safeSessionStorage.setItem('overunder_token', data.token);
           safeStorage.setItem('overunder_token', data.token);
           safeStorage.setItem('overunder_premium_unlocked', 'true');
-          safeStorage.setItem('overunder_lastAuthTimestamp', String(Date.now()));
         }
         state.roomIsPremium = true;
         if (el.createPremiumToggle) {

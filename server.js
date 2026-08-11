@@ -172,13 +172,9 @@ function cleanRoomCode(rawCode) {
 // Controllo d'ambiente globale per la fase di testing
 const IS_PRODUCTION = true; // Impostare a false per tornare in fase di sviluppo
 
-// Costante durata autorizzazione licenza: 5 giorni in millisecondi (432,000,000 ms)
-const AUTH_SESSION_DURATION_MS = 5 * 24 * 60 * 60 * 1000;
-
 /**
  * Verifica la validità della licenza Judgement Day in tempo reale:
- * 1. Controllo Accesso Esclusivo (Max 1 dispositivo): deviceId === activeDeviceId
- * 2. Controllo Scadenza Temporale: now - lastAuthTimestamp <= 5 giorni
+ * Controllo Accesso Esclusivo (Max 1 dispositivo attivo): deviceId === activeDeviceId
  */
 function verifyJudgementDayLicense(socket) {
   if (!socket || !socket.userData) {
@@ -211,18 +207,6 @@ function verifyJudgementDayLicense(socket) {
       valid: false,
       reason: "Licenza trasferita su un altro dispositivo. Effettua nuovamente l'accesso con la tua email.",
       code: 'TRANSFERRED',
-      user: user
-    };
-  }
-
-  // 3. Controllo Scadenza Temporale 5 Giorni
-  const now = Date.now();
-  const lastAuth = user.lastAuthTimestamp || 0;
-  if (lastAuth === 0 || (now - lastAuth > AUTH_SESSION_DURATION_MS)) {
-    return {
-      valid: false,
-      reason: "La sessione di 5 giorni per Judgement Day è scaduta. Effettua nuovamente l'accesso con la tua email per continuare.",
-      code: 'EXPIRED',
       user: user
     };
   }
@@ -603,7 +587,7 @@ app.post('/api/premium/request-transfer', async (req, res) => {
   }
 });
 
-// 2. Verifica OTP e Promozione / Trasferimento a Licenza Esclusiva (5 Giorni)
+// 2. Verifica OTP e Promozione / Trasferimento a Licenza Esclusiva Permanente
 app.post('/api/premium/verify-transfer', (req, res) => {
   const { email } = req.body;
   const otpSubmitted = req.body.otp || req.body.otpCode;
@@ -652,8 +636,6 @@ app.post('/api/premium/verify-transfer', (req, res) => {
     userId = deviceId;
   }
 
-  const now = Date.now();
-
   // OVERRIDE ISTANTANEO: Cerca o crea il record utente per questa email
   let user = Object.values(users).find(u => u.email && u.email.toLowerCase() === normalizedEmail);
   if (!user && users[userId]) {
@@ -667,7 +649,6 @@ app.post('/api/premium/verify-transfer', (req, res) => {
     user.email = normalizedEmail;
     user.activeDeviceId = deviceId; // Unico dispositivo attivo autorizzato
     user.deviceUuid = deviceId;
-    user.lastAuthTimestamp = now;  // Timestamp di inizio sessione 5 giorni
   } else {
     // Nuovo record utente licenziato
     const idKey = userId || 'host_' + Date.now();
@@ -675,7 +656,6 @@ app.post('/api/premium/verify-transfer', (req, res) => {
       id: idKey,
       deviceUuid: deviceId,
       activeDeviceId: deviceId,
-      lastAuthTimestamp: now,
       username: username.toLowerCase(),
       displayName: username,
       email: normalizedEmail,
@@ -693,22 +673,19 @@ app.post('/api/premium/verify-transfer', (req, res) => {
     deviceId: deviceId,
     activeDeviceId: deviceId,
     email: normalizedEmail,
-    lastAuthTimestamp: now,
     username: user.displayName || username,
     role: 'host',
     isPremium: true,
     premiumStatus: 'PREMIUM_A_VITA'
   }, JWT_SECRET, { expiresIn: '365d' });
 
-  console.log(`[OTP VERIFICATO] Licenza Judgement Day impostata su dispositivo esclusivo ${deviceId} per email ${normalizedEmail}. Auth timestamp: ${now}`);
+  console.log(`[OTP VERIFICATO] Licenza Judgement Day impostata su dispositivo esclusivo ${deviceId} per email ${normalizedEmail}.`);
 
   return res.status(200).json({
     success: true,
     token: token,
     isPremium: true,
-    deviceId: deviceId,
-    lastAuthTimestamp: now,
-    expiresInDays: 5
+    deviceId: deviceId
   });
 });
 
@@ -717,7 +694,7 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-// 1. Autenticazione Host unificata (Controllo Accesso Esclusivo & 5 Giorni)
+// 1. Autenticazione Host unificata (Controllo Accesso Esclusivo Permanente)
 app.post('/api/auth/host', (req, res) => {
   const { username, deviceId, deviceUuid, sessionId } = req.body;
   if (!username) {
@@ -734,19 +711,14 @@ app.post('/api/auth/host', (req, res) => {
 
   let isPremiumUser = false;
   let userEmail = null;
-  let lastAuth = null;
 
   if (matchingUser) {
-    const now = Date.now();
-    lastAuth = matchingUser.lastAuthTimestamp || 0;
-    const isWithin5Days = (lastAuth > 0) && (now - lastAuth <= AUTH_SESSION_DURATION_MS);
-    const isExclusiveMatch = matchingUser.activeDeviceId === currentDeviceId;
-
-    if (isWithin5Days && isExclusiveMatch) {
+    const isExclusiveMatch = (matchingUser.activeDeviceId === currentDeviceId);
+    if (isExclusiveMatch) {
       isPremiumUser = true;
       userEmail = matchingUser.email;
     } else {
-      console.log(`[AUTH HOST] Licenza non attiva per device ${currentDeviceId}: isWithin5Days=${isWithin5Days}, isExclusiveMatch=${isExclusiveMatch}`);
+      console.log(`[AUTH HOST] Licenza non attiva per device ${currentDeviceId}: isExclusiveMatch=${isExclusiveMatch}`);
     }
   }
 
@@ -756,7 +728,6 @@ app.post('/api/auth/host', (req, res) => {
       id: idKey,
       deviceUuid: currentDeviceId,
       activeDeviceId: isPremiumUser ? currentDeviceId : null,
-      lastAuthTimestamp: isPremiumUser ? lastAuth : null,
       email: userEmail,
       username: cleanUsername.toLowerCase(),
       displayName: cleanUsername,
@@ -770,7 +741,6 @@ app.post('/api/auth/host', (req, res) => {
     user.isPremium = isPremiumUser;
     user.premiumStatus = isPremiumUser ? 'PREMIUM_A_VITA' : 'STANDARD';
     if (userEmail) user.email = userEmail;
-    if (lastAuth) user.lastAuthTimestamp = lastAuth;
   }
 
   writeUsersDb(users);
@@ -781,7 +751,6 @@ app.post('/api/auth/host', (req, res) => {
     deviceId: currentDeviceId,
     activeDeviceId: user.activeDeviceId || null,
     email: user.email || userEmail || null,
-    lastAuthTimestamp: user.lastAuthTimestamp || lastAuth || null,
     username: cleanUsername,
     role: 'host',
     isPremium: isPremiumUser,
@@ -792,8 +761,7 @@ app.post('/api/auth/host', (req, res) => {
     token,
     isPremium: isPremiumUser,
     username: cleanUsername,
-    deviceId: currentDeviceId,
-    lastAuthTimestamp: user.lastAuthTimestamp || null
+    deviceId: currentDeviceId
   });
 });
 
@@ -1268,8 +1236,6 @@ io.on('connection', (socket) => {
           socket.userData.isPremium = false;
           if (licenseCheck.code === 'TRANSFERRED') {
             socket.emit('license_transferred_error', { message: licenseCheck.reason });
-          } else if (licenseCheck.code === 'EXPIRED') {
-            socket.emit('auth_session_expired', { message: licenseCheck.reason });
           }
         }
       }
@@ -1375,8 +1341,6 @@ io.on('connection', (socket) => {
         }
         if (licenseCheck.code === 'TRANSFERRED') {
           socket.emit('license_transferred_error', { message: licenseCheck.reason });
-        } else if (licenseCheck.code === 'EXPIRED') {
-          socket.emit('auth_session_expired', { message: licenseCheck.reason });
         }
         socket.emit('room_error', licenseCheck.reason);
         return;
@@ -1850,11 +1814,7 @@ io.on('connection', (socket) => {
         }
         if (licenseCheck.code === 'TRANSFERRED') {
           socket.emit('license_transferred_error', {
-            message: "Licenza trasferita su un altro dispositivo. Riapri la modalità Judgement Day per inserire l'email e ricevere il nuovo OTP."
-          });
-        } else if (licenseCheck.code === 'EXPIRED') {
-          socket.emit('auth_session_expired', {
-            message: "Sessione di verifica scaduta. Riapri la modalità Judgement Day per inserire l'email e ricevere il nuovo OTP."
+            message: "Licenza trasferita su un altro dispositivo. Riapri la modalità Judgement Day per inserire l'email e ricevere il codice OTP."
           });
         }
       }
@@ -1965,8 +1925,6 @@ io.on('connection', (socket) => {
       if (!licenseCheck.valid) {
         if (licenseCheck.code === 'TRANSFERRED') {
           socket.emit('license_transferred_error', { message: licenseCheck.reason });
-        } else if (licenseCheck.code === 'EXPIRED') {
-          socket.emit('auth_session_expired', { message: licenseCheck.reason });
         }
         socket.emit('room_error', licenseCheck.reason);
         return;
