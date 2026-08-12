@@ -2198,6 +2198,8 @@ function showPurchaseModal() {
     sessionStorage.setItem('overunder_playerName', name);
     sessionStorage.setItem('overunder_roomCode', code);
     sessionStorage.setItem('overunder_isHost', 'true');
+    state.isSoloMode = false;
+    state.gameMode = 'multiplayer';
 
     startConnectionLoading('create');
 
@@ -2329,26 +2331,25 @@ function showPurchaseModal() {
     el.btnHostStartGame.addEventListener('click', () => {
       if (!state.isHost) return;
       
-      if (state.isSoloMode) {
-        startSoloGame(state.gameLength);
-      } else {
-        if (!state.players || state.players.length < 2) {
-          showToast("Servono almeno 2 giocatori in stanza per avviare la partita! Fai scansionare il QR Code 📱", 4000);
+      state.isSoloMode = false;
+      state.gameMode = 'multiplayer';
+
+      if (!state.players || state.players.length < 2) {
+        showToast("Servono almeno 2 giocatori in stanza per avviare la partita! Fai scansionare il QR Code 📱", 4000);
+        return;
+      }
+
+      if (state.roomIsPremium) {
+        // Se è Premium e non ci sono carte custom inviate né salvate locale, avvisa l'host
+        const hasCards = (state.players && state.players.some(p => p.premiumReady)) || 
+                         (state.localPremiumCards && state.localPremiumCards.length > 0);
+        if (!hasCards) {
+          showToast("Aggiungi almeno una carta prima di avviare la modalità Judgement Day! 👑", 4000);
           return;
         }
-
-        if (state.roomIsPremium) {
-          // Se è Premium e non ci sono carte custom inviate né salvate locale, avvisa l'host
-          const hasCards = (state.players && state.players.some(p => p.premiumReady)) || 
-                           (state.localPremiumCards && state.localPremiumCards.length > 0);
-          if (!hasCards) {
-            showToast("Aggiungi almeno una carta prima di avviare la modalità Judgement Day! 👑", 4000);
-            return;
-          }
-          socket.emit('start_game', { gameLength: state.gameLength });
-        } else {
-          socket.emit('start_game', { gameLength: state.gameLength });
-        }
+        socket.emit('start_game', { gameLength: state.gameLength });
+      } else {
+        socket.emit('start_game', { gameLength: state.gameLength });
       }
     });
   }
@@ -2428,7 +2429,9 @@ function showPurchaseModal() {
   // Host o Solo: Passa alla prossima carta
   if (el.btnNextCardConfluent) {
     el.btnNextCardConfluent.addEventListener('click', () => {
-      if (state.isSoloMode) {
+      if (state.roomCode && state.isHost) {
+        socket.emit('next_card');
+      } else if (state.isSoloMode && !state.roomCode) {
         if (state.soloTimeoutId) {
           clearTimeout(state.soloTimeoutId);
           state.soloTimeoutId = null;
@@ -2443,11 +2446,12 @@ function showPurchaseModal() {
   // Host / Solo: Riavvio o Torna al Menu
   if (el.btnRestart) {
     el.btnRestart.addEventListener('click', () => {
-      if (state.isSoloMode) {
+      if (state.roomCode && state.isHost) {
+        socket.emit('restart_game');
+      } else if (state.isSoloMode && !state.roomCode) {
         resetToMenu();
         return;
-      }
-      if (state.isHost) {
+      } else if (state.isHost) {
         socket.emit('restart_game');
       }
     });
@@ -3139,6 +3143,8 @@ function setupSocketListeners() {
     state.connectionLoadingActive = false;
 
     state.isHost = true;
+    state.isSoloMode = false;
+    state.gameMode = 'multiplayer';
     state.roomCode = roomCode;
     state.players = players;
     state.playerName = assignedName || players[0].name;
@@ -3169,6 +3175,8 @@ function setupSocketListeners() {
 
     const me = players ? players.find(p => p.id === socket.id || (p.name && p.name.toLowerCase() === (assignedName || state.playerName || '').toLowerCase())) : null;
     state.isHost = (typeof isHost === 'boolean') ? isHost : (me ? !!me.isHost : false);
+    state.isSoloMode = false;
+    state.gameMode = 'multiplayer';
     state.roomCode = roomCode;
     state.playerName = assignedName || (me ? me.name : safeSessionStorage.getItem('overunder_playerName')) || 'Giocatore';
     state.roomIsPremium = !!isPremium;
@@ -3327,6 +3335,8 @@ function setupSocketListeners() {
 
   // 5. Partita Avviata
   socket.on('game_started', ({ deckName, totalCards, imageUrls }) => {
+    state.isSoloMode = false;
+    state.gameMode = 'multiplayer';
     state.currentDeckName = deckName;
     state.totalCards = totalCards;
     state.gameplayStarted = true;
@@ -3351,6 +3361,9 @@ function setupSocketListeners() {
   // 6. Nuova Carta Inviata dal Server
   socket.on('new_card', ({ prompt, image, description, cardIndex, totalCards, roundId, timerDurationMs }) => {
     clearWatchdog();
+
+    state.isSoloMode = false;
+    state.gameMode = 'multiplayer';
 
     // 4. GUARD CHECK SU UNDEFINED (Stanza Standard)
     if (!prompt && !image && cardIndex === undefined) {
@@ -3444,17 +3457,17 @@ function setupSocketListeners() {
 
   // 9. Ricezione Risultati del Round
   socket.on('round_results', (data) => {
+    state.isSoloMode = false;
+    state.gameMode = 'multiplayer';
     renderRoundResults(data);
   });
 
-  // 10. Fine Partita (Riepilogo e Premi)
+  // 10. Fine Partita (Riepilogo e Premi del Gruppo)
   socket.on('game_over', (data) => {
     triggerVictorySoundOnce();
-    if (state.isSoloMode) {
-      showSinglePlayerResults();
-    } else {
-      renderGameOver(data);
-    }
+    state.isSoloMode = false;
+    state.gameMode = 'multiplayer';
+    renderGameOver(data);
   });
 
   // 11. Reset del gioco (Host torna in Lobby)
@@ -3687,7 +3700,7 @@ function updateGameplayCardMedia(prompt, image) {
   // 4. GUARD CHECK SU UNDEFINED
   if (prompt === undefined && image === undefined) {
     console.warn("[GUARD CHECK UNDEFINED] Carta undefined in updateGameplayCardMedia.");
-    if (state.isSoloMode) {
+    if (state.isSoloMode && !state.roomCode) {
       showSinglePlayerResults();
     }
     return;
@@ -4787,6 +4800,11 @@ function cleanUpMultiplayerListeners() {
 }
 
 function renderSinglePlayerFinalScreen() {
+  if (state.roomCode) {
+    console.warn("[GUARD] Tentativo di rendering schermata single player in una stanza multiplayer. Eseguo renderGameOver().");
+    renderGameOver();
+    return;
+  }
   try {
     triggerVictorySoundOnce();
     cleanUpMultiplayerListeners();
@@ -5186,7 +5204,7 @@ function handleSinglePlayerRestart(e) {
 }
 
 function endGame(params) {
-  const isSinglePlayer = !!(state.isSoloMode || state.gameMode === 'single');
+  const isSinglePlayer = !!(state.isSoloMode || state.gameMode === 'single') && !state.roomCode;
   if (isSinglePlayer) {
     cleanUpMultiplayerListeners();
     renderSinglePlayerFinalScreen();
@@ -5196,7 +5214,7 @@ function endGame(params) {
 }
 
 function showResults(params) {
-  const isSinglePlayer = !!(state.isSoloMode || state.gameMode === 'single');
+  const isSinglePlayer = !!(state.isSoloMode || state.gameMode === 'single') && !state.roomCode;
   if (isSinglePlayer) {
     cleanUpMultiplayerListeners();
     renderSinglePlayerFinalScreen();
@@ -5206,7 +5224,7 @@ function showResults(params) {
 }
 
 function finishMatch(params) {
-  const isSinglePlayer = !!(state.isSoloMode || state.gameMode === 'single');
+  const isSinglePlayer = !!(state.isSoloMode || state.gameMode === 'single') && !state.roomCode;
   if (isSinglePlayer) {
     cleanUpMultiplayerListeners();
     renderSinglePlayerFinalScreen();
@@ -5216,12 +5234,20 @@ function finishMatch(params) {
 }
 
 function showSinglePlayerResults() {
+  if (state.roomCode) {
+    renderGameOver();
+    return;
+  }
   triggerVictorySoundOnce();
   cleanUpMultiplayerListeners();
   renderSinglePlayerFinalScreen();
 }
 
 function renderSoloGameOver() {
+  if (state.roomCode) {
+    renderGameOver();
+    return;
+  }
   triggerVictorySoundOnce();
   cleanUpMultiplayerListeners();
   renderSinglePlayerFinalScreen();
@@ -5229,7 +5255,7 @@ function renderSoloGameOver() {
 
 function forceSwitchToSummary() {
   try {
-    if (state.isSoloMode || state.gameMode === 'single') {
+    if ((state.isSoloMode || state.gameMode === 'single') && !state.roomCode) {
       cleanUpMultiplayerListeners();
       renderSinglePlayerFinalScreen();
       return;
@@ -5507,40 +5533,33 @@ function renderFilteredResultsList() {
 
 function renderGameOver({ awards, summary } = {}) {
   triggerVictorySoundOnce();
-  const isSinglePlayer = !!(state.isSoloMode || state.gameMode === 'single');
-  if (isSinglePlayer) {
-    // Disattiva e scollega qualsiasi listener o socket attivo prima
-    cleanUpMultiplayerListeners();
-    // Esegui SOLO la funzione locale per il singolo
-    renderSinglePlayerFinalScreen();
-    return; // INTERROMPI QUI L'ESECUZIONE, non andare avanti
+  state.isSoloMode = false;
+  state.gameMode = 'multiplayer';
+
+  // Assicurati che l'overlay del single player sia tassativamente nascosto
+  const singlePlayerEndScreen = document.getElementById('single-player-end-screen');
+  if (singlePlayerEndScreen) {
+    singlePlayerEndScreen.classList.remove('active');
+    singlePlayerEndScreen.style.setProperty('display', 'none', 'important');
   }
+
   const mainTitleEl = document.querySelector('#screen-summary .summary-main-title');
   if (mainTitleEl) {
-    mainTitleEl.textContent = state.isSoloMode ? "Sessione Completata! 🔥" : "Partita Completata! 🎉";
+    mainTitleEl.textContent = "Partita Completata! 🎉";
   }
 
   const subtitleEl = document.getElementById('summary-subtitle');
   if (subtitleEl) {
-    if (state.isSoloMode) {
-      const cardsPlayed = (summary && Array.isArray(summary)) ? summary.length : (state.soloResponses ? state.soloResponses.length : 0);
-      let profileText = "";
-      if (awards && Array.isArray(awards) && awards.length > 0) {
-        profileText = ` • Profilo: ${awards[0].title.replace(/^[🟢🔴🐌🎯✨⛔💤]\s*/, '')}`;
-      }
-      subtitleEl.textContent = `Carte giocate: ${cardsPlayed}${profileText}`;
-    } else {
-      subtitleEl.textContent = "Classifiche e premi finali del gruppo:";
-    }
+    subtitleEl.textContent = "Classifiche e premi finali del gruppo:";
   }
 
   const sectionTitles = document.querySelectorAll('#screen-summary .awards-section-title');
   if (sectionTitles && sectionTitles.length >= 2) {
-    sectionTitles[0].textContent = state.isSoloMode ? "🏆 Profilo di Personalità:" : "🏆 Premi Speciali:";
-    sectionTitles[1].textContent = state.isSoloMode ? "📊 I Tuoi Verdetti:" : "📊 Tutti i Verdetti:";
+    sectionTitles[0].textContent = "🏆 Premi Speciali:";
+    sectionTitles[1].textContent = "📊 Tutti i Verdetti:";
   }
 
-  // Genera premi
+  // 1. Genera sezione "PREMI SPECIALI"
   if (el.groupAwardsContainer) {
     el.groupAwardsContainer.innerHTML = '';
     const awardsList = Array.isArray(awards) ? awards : [];
@@ -5565,7 +5584,7 @@ function renderGameOver({ awards, summary } = {}) {
     }
   }
 
-  // Genera verdetti completi per scorrimento
+  // 2. Genera sezione "TUTTI I VERDETTI"
   if (el.summaryCardsList) {
     el.summaryCardsList.innerHTML = '';
     const summaryList = Array.isArray(summary) ? summary : [];
@@ -5668,23 +5687,13 @@ function renderGameOver({ awards, summary } = {}) {
     });
   }
 
-  // Controlli Host per riavvio / Single Player
+  // Controlli Host per riavvio / Partecipanti in attesa
   if (el.summaryHostControls && el.summaryPlayerWaiting) {
     const btnSoloMenu = document.getElementById('btn-solo-menu');
     el.summaryHostControls.style.removeProperty('display');
     el.summaryPlayerWaiting.style.removeProperty('display');
 
-    if (state.isSoloMode) {
-      el.summaryHostControls.style.display = 'flex';
-      el.summaryPlayerWaiting.style.display = 'none';
-      const btnRestartSpan = el.btnRestart ? el.btnRestart.querySelector('span') : null;
-      if (btnRestartSpan) {
-        btnRestartSpan.textContent = "RICOMINCIA";
-      }
-      if (btnSoloMenu) {
-        btnSoloMenu.style.display = 'flex';
-      }
-    } else if (state.isHost) {
+    if (state.isHost) {
       el.summaryHostControls.style.display = 'flex';
       el.summaryPlayerWaiting.style.display = 'none';
       const btnRestartSpan = el.btnRestart ? el.btnRestart.querySelector('span') : null;
