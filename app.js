@@ -3465,18 +3465,7 @@ function setupSocketListeners() {
     if (state.roomIsPremium) {
       state.hasSubmittedPremiumCards = false;
       state.localPremiumCards = [];
-      state.currentCroppedImage = null;
-      if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'none';
-      if (el.premiumImagePreview) el.premiumImagePreview.src = '';
-      if (el.lblPremiumImageUpload) el.lblPremiumImageUpload.style.display = 'inline-flex';
-      if (el.premiumCardInput) {
-        el.premiumCardInput.value = '';
-        el.premiumCardInput.disabled = false;
-        el.premiumCardInput.style.display = 'block';
-        el.premiumCardInput.placeholder = 'A cosa stai pensando?';
-        el.premiumCardInput.style.paddingLeft = '42px';
-      }
-      if (el.premiumImageUpload) el.premiumImageUpload.value = '';
+      resetPremiumCardInputState();
       renderCapsules();
     }
 
@@ -3503,7 +3492,7 @@ function setupSocketListeners() {
     state.currentCardIndex = 0;
     state.userHasVoted = false;
     state.localPremiumCards = [];
-    state.currentCroppedImage = null;
+    resetPremiumCardInputState();
     state.hasSubmittedPremiumCards = false;
 
     if (!state.roomIsPremium) {
@@ -3542,24 +3531,13 @@ function setupSocketListeners() {
     state.players = players;
     state.hasSubmittedPremiumCards = false;
     state.localPremiumCards = [];
-    state.currentCroppedImage = null;
 
     // Wipe della chat real-time o commenti
     const chatContainer = document.getElementById('chat-messages');
     if (chatContainer) chatContainer.innerHTML = '';
 
     // Ripristina input mazzo
-    if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'none';
-    if (el.premiumImagePreview) el.premiumImagePreview.src = '';
-    if (el.lblPremiumImageUpload) el.lblPremiumImageUpload.style.display = 'inline-flex';
-    if (el.premiumCardInput) {
-      el.premiumCardInput.value = '';
-      el.premiumCardInput.disabled = false;
-      el.premiumCardInput.style.display = 'block';
-      el.premiumCardInput.placeholder = 'A cosa stai pensando?';
-      el.premiumCardInput.style.paddingLeft = '42px';
-    }
-    if (el.premiumImageUpload) el.premiumImageUpload.value = '';
+    resetPremiumCardInputState();
     renderCapsules();
 
     // Reset overlay round precedente
@@ -3898,6 +3876,11 @@ function setupLobbyUI() {
       }
     } else {
       if (el.lobbyPremiumCreator) el.lobbyPremiumCreator.style.display = 'flex';
+      if (!state.currentCroppedImage) {
+        if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'none';
+        if (el.premiumCardInput) el.premiumCardInput.style.display = 'block';
+        if (el.btnTriggerPremiumPhoto) el.btnTriggerPremiumPhoto.style.display = 'inline-flex';
+      }
       if (el.lobbyPremiumWaiting) el.lobbyPremiumWaiting.style.display = 'none';
       if (!state.isHost && el.lobbyPlayerWaiting) {
         el.lobbyPlayerWaiting.style.display = 'none';
@@ -4359,15 +4342,7 @@ function resetToMenu() {
   if (el.joinNameInput) el.joinNameInput.value = '';
   
   // Reset Premium Image cache
-  state.currentCroppedImage = null;
-  if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'none';
-  if (el.premiumImagePreview) el.premiumImagePreview.src = '';
-  if (el.premiumCardInput) {
-    el.premiumCardInput.style.paddingLeft = '42px';
-    el.premiumCardInput.disabled = false;
-    el.premiumCardInput.placeholder = 'A cosa stai pensando?';
-  }
-  if (el.premiumImageUpload) el.premiumImageUpload.value = '';
+  resetPremiumCardInputState();
   
   resetFromJoinLink();
 
@@ -6483,6 +6458,41 @@ function closeCardDrawer() {
   try { AudioSynth.playConfirm(false); } catch (e) {}
 }
 
+// Ripristina e pulisce l'input delle carte e l'icona di caricamento media in Judgement Day
+function resetPremiumCardInputState() {
+  state.currentCroppedImage = null;
+  state.currentUploadedFilename = '';
+  if (el.premiumImagePreviewContainer) {
+    el.premiumImagePreviewContainer.style.display = 'none';
+  }
+  if (el.premiumImagePreview) {
+    el.premiumImagePreview.src = '';
+  }
+  if (el.premiumCardInput) {
+    el.premiumCardInput.value = '';
+    el.premiumCardInput.disabled = false;
+    el.premiumCardInput.style.display = 'block';
+    el.premiumCardInput.placeholder = 'A cosa stai pensando?';
+    el.premiumCardInput.style.paddingLeft = '42px';
+    el.premiumCardInput.style.paddingRight = '42px';
+  }
+  if (el.btnTriggerPremiumPhoto) {
+    el.btnTriggerPremiumPhoto.style.display = 'inline-flex';
+  }
+  if (el.lblPremiumImageUpload) {
+    el.lblPremiumImageUpload.style.display = 'inline-flex';
+  }
+  if (el.premiumPhotoPopover) {
+    el.premiumPhotoPopover.style.display = 'none';
+  }
+  if (el.premiumImageUpload) {
+    el.premiumImageUpload.value = '';
+  }
+  if (el.inputPremiumCamera) {
+    el.inputPremiumCamera.value = '';
+  }
+}
+
 // Eventi e logica per l'editor delle carte Premium personalizzate
 function renderCapsules() {
   el.premiumCardsList.innerHTML = '';
@@ -6618,9 +6628,8 @@ function renderCapsules() {
 
 function setupPremiumCreatorEvents() {
   state.localPremiumCards = [];
-  state.currentCroppedImage = null;
   state.editingPremiumCardIndex = null;
-  state.currentUploadedFilename = '';
+  resetPremiumCardInputState();
 
   // Gestione interazione ed eventi per il Drawer laterale delle opzioni carta
   const drawer = el.cardActionsDrawer || document.getElementById('card-actions-drawer');
@@ -6727,23 +6736,11 @@ function setupPremiumCreatorEvents() {
       socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
     }
 
+    // Reset completo dell'input e ripristino icona caricamento immagine
+    resetPremiumCardInputState();
     if (el.premiumCardInput) {
-      el.premiumCardInput.value = '';
-      el.premiumCardInput.style.display = 'block';
-      el.premiumCardInput.disabled = false;
-      el.premiumCardInput.placeholder = 'A cosa stai pensando?';
       el.premiumCardInput.focus();
     }
-
-    if (el.lblPremiumImageUpload) {
-      el.lblPremiumImageUpload.style.display = 'inline-flex';
-    }
-    
-    // Reset image preview state
-    state.currentCroppedImage = null;
-    state.currentUploadedFilename = '';
-    if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'none';
-    if (el.premiumImagePreview) el.premiumImagePreview.src = '';
     
     AudioSynth.playConfirm(true);
   };
@@ -6793,16 +6790,22 @@ function setupPremiumCreatorEvents() {
     reader.readAsDataURL(file);
   };
 
-  // Image upload and Cropper events
+  // Image upload and Cropper events con reset immediato dell'input value per abilitare ricaricamento
   if (el.premiumImageUpload) {
     el.premiumImageUpload.addEventListener('change', (e) => {
-      handleCardFile(e.target.files[0]);
+      if (e.target.files && e.target.files[0]) {
+        handleCardFile(e.target.files[0]);
+      }
+      e.target.value = '';
     });
   }
 
   if (el.inputPremiumCamera) {
     el.inputPremiumCamera.addEventListener('change', (e) => {
-      handleCardFile(e.target.files[0]);
+      if (e.target.files && e.target.files[0]) {
+        handleCardFile(e.target.files[0]);
+      }
+      e.target.value = '';
     });
   }
 
@@ -6897,8 +6900,8 @@ function setupPremiumCreatorEvents() {
               } else {
                 // Caricamento nuova immagine (Sola foto, no didascalia)
                 state.currentCroppedImage = uploadUrl;
-                el.premiumImagePreview.src = uploadUrl;
-                el.premiumImagePreviewContainer.style.display = 'flex';
+                if (el.premiumImagePreview) el.premiumImagePreview.src = uploadUrl;
+                if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'flex';
                 if (el.premiumCardInput) {
                   el.premiumCardInput.value = '';
                   el.premiumCardInput.style.display = 'none';
@@ -6908,6 +6911,9 @@ function setupPremiumCreatorEvents() {
                 }
                 if (el.btnTriggerPremiumPhoto) {
                   el.btnTriggerPremiumPhoto.style.display = 'none';
+                }
+                if (el.premiumPhotoPopover) {
+                  el.premiumPhotoPopover.style.display = 'none';
                 }
               }
             }
@@ -7018,22 +7024,9 @@ async function uploadImage(dataUrl, filename) {
   if (el.btnClearImage) {
     el.btnClearImage.addEventListener('click', (e) => {
       e.stopPropagation();
-      state.currentCroppedImage = null;
-      state.currentUploadedFilename = '';
-      if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'none';
-      if (el.premiumImagePreview) el.premiumImagePreview.src = '';
+      resetPremiumCardInputState();
       if (el.premiumCardInput) {
-        el.premiumCardInput.style.display = 'block';
-        el.premiumCardInput.value = '';
-        el.premiumCardInput.disabled = false;
-        el.premiumCardInput.placeholder = 'A cosa stai pensando?';
         el.premiumCardInput.focus();
-      }
-      if (el.lblPremiumImageUpload) {
-        el.lblPremiumImageUpload.style.display = 'inline-flex';
-      }
-      if (el.btnTriggerPremiumPhoto) {
-        el.btnTriggerPremiumPhoto.style.display = 'inline-flex';
       }
     });
   }
