@@ -816,7 +816,18 @@ input[type="submit"] {
   font-size: 0.95rem;
 }
 
+.lobby-premium-creator {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.lobby-premium-waiting {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
 .lobby-host-controls {
+  margin-top: 16px;
   padding: 16px;
   display: flex;
   flex-direction: column;

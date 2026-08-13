@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=13700">
+  <link rel="stylesheet" href="/style.css?v=13800">
 </head>
 
 <body>
@@ -408,10 +408,10 @@
 
         <!-- Sezione Creazione Carte Premium (Visibile solo se stanza premium e utente non ha inviato le sue carte) -->
         <div id="lobby-premium-creator" class="lobby-premium-creator glass-panel"
-          style="display: none; margin-top: 15px; padding: 18px; flex-direction: column;">
+          style="display: none; margin-top: 16px; margin-bottom: 16px; padding: 18px; flex-direction: column;">
           <h3
             style="font-family: var(--font-title); font-weight: 800; font-size: 0.95rem; color: #df33ff; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
-            <span>👑 Crea le tue carte</span>
+            <span>Crea le tue carte</span>
             <button id="btn-input-help" class="btn-info-cyan" type="button" title="Guida inserimento">i</button>
           </h3>
 
@@ -482,7 +482,7 @@
 
         <!-- Sezione Attesa Premium (Giocatore ha già inviato le carte ma altri stanno scrivendo) -->
         <div id="lobby-premium-waiting" class="lobby-premium-waiting glass-panel"
-          style="display: none; margin-top: 15px; padding: 20px; text-align: center; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+          style="display: none; margin-top: 16px; margin-bottom: 16px; padding: 20px; text-align: center; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
           <div class="loader-spinner"></div>
           <p class="waiting-text" style="font-size: 0.8rem; color: var(--color-text-secondary); margin-bottom: 2px;">
             Carte inviate con successo!</p>
@@ -491,7 +491,7 @@
         </div>
 
         <!-- Sezione Host (Avvio partita con scelta durata) -->
-        <div id="lobby-host-controls" class="lobby-host-controls glass-panel" style="display: none;">
+        <div id="lobby-host-controls" class="lobby-host-controls glass-panel" style="display: none; margin-top: 16px;">
           <label class="input-label" style="text-align: center; display: block; width: 100%;">ROUND</label>
           <div id="rounds-selector-grid" class="rounds-selector-grid">
             <button class="btn-round-select active" data-length="30">30 Carte</button>
@@ -1569,7 +1569,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=13700"></script>
+  <script src="/app.js?v=13800"></script>
 </body>
 
 </html>
