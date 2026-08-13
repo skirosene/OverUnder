@@ -834,28 +834,35 @@ input[type="submit"] {
   gap: 10px;
 }
 
-/* Spinner caricamento fluido & continuo */
+/* Spinner caricamento fluido & continuo - Design Unificato Ufficiale Single-Color Cyan */
 .loader-spinner {
-  width: 28px;
-  height: 28px;
-  border: 3.5px solid rgba(0, 240, 255, 0.2);
-  border-top-color: var(--color-underrated, #00f0ff);
-  border-right-color: rgba(189, 51, 255, 0.75);
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  -webkit-animation: spin 0.85s linear infinite !important;
-  animation: spin 0.85s linear infinite !important;
+  background: conic-gradient(from 0deg, transparent 0%, rgba(0, 240, 255, 0.05) 15%, rgba(0, 240, 255, 0.4) 60%, rgba(0, 240, 255, 0.9) 90%, var(--color-underrated, #00f0ff) 100%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
+  -webkit-animation: spin 0.75s linear infinite !important;
+  animation: spin 0.75s linear infinite !important;
   margin: 0 auto 10px auto;
   will-change: transform;
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
-  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.5));
+  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.55));
+  box-sizing: border-box;
 }
 
 .spinner-white {
-  border-color: rgba(255, 255, 255, 0.2);
-  border-top-color: #ffffff;
-  border-right-color: rgba(255, 255, 255, 0.7);
+  background: conic-gradient(from 0deg, transparent 0%, rgba(255, 255, 255, 0.05) 15%, rgba(255, 255, 255, 0.4) 60%, rgba(255, 255, 255, 0.9) 90%, #ffffff 100%);
   filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.4));
+}
+
+@supports not (mask: radial-gradient(farthest-side, transparent 0%, #000 100%)) {
+  .loader-spinner {
+    background: transparent;
+    border: 3.5px solid rgba(0, 240, 255, 0.2);
+    border-top-color: var(--color-underrated, #00f0ff);
+  }
 }
 
 @keyframes spin {
@@ -2185,9 +2192,8 @@ input[type="submit"] {
 }
 
 .results-player-waiting .loader-spinner {
-  width: 32px;
-  height: 32px;
-  border-width: 3.5px;
+  width: 34px;
+  height: 34px;
   margin-bottom: 12px;
 }
 
@@ -3830,11 +3836,11 @@ input[type="submit"] {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0%, rgba(189, 51, 255, 0.4) 35%, rgba(0, 240, 255, 0.95) 85%, #00f0ff 100%);
+  background: conic-gradient(from 0deg, transparent 0%, rgba(0, 240, 255, 0.05) 15%, rgba(0, 240, 255, 0.4) 60%, rgba(0, 240, 255, 0.9) 90%, var(--color-underrated, #00f0ff) 100%);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
-  animation: spin-splash 0.6s linear infinite;
-  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.5));
+  animation: spin 0.75s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.55));
 }
 
 .splash-loading-text {
@@ -4332,12 +4338,9 @@ input[type="submit"] {
 
 /* Spinner premium per caricamento intermedio */
 .loader-spinner.premium-glow {
-  width: 52px;
-  height: 52px;
-  border-width: 4px;
-  border-color: rgba(6, 182, 212, 0.15);
-  border-top-color: var(--color-underrated); /* Cyan */
-  box-shadow: 0 0 20px rgba(6, 182, 212, 0.35);
+  width: 48px;
+  height: 48px;
+  filter: drop-shadow(0 0 14px rgba(0, 240, 255, 0.75));
 }
 
 .loading-spinner-container {
