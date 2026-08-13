@@ -3402,6 +3402,43 @@ function setupSocketListeners() {
     }
   });
 
+  // 4a-bis. Alias room_players_update (doppio canale server per sicurezza anti-desync)
+  socket.on('room_players_update', ({ players }) => {
+    if (!Array.isArray(players)) return;
+    sanitizeClientHostUnicity(players);
+    state.players = players;
+
+    const me = players.find(p => p.id === socket.id || (state.playerName && p.name.toLowerCase() === state.playerName.toLowerCase()));
+    if (me) {
+      state.isHost = !!me.isHost;
+      safeSessionStorage.setItem('overunder_isHost', state.isHost ? 'true' : 'false');
+      // Se il server ha confermato il nostro premiumReady, aggiorna lo stato locale
+      if (me.premiumReady && !state.hasSubmittedPremiumCards) {
+        state.hasSubmittedPremiumCards = true;
+        console.log('[ROOM_PLAYERS_UPDATE] premiumReady confermato dal server per il giocatore locale.');
+      }
+    }
+
+    renderLobbyPlayers();
+    renderGameplayAvatars();
+    if (state.isPlayerListOpen) {
+      renderPlayerListModalContent();
+    }
+  });
+
+  // 4a-ter. ACK esplicito ricezione carte dal server (Judgement Day)
+  socket.on('cards_received_success', ({ cardsCount, premiumReady, playerName }) => {
+    console.log(`[CARDS ACK] Server ha confermato ricezione carte. Totale mazzo: ${cardsCount}, premiumReady: ${premiumReady}, player: ${playerName}`);
+    state.hasSubmittedPremiumCards = true;
+    // Cancella eventuale timeout di sicurezza
+    if (state._premiumCardsAckTimeout) {
+      clearTimeout(state._premiumCardsAckTimeout);
+      state._premiumCardsAckTimeout = null;
+    }
+    showToast(`✅ ${cardsCount} carte ricevute dal server!`, 2000);
+    renderLobbyPlayers();
+  });
+
   // 4a. Sincronizzazione Rigorosa dello Stato Stanza (Validazione Server-Client)
   socket.on('room_state_update', ({ roomCode, state: roomState, players, hostId, hostName, isLocked, isPremium }) => {
     if (!Array.isArray(players)) return;
@@ -3468,22 +3505,27 @@ function setupSocketListeners() {
     showScreen(el.screenGameplay);
   });
 
-  // 6. Nuova Carta Inviata dal Server
-  socket.on('new_card', ({ prompt, image, description, cardIndex, totalCards, roundId, timerDurationMs }) => {
+  // 6. Nuova Carta Inviata dal Server (con validazione anti-corruzione e buffer Base64)
+  socket.on('new_card', ({ prompt, text, image, ownerId, description, cardIndex, totalCards, roundId, timerDurationMs }) => {
     clearWatchdog();
 
     state.isSoloMode = false;
     state.gameMode = 'multiplayer';
 
-    // 4. GUARD CHECK SU UNDEFINED (Stanza Standard)
-    if (!prompt && !image && cardIndex === undefined) {
-      console.warn("[GUARD CHECK UNDEFINED] Carta ricevuta undefined in multiplayer Stanza Standard.");
+    const safePrompt = prompt || text || '';
+    const safeImage = isValidImageString(image) ? image : null;
+
+    // GUARD CHECK SU UNDEFINED
+    if (!safePrompt && !safeImage && cardIndex === undefined) {
+      console.warn("[GUARD CHECK UNDEFINED] Carta ricevuta undefined in multiplayer. Avvio richiesta recupero al server.");
+      requestCardRecoveryFromServer();
       return;
     }
 
-    state.currentPromptText = prompt;
+    state.currentPromptText = safePrompt;
     state.currentCardDescription = description || null;
     state.currentCardIndex = cardIndex;
+    state.currentCardOwnerId = ownerId || null;
     state.userHasVoted = false;
     state.roundEndActive = false;
     state.currentRoundId = roundId || 0;
@@ -3504,7 +3546,7 @@ function setupSocketListeners() {
     
     // Reset interfaccia gameplay
     if (el.currentDeckName) el.currentDeckName.textContent = state.currentDeckName;
-    updateGameplayCardMedia(prompt, image);
+    updateGameplayCardMedia(safePrompt, image);
     const totalDisplay = (totalCards == 9999 || totalCards === '∞') ? '∞' : totalCards;
     if (el.deckProgress) el.deckProgress.textContent = `Carta ${cardIndex + 1} / ${totalDisplay}`;
     
@@ -3534,6 +3576,17 @@ function setupSocketListeners() {
       cancelAnimationFrame(state.timerRequestId);
     }
     state.timerRequestId = requestAnimationFrame(gameLoop);
+  });
+
+  // 6b. Ripristino carta da Server (Fallback Recovery trasparente)
+  socket.on('current_card_recovery', ({ prompt, text, image, ownerId, description, cardIndex, totalCards, timerDurationMs }) => {
+    console.log('[CARD RECOVERY RECV] Ricevuti dati carta dal server:', { prompt, hasImage: !!image, cardIndex });
+    if (cardIndex !== state.currentCardIndex) return; // non nello stesso round
+    const promptToUse = prompt || text || '';
+    state.currentPromptText = promptToUse;
+    if (description) state.currentCardDescription = description;
+    if (ownerId) state.currentCardOwnerId = ownerId;
+    updateGameplayCardMedia(promptToUse, image);
   });
 
   // 7. Notifica Voto di un altro utente
@@ -3813,16 +3866,49 @@ function preloadDeckImages(imageUrls) {
 }
 
 /**
+ * Validatore di sicurezza per stringhe immagine (URL HTTP/HTTPS, endpoint /uploads/, Blob o Base64).
+ */
+function isValidImageString(str) {
+  if (!str || typeof str !== 'string') return false;
+  const trimmed = str.trim();
+  if (trimmed.length < 5) return false;
+  if (trimmed.startsWith('data:image/')) {
+    return trimmed.includes(';base64,') && trimmed.split(';base64,')[1].length > 10;
+  }
+  if (trimmed.startsWith('/uploads/') || trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('blob:')) {
+    return true;
+  }
+  return false;
+}
+
+let _cardRecoveryRequestedForRound = -1;
+
+/**
+ * Meccanismo di recupero carta dal server (Richiesta una tantum per round in caso di errore)
+ */
+function requestCardRecoveryFromServer() {
+  if (!socket || !socket.connected || state.isSoloMode) return;
+  const roundKey = state.currentCardIndex !== undefined ? state.currentCardIndex : -1;
+  if (_cardRecoveryRequestedForRound === roundKey) return;
+  _cardRecoveryRequestedForRound = roundKey;
+  console.log(`[CARD RECOVERY] Richiesta ri-sincronizzazione carta al server (indice: ${roundKey})`);
+  socket.emit('request_current_card');
+}
+
+/**
  * Gestione dinamica dei media delle carte (Premium & Standard).
  * Se la carta contiene SOLO l'immagine (senza didascalia), la rende visibile DIRETTAMENTE
  * in formato grande ed espanso sul campo di gioco senza richiedere tap o modali di ingrandimento.
+ * Se il caricamento fallisce o l'immagine è corrotta, applica un fallback testuale pulito anti-nero.
  */
 function updateGameplayCardMedia(prompt, image) {
-  // 4. GUARD CHECK SU UNDEFINED
+  // GUARD CHECK SU UNDEFINED
   if (prompt === undefined && image === undefined) {
     console.warn("[GUARD CHECK UNDEFINED] Carta undefined in updateGameplayCardMedia.");
     if (state.isSoloMode && !state.roomCode) {
       showSinglePlayerResults();
+    } else {
+      requestCardRecoveryFromServer();
     }
     return;
   }
@@ -3838,17 +3924,57 @@ function updateGameplayCardMedia(prompt, image) {
   if (!el.gameplayPromptImageContainer || !el.gameplayPromptImage) return;
 
   const promptCard = el.promptCard || document.getElementById('prompt-card');
-  const hasImage = !!(image && typeof image === 'string' && image.length > 5);
+  const validImage = isValidImageString(image) ? image.trim() : null;
+  const hasImage = !!validImage;
   const cleanPrompt = (prompt && typeof prompt === 'string') ? prompt.trim() : '';
   const isGenericPrompt = !cleanPrompt || 
                           cleanPrompt === 'Carta Immagine' || 
                           cleanPrompt.startsWith('Immagine (') || 
                           cleanPrompt === 'immagine caricata' ||
                           cleanPrompt.startsWith('image_');
-  const hasText = !isGenericPrompt;
+  const hasText = !isGenericPrompt && cleanPrompt.length > 0;
+
+  // Fallback testuale pulito per azzerare totalmente il rischio di riquadri neri
+  const applyTextFallback = () => {
+    if (promptCard) {
+      promptCard.classList.remove('is-full-image');
+      promptCard.style.padding = '';
+    }
+    if (el.currentDeckName) {
+      el.currentDeckName.style.display = '';
+    }
+    if (el.gameplayPromptImageContainer) {
+      el.gameplayPromptImageContainer.style.position = 'relative';
+      el.gameplayPromptImageContainer.style.inset = 'auto';
+      el.gameplayPromptImageContainer.style.display = 'none';
+    }
+    if (el.gameplayPromptImage) {
+      el.gameplayPromptImage.src = '';
+    }
+    if (el.currentPromptText) {
+      el.currentPromptText.style.display = 'block';
+      const fallbackLabel = (cleanPrompt && !isGenericPrompt)
+        ? cleanPrompt
+        : `Carta Judgement Day #${(state.currentCardIndex !== undefined ? state.currentCardIndex + 1 : (state.soloCardIndex !== undefined ? state.soloCardIndex + 1 : 1))}`;
+      el.currentPromptText.textContent = fallbackLabel;
+    }
+  };
 
   if (hasImage) {
-    el.gameplayPromptImage.src = image;
+    // Configura gestori onload ed onerror prima di impostare la sorgente
+    el.gameplayPromptImage.onerror = () => {
+      console.warn(`[IMAGE LOAD FAIL] Impossibile caricare immagine carta, attivo fallback testuale pulito:`, validImage ? validImage.substring(0, 50) : '');
+      applyTextFallback();
+      requestCardRecoveryFromServer();
+    };
+
+    el.gameplayPromptImage.onload = () => {
+      if (el.gameplayPromptImageContainer) {
+        el.gameplayPromptImageContainer.style.display = 'block';
+      }
+    };
+
+    el.gameplayPromptImage.src = validImage;
     el.gameplayPromptImageContainer.style.display = 'block';
 
     if (!hasText) {
@@ -3882,7 +4008,7 @@ function updateGameplayCardMedia(prompt, image) {
         el.currentPromptText.textContent = '';
       }
     } else {
-      // IMMAGINE + DIDASCALIA CUSTOM (supporto legacy/ibrido)
+      // IMMAGINE + DIDASCALIA CUSTOM (supporto ibrido)
       if (promptCard) {
         promptCard.classList.remove('is-full-image');
         promptCard.style.padding = '';
@@ -3908,21 +4034,7 @@ function updateGameplayCardMedia(prompt, image) {
     }
   } else {
     // SOLO TESTO
-    if (promptCard) {
-      promptCard.classList.remove('is-full-image');
-      promptCard.style.padding = '';
-    }
-    if (el.currentDeckName) {
-      el.currentDeckName.style.display = '';
-    }
-    el.gameplayPromptImageContainer.style.position = 'relative';
-    el.gameplayPromptImageContainer.style.inset = 'auto';
-    el.gameplayPromptImageContainer.style.display = 'none';
-    el.gameplayPromptImage.src = '';
-    if (el.currentPromptText) {
-      el.currentPromptText.style.display = 'block';
-      el.currentPromptText.textContent = cleanPrompt;
-    }
+    applyTextFallback();
   }
 
   // Gestione visibilità Tasto Info (i): ESCLUSO in Judgement Day (Gogna), VISIBILE in Solo e Stanza Standard
@@ -5733,8 +5845,8 @@ function renderGameOver({ awards, summary } = {}) {
         `;
       });
 
-      const hasImage = res.image ? true : false;
-      const rawPrompt = (res.prompt || '').trim();
+      const hasImage = isValidImageString(res.image);
+      const rawPrompt = (res.prompt || res.text || '').trim();
 
       // Riconoscimento rigoroso di file tecnici / id / placeholder per non mostrarli MAI nei verdetti
       const isTechnicalName = !rawPrompt || 
@@ -5754,7 +5866,7 @@ function renderGameOver({ awards, summary } = {}) {
         headerLayout = `
           <div style="display: flex; justify-content: center; width: 100%; margin-bottom: 8px;">
             <div class="summary-card-img-container" style="width: 72px; height: 72px; border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.18); cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,0.4); flex-shrink: 0;">
-              <img class="summary-card-image" src="${res.image}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+              <img class="summary-card-image" src="${res.image}" onerror="this.onerror=null; this.parentElement.style.display='none';" style="width: 100%; height: 100%; object-fit: cover; display: block;">
             </div>
           </div>
         `;
@@ -5763,15 +5875,20 @@ function renderGameOver({ awards, summary } = {}) {
         headerLayout = `
           <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
             <div class="summary-card-img-container" style="width: 56px; height: 56px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.18); flex-shrink: 0; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-              <img class="summary-card-image" src="${res.image}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+              <img class="summary-card-image" src="${res.image}" onerror="this.onerror=null; this.parentElement.style.display='none';" style="width: 100%; height: 100%; object-fit: cover; display: block;">
             </div>
             <div class="summary-item-prompt clickable-toggle-text" style="margin-bottom: 0; flex: 1; text-align: left; cursor: pointer; font-weight: 700; font-size: 0.95rem; color: #FFFFFF;">${rawPrompt}</div>
           </div>
         `;
-      } else if (!hasImage && !isTechnicalName && rawPrompt) {
+      } else if (!hasImage && rawPrompt) {
         // Solo testo prompt pulito
         headerLayout = `
           <div class="summary-item-prompt clickable-toggle-text" style="margin-bottom: 6px; text-align: left; cursor: pointer; font-weight: 700; font-size: 0.95rem; color: #FFFFFF;">${rawPrompt}</div>
+        `;
+      } else {
+        // Fallback di sicurezza
+        headerLayout = `
+          <div class="summary-item-prompt clickable-toggle-text" style="margin-bottom: 6px; text-align: left; cursor: pointer; font-weight: 700; font-size: 0.95rem; color: #FFFFFF;">Carta #${idx + 1}</div>
         `;
       }
 
@@ -6630,10 +6747,10 @@ function renderCapsules() {
   state.localPremiumCards.forEach((cardObj, index) => {
     const capsule = document.createElement('div');
     
-    const hasImage = cardObj.image ? true : false;
-    const imgHtml = hasImage ? `<img src="${cardObj.image}" style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover; margin-right: 8px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15);">` : '';
+    const hasImage = isValidImageString(cardObj.image);
+    const imgHtml = hasImage ? `<img src="${cardObj.image}" onerror="this.style.display='none'" style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover; margin-right: 8px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15);">` : '';
     const genericName = `Immagine (${index + 1})`;
-    const textToDisplay = cardObj.image ? (cardObj.text || genericName) : cardObj.text;
+    const textToDisplay = (hasImage && !cardObj.text) ? genericName : (cardObj.text || genericName);
 
     if (state.editingPremiumCardIndex === index) {
       capsule.className = 'premium-card-capsule inline-editing';
@@ -6895,7 +7012,17 @@ function setupPremiumCreatorEvents() {
       AudioSynth.playConfirm(true);
       socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
       
-      state.hasSubmittedPremiumCards = true;
+      // NON impostare hasSubmittedPremiumCards qui — aspetta l'ACK dal server (cards_received_success)
+      // Safety net: se il server non risponde entro 3 secondi, imposta comunque lo stato
+      if (state._premiumCardsAckTimeout) clearTimeout(state._premiumCardsAckTimeout);
+      state._premiumCardsAckTimeout = setTimeout(() => {
+        if (!state.hasSubmittedPremiumCards) {
+          console.warn('[CARDS TIMEOUT] Server non ha risposto con ACK entro 3s. Impostazione hasSubmittedPremiumCards forzata.');
+          state.hasSubmittedPremiumCards = true;
+          setupLobbyUI();
+        }
+      }, 3000);
+
       setupLobbyUI();
     });
   }

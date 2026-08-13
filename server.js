@@ -282,9 +282,25 @@ function saveGameHistoryRecord(record) {
 
 const app = express();
 app.use(cors());
-app.use(express.json()); // support json encoded bodies
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const server = http.createServer(app);
 const io = socketIo(server, {
+  maxHttpBufferSize: 1e8, // 100MB per evitare troncamento WebSocket con immagini Base64/payload grandi
+  httpCompression: true,
+  perMessageDeflate: {
+    threshold: 1024,
+    zlibDeflateOptions: {
+      chunkSize: 16 * 1024,
+      memLevel: 7,
+      level: 6
+    },
+    zlibInflateOptions: {
+      chunkSize: 16 * 1024
+    },
+    clientNoContextTakeover: true,
+    serverNoContextTakeover: true
+  },
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
@@ -1565,36 +1581,86 @@ io.on('connection', (socket) => {
     console.log(`[ROOM] Stanza ${currentRoomCode} ${room.isLocked ? 'BLOCCATA' : 'SBLOCCATA'} dall'Host (${socket.id})`);
   });
 
-  // Evento 3: Avvio della Partita (Solo Host)
+  // Evento 3: Avvio della Partita (Solo Host) — CON BLINDATURA HOST E LOGGING
   socket.on('start_game', ({ gameLength }) => {
     const room = rooms[currentRoomCode];
     if (!room || room.hostId !== socket.id) return;
+
+    console.log(`[START GAME] Host "${room.hostName}" (${socket.id}) avvia partita per stanza ${currentRoomCode}. Stato pre-purga:`, room.players.map(p => ({ name: p.name, connected: p.connected, isOnline: p.isOnline, premiumReady: p.premiumReady, isHost: p.isHost })));
+
+    // BLINDATURA HOST: forza lo stato dell'Host come connesso PRIMA della purga
+    const hostPlayer = room.players.find(p => p.id === socket.id || p.isHost);
+    if (hostPlayer) {
+      hostPlayer.connected = true;
+      hostPlayer.isOnline = true;
+      hostPlayer.id = socket.id; // Rebind socket ID attuale
+      console.log(`[START GAME] Host "${hostPlayer.name}" forzato come connesso/online prima della purga.`);
+    }
+
+    // FORCE-MARK PREMIUM READY: se ci sono carte nel mazzo, marca come pronti i giocatori connessi che non lo sono
+    if (room.isPremium && room.customCards.length > 0) {
+      room.players.forEach(p => {
+        if (!p.premiumReady && (p.connected !== false && p.isOnline !== false)) {
+          console.log(`[START GAME FORCE READY] Giocatore "${p.name}" forzato premiumReady=true (carte presenti nel mazzo: ${room.customCards.length})`);
+          p.premiumReady = true;
+        }
+      });
+    }
 
     // Purga automatica dei partecipanti disconnessi/offline prima dell'avvio partita
     const previousCount = room.players.length;
     room.players = room.players.filter(p => p.isBot || (p.connected !== false && p.isOnline !== false));
     
+    // SAFETY: verifica che l'Host non sia stato rimosso dalla purga
+    if (!room.players.find(p => p.id === socket.id)) {
+      console.warn(`[START GAME SAFETY] Host "${room.hostName}" rimosso dalla purga! Re-inserimento forzato.`);
+      if (hostPlayer) {
+        hostPlayer.connected = true;
+        hostPlayer.isOnline = true;
+        room.players.unshift(hostPlayer);
+      }
+    }
+
     if (room.players.length < previousCount) {
       console.log(`[START GAME] Rimosso/i ${previousCount - room.players.length} partecipante/i offline dalla stanza ${room.roomCode} prima dell'avvio.`);
       io.to(room.roomCode).emit('player_list_update', { players: room.players });
       io.to(room.roomCode).emit('global_toast', { message: "Partecipanti offline rimossi prima dell'avvio." });
     }
 
+    console.log(`[START GAME] Stato post-purga:`, room.players.map(p => ({ name: p.name, connected: p.connected, isOnline: p.isOnline, premiumReady: p.premiumReady, isHost: p.isHost })));
+
     if (!room.players || room.players.length < 2) {
+      console.warn(`[START GAME FAIL] Meno di 2 giocatori attivi nella stanza ${currentRoomCode}. Avvio rifiutato.`);
       socket.emit('room_error', "Servono almeno 2 giocatori attivi in stanza per avviare la partita!");
       return;
     }
 
     if (room.isPremium) {
-      // Costruisci il mazzo personalizzato con le carte inviate dai partecipanti
+      // Costruisci il mazzo personalizzato con le carte inviate dai partecipanti preservando text, image, ownerId
       let customCards = (room.customCards || []).map((cardObj, index) => {
         const und = Math.floor(Math.random() * 41) + 30; // Percentuale casuale realistica 30-70%
-        const promptText = typeof cardObj === 'string' ? cardObj : (cardObj.text || '');
-        const image = typeof cardObj === 'string' ? null : (cardObj.image || null);
+        let promptText = typeof cardObj === 'string' ? cardObj : (cardObj.text || cardObj.prompt || '');
+        let image = (typeof cardObj === 'object' && cardObj !== null) ? (cardObj.image || null) : null;
+        if (image && typeof image === 'string') {
+          image = image.trim();
+          if (image.length < 5) image = null;
+        } else {
+          image = null;
+        }
+        if (!promptText && image) {
+          promptText = `Immagine (${index + 1})`;
+        } else if (!promptText && !image) {
+          promptText = `Carta Judgement Day #${index + 1}`;
+        }
+        const ownerId = (typeof cardObj === 'object' && cardObj !== null) ? (cardObj.ownerId || null) : null;
+        const description = (typeof cardObj === 'object' && cardObj !== null) ? (cardObj.description || null) : null;
         return {
           card_id: `custom_${index}_${Date.now()}`,
           prompt: promptText,
+          text: promptText,
           image: image,
+          ownerId: ownerId,
+          description: description,
           global_stats: {
             underrated: und,
             overrated: 100 - und
@@ -1605,7 +1671,11 @@ io.on('connection', (socket) => {
       // Se non ci sono carte custom, usa un fallback dal mazzo predefinito per evitare crash
       if (customCards.length === 0 && DECK_DATA && DECK_DATA.decks && DECK_DATA.decks[0]) {
         console.warn(`[ROOM ${currentRoomCode}] Avvio premium senza carte custom. Uso fallback dal mazzo base.`);
-        customCards = DECK_DATA.decks[0].cards.slice(0, 10);
+        customCards = DECK_DATA.decks[0].cards.slice(0, 10).map((c, i) => ({
+          ...c,
+          text: c.prompt || c.text || `Carta ${i + 1}`,
+          ownerId: null
+        }));
       }
 
       // Mescola le carte personalizzate
@@ -1724,7 +1794,7 @@ io.on('connection', (socket) => {
               const pStr = botPrompts[Math.floor(Math.random() * botPrompts.length)];
               const exists = r.customCards.some(c => (typeof c === 'string' && c === pStr) || (c && c.text === pStr));
               if (!exists) {
-                r.customCards.push({ text: pStr, image: null });
+                r.customCards.push({ text: pStr, prompt: pStr, image: null, ownerId: botId });
               }
             }
 
@@ -1740,49 +1810,111 @@ io.on('connection', (socket) => {
     console.log(`Bot aggiunti alla stanza ${currentRoomCode}`);
   });
 
-  // Evento 4c: Invio delle carte custom Premium (Gogna)
+  // Evento 4c: Invio delle carte custom Premium (Gogna) — CON ACK ESPLICITO, BUFFER BASE64 & TRACKING OWNER
   socket.on('submit_premium_cards', ({ cards }) => {
     const room = rooms[currentRoomCode];
-    if (!room || !room.isPremium) return;
+    if (!room || !room.isPremium) {
+      console.warn(`[CARDS REJECTED] Socket ${socket.id} ha inviato carte per stanza inesistente o non premium. currentRoomCode=${currentRoomCode}`);
+      return;
+    }
+
+    const player = room.players.find(p => p.id === socket.id);
+    const playerName = player ? player.name : socket.id;
+    console.log(`[CARDS RECV START] Giocatore "${playerName}" (${socket.id}) sta inviando ${cards ? cards.length : 0} carte per stanza ${currentRoomCode}`);
+
+    // Rimuovi eventuali vecchie carte inviate in precedenza da questo socket per permettere aggiornamenti/cancellazioni pulite
+    if (Array.isArray(room.customCards)) {
+      room.customCards = room.customCards.filter(c => c && c.ownerId !== socket.id);
+    } else {
+      room.customCards = [];
+    }
 
     if (Array.isArray(cards)) {
-      cards.forEach(cardObj => {
+      cards.forEach((cardObj, idx) => {
         if (cardObj && typeof cardObj === 'object') {
-          const rawText = (cardObj.text || '').trim();
-          const image = cardObj.image || null;
-          const text = rawText || (image ? 'Immagine personalizzata' : '');
+          const rawText = (cardObj.text || cardObj.prompt || '').trim();
+          let image = cardObj.image || null;
+          if (image && typeof image === 'string') {
+            image = image.trim();
+            if (image.length < 5) image = null;
+          } else {
+            image = null;
+          }
+          const text = rawText || (image ? `Immagine (${idx + 1})` : '');
           
           if (text || image) {
-            const exists = room.customCards.some(c => (image && c.image === image) || (text && c.text === text));
-            if (!exists) {
-              room.customCards.push({
-                text: text,
-                image: image
-              });
-            }
+            room.customCards.push({
+              text: text,
+              prompt: text,
+              image: image,
+              ownerId: socket.id
+            });
           }
         } else if (typeof cardObj === 'string') {
           const trimmed = cardObj.trim();
           if (trimmed) {
-            const exists = room.customCards.some(c => (typeof c === 'string' && c === trimmed) || (c && c.text === trimmed));
-            if (!exists) {
-              room.customCards.push({
-                text: trimmed,
-                image: null
-              });
-            }
+            room.customCards.push({
+              text: trimmed,
+              prompt: trimmed,
+              image: null,
+              ownerId: socket.id
+            });
           }
         }
       });
     }
 
-    const player = room.players.find(p => p.id === socket.id);
+    // Sincronizza stato volatile su Redis
+    syncRoomToRedis(room.roomCode, room);
+
+    // Marca il giocatore come PRONTO dopo aver salvato le carte nel mazzo
     if (player) {
       player.premiumReady = true;
+      console.log(`[CARDS RECV OK] Giocatore "${player.name}" marcato come premiumReady=true. Totale carte mazzo: ${room.customCards.length}`);
+    } else {
+      console.warn(`[CARDS RECV WARN] Giocatore non trovato nell'array players per socket ${socket.id} nella stanza ${currentRoomCode}`);
     }
 
+    // ACK ESPLICITO al client mittente: conferma ricezione carte
+    socket.emit('cards_received_success', {
+      cardsCount: room.customCards.length,
+      premiumReady: true,
+      playerName: player ? player.name : null
+    });
+
+    // Broadcast IMMEDIATO aggiornamento stato a TUTTI i client (doppio canale per sicurezza)
     io.to(room.roomCode).emit('player_list_update', { players: room.players });
-    console.log(`Giocatore ${player ? player.name : socket.id} ha inviato ${cards ? cards.length : 0} carte custom. Totale mazzo stanza: ${room.customCards.length}`);
+    io.to(room.roomCode).emit('room_players_update', { players: room.players });
+    console.log(`[CARDS BROADCAST] Aggiornamento player_list_update + room_players_update emesso per stanza ${room.roomCode}. Stato giocatori:`, room.players.map(p => ({ name: p.name, premiumReady: p.premiumReady })));
+  });
+
+  // Evento 4d: Richiesta Recupero Carta Attuale (Recovery client in caso di glitch di rete o rendering)
+  socket.on('request_current_card', () => {
+    const room = rooms[currentRoomCode];
+    if (!room || !room.deck || !room.deck.cards || room.state !== 'playing') return;
+    const card = room.deck.cards[room.currentCardIndex];
+    if (!card) return;
+
+    const safeImage = (typeof card.image === 'string' && card.image.trim().length > 5) ? card.image.trim() : null;
+    let safePrompt = (card.prompt || card.text || '').trim();
+    if (!safePrompt && safeImage) {
+      safePrompt = `Immagine (${room.currentCardIndex + 1})`;
+    } else if (!safePrompt && !safeImage) {
+      safePrompt = `Carta Judgement Day #${room.currentCardIndex + 1}`;
+    }
+    const safeText = (card.text || card.prompt || safePrompt).trim();
+
+    socket.emit('current_card_recovery', {
+      prompt: safePrompt,
+      text: safeText,
+      image: safeImage,
+      ownerId: card.ownerId || null,
+      description: card.description || null,
+      cardIndex: room.currentCardIndex,
+      totalCards: room.gameLength || room.deck.cards.length,
+      timerDurationMs: room.timerDurationMs || 10000,
+      roundId: Date.now()
+    });
   });
 
 
@@ -1912,7 +2044,7 @@ io.on('connection', (socket) => {
             const pStr = botPrompts[Math.floor(Math.random() * botPrompts.length)];
             const exists = r.customCards.some(c => (typeof c === 'string' && c === pStr) || (c && c.text === pStr));
             if (!exists) {
-              r.customCards.push({ text: pStr, image: null });
+              r.customCards.push({ text: pStr, prompt: pStr, image: null, ownerId: bot.id });
             }
           }
 
@@ -2342,12 +2474,23 @@ function reassignHost(room, oldHostName = 'L\'Host') {
 function sendStateSync(socket, room, player) {
   const currentCard = (room.deck && room.deck.cards && room.deck.cards[room.currentCardIndex]) ? room.deck.cards[room.currentCardIndex] : null;
 
+  const safeImage = (currentCard && typeof currentCard.image === 'string' && currentCard.image.trim().length > 5) ? currentCard.image.trim() : null;
+  let safePrompt = currentCard ? (currentCard.prompt || currentCard.text || '').trim() : '';
+  if (!safePrompt && safeImage) {
+    safePrompt = `Immagine (${room.currentCardIndex + 1})`;
+  } else if (!safePrompt && !safeImage) {
+    safePrompt = `Carta Judgement Day #${room.currentCardIndex + 1}`;
+  }
+  const safeText = currentCard ? (currentCard.text || currentCard.prompt || safePrompt).trim() : '';
+
   const gameData = {
     deckName: room.deck ? room.deck.deck_name : '',
     totalCards: room.gameLength || (room.deck ? room.deck.cards.length : 0),
     cardIndex: room.currentCardIndex,
-    prompt: currentCard ? currentCard.prompt : '',
-    image: currentCard ? (currentCard.image || null) : null,
+    prompt: safePrompt,
+    text: safeText,
+    image: safeImage,
+    ownerId: currentCard ? (currentCard.ownerId || null) : null,
     description: currentCard ? (currentCard.description || null) : null,
     userHasVoted: !!(room.votes && room.votes[socket.id]),
     userVote: (room.votes && room.votes[socket.id]) ? room.votes[socket.id] : null,
@@ -2379,8 +2522,10 @@ function sendStateSync(socket, room, player) {
       votes: voteDetails,
       groupStats: { underrated: groupUnderPct, overrated: groupOverPct },
       globalStats: currentCard ? currentCard.global_stats : null,
-      prompt: currentCard ? currentCard.prompt : '',
-      image: currentCard ? (currentCard.image || null) : null,
+      prompt: safePrompt,
+      text: safeText,
+      image: safeImage,
+      ownerId: currentCard ? (currentCard.ownerId || null) : null,
       cardIndex: room.currentCardIndex,
       totalCards: room.gameLength || (room.deck ? room.deck.cards.length : 0)
     };
@@ -2438,22 +2583,44 @@ function startNewRound(room) {
   const card = room.deck.cards[room.currentCardIndex];
   if (!card) {
     console.warn(`[ROOM ${room.roomCode}] Carta indice ${room.currentCardIndex} non trovata. Fine partita.`);
-    endGameSummary(room);
+    endGame(room);
     return;
   }
+
+  // Verifica e riparazione di sicurezza per dati corrotti o indefiniti
+  const safeImage = (typeof card.image === 'string' && card.image.trim().length > 5) ? card.image.trim() : null;
+  let safePrompt = (card.prompt || card.text || '').trim();
+  if (!safePrompt && safeImage) {
+    safePrompt = `Immagine (${room.currentCardIndex + 1})`;
+  } else if (!safePrompt && !safeImage) {
+    safePrompt = `Carta Judgement Day #${room.currentCardIndex + 1}`;
+  }
+  const safeText = (card.text || card.prompt || safePrompt).trim();
+  const safeOwnerId = card.ownerId || null;
+  const safeDescription = card.description || null;
+
+  // Assicura che l'oggetto carta mantenga tutte le proprietà intatte
+  card.prompt = safePrompt;
+  card.text = safeText;
+  card.image = safeImage;
+  card.ownerId = safeOwnerId;
+  card.description = safeDescription;
 
   if (room.roundTimeout) {
     clearTimeout(room.roundTimeout);
   }
 
-  // Notifica tutti i client della nuova carta (include la durata timer corrente e la descrizione)
+  // Notifica tutti i client della nuova carta con dati intatti e validati
   io.to(room.roomCode).emit('new_card', {
-    prompt: card.prompt,
-    image: card.image || null,
-    description: card.description || null,
+    prompt: safePrompt,
+    text: safeText,
+    image: safeImage,
+    ownerId: safeOwnerId,
+    description: safeDescription,
     cardIndex: room.currentCardIndex,
     totalCards: room.gameLength || room.deck.cards.length,
-    timerDurationMs: timerMs
+    timerDurationMs: timerMs,
+    roundId: Date.now()
   });
 
   // Sincronizza stato volatile su Redis
@@ -2532,17 +2699,24 @@ function freezeRound(room, message) {
   });
 
   // Salva risposte storiche per calcolo finale
-  const card = room.deck.cards[room.currentCardIndex];
+  const card = (room.deck && room.deck.cards && room.deck.cards[room.currentCardIndex]) ? room.deck.cards[room.currentCardIndex] : {};
   const roundVotes = room.players.map(p => ({
     player: p.name,
     vote: room.votes[p.id]
   }));
 
+  const safePrompt = card.prompt || card.text || '';
+  const safeText = card.text || card.prompt || safePrompt;
+  const safeImage = (typeof card.image === 'string' && card.image.trim().length > 5) ? card.image.trim() : null;
+  const safeOwnerId = card.ownerId || null;
+
   room.playerResponses.push({
-    prompt: card.prompt,
-    image: card.image || null,
+    prompt: safePrompt,
+    text: safeText,
+    image: safeImage,
+    ownerId: safeOwnerId,
     votes: roundVotes,
-    stats: card.global_stats
+    stats: card.global_stats || null
   });
 
   // Calcola percentuali del gruppo
@@ -2564,11 +2738,13 @@ function freezeRound(room, message) {
   io.to(room.roomCode).emit('round_results', {
     votes: roundVotes,
     groupStats: { underrated: groupUnderPct, overrated: groupOverPct },
-    globalStats: card.global_stats,
-    prompt: card.prompt,
-    image: card.image || null,
+    globalStats: card.global_stats || null,
+    prompt: safePrompt,
+    text: safeText,
+    image: safeImage,
+    ownerId: safeOwnerId,
     cardIndex: room.currentCardIndex,
-    totalCards: room.gameLength || room.deck.cards.length
+    totalCards: room.gameLength || (room.deck ? room.deck.cards.length : 0)
   });
 
   // Sincronizza stato volatile su Redis
