@@ -264,10 +264,11 @@ async function authenticateHost(hostName) {
 }
 
 async function authenticateGuest(roomCode, playerName) {
+  const devId = getStoredDeviceId();
   const logRes = await fetch('/api/auth/guest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ roomCode, playerName, sessionId })
+    body: JSON.stringify({ roomCode, playerName, sessionId, deviceId: devId, deviceUuid: devId })
   });
 
   if (!logRes.ok) {
@@ -276,6 +277,9 @@ async function authenticateGuest(roomCode, playerName) {
   }
 
   const data = await logRes.json();
+  if (data.deviceId) {
+    safeStorage.setItem('overunder_deviceId', data.deviceId);
+  }
   return data.token;
 }
 
@@ -807,7 +811,7 @@ function checkAndArmWatchdog(reason = '') {
         }
       }
       watchdogTimer = null;
-    }, 1500);
+    }, 4000);
   }
 }
 
@@ -2286,7 +2290,7 @@ function showPurchaseModal() {
 
     state.pendingSocketAction = {
       type: 'create_room',
-      data: { roomCode: code, avatar: state.playerAvatarUrl, isPremium: isPremiumToggleOn }
+      data: { roomCode: code, avatar: state.playerAvatarUrl, isPremium: isPremiumToggleOn, deviceId: getStoredDeviceId() }
     };
 
     // Timeout Fallback di 1.5s: se l'autenticazione HTTP impiega più di 1.5s, fai proseguire subito la socket
@@ -2864,7 +2868,7 @@ function showPurchaseModal() {
 
     state.pendingSocketAction = {
       type: 'join_room',
-      data: { avatar: state.playerAvatarUrl }
+      data: { avatar: state.playerAvatarUrl, deviceId: getStoredDeviceId() }
     };
 
     try {
@@ -3075,7 +3079,8 @@ function setupSocketListeners() {
         playerId: (savedSession && savedSession.playerId) || playerId,
         playerName: savedName,
         isHost: savedHost,
-        sessionId: sessionId
+        sessionId: sessionId,
+        deviceId: getStoredDeviceId()
       });
     }
   });

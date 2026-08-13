@@ -857,13 +857,14 @@ app.post('/api/auth/login', (req, res) => {
   res.json({ token, isPremium: !!user.isPremium, username: cleanUsername });
 });
 
-// 3. Autenticazione Guest (Zero registrazioni)
+// 3. Autenticazione Guest (Zero registrazioni con persistenza deviceId)
 app.post('/api/auth/guest', async (req, res) => {
-  const { roomCode, playerName, sessionId } = req.body;
+  const { roomCode, playerName, sessionId, deviceId, deviceUuid } = req.body;
   if (!roomCode || !playerName || !sessionId) {
     return res.status(400).json({ error: 'Codice stanza, nickname e sessionId obbligatori' });
   }
 
+  const currentDeviceId = deviceId || deviceUuid || sessionId || null;
   const code = cleanRoomCode(roomCode);
   const room = rooms[code] || await getRoomState(code);
   if (!room) {
@@ -871,9 +872,18 @@ app.post('/api/auth/guest', async (req, res) => {
   }
 
   const cleanName = playerName.trim();
-  // Riconnessione valida solo se il sessionId o il nome corrisponde alla sessione dello stesso utente
-  const existingPlayer = room.players.find(p => p.name.toLowerCase() === cleanName.toLowerCase());
-  const isReconnecting = existingPlayer && (existingPlayer.sessionId === sessionId || !existingPlayer.connected);
+  // Riconnessione valida se il deviceId, sessionId o nome corrisponde
+  const existingPlayer = room.players.find(p => 
+    (currentDeviceId && p.deviceId && p.deviceId === currentDeviceId) ||
+    (p.sessionId && p.sessionId === sessionId) ||
+    (p.name.toLowerCase() === cleanName.toLowerCase())
+  );
+  const isReconnecting = existingPlayer && (
+    (currentDeviceId && existingPlayer.deviceId === currentDeviceId) ||
+    existingPlayer.sessionId === sessionId || 
+    !existingPlayer.connected ||
+    !existingPlayer.isOnline
+  );
 
   if (!isReconnecting) {
     if (room.state !== 'lobby') {
@@ -891,16 +901,18 @@ app.post('/api/auth/guest', async (req, res) => {
     }
   }
 
-  // Genera JWT Guest
+  // Genera JWT Guest includendo deviceId
   const token = jwt.sign({
     sessionId,
+    deviceId: currentDeviceId,
+    deviceUuid: currentDeviceId,
     playerName: cleanName,
     roomCode: code,
     role: 'guest',
     isPremium: false
   }, JWT_SECRET, { expiresIn: '2h' });
 
-  res.json({ token });
+  res.json({ token, deviceId: currentDeviceId });
 });
 
 // Initialize Stripe if key is present
@@ -1406,13 +1418,15 @@ io.on('connection', (socket) => {
     }
 
     const hostPlayerId = socket.userData.playerId || sessionId;
+    const hostDeviceId = deviceUuid || (socket.userData && (socket.userData.deviceId || socket.userData.deviceUuid)) || null;
     rooms[code] = {
       roomCode: code,
       hostId: socket.id,
       hostSessionId: sessionId,
+      hostDeviceId: hostDeviceId,
       hostName: hostName,
       createdAt: Date.now(),
-      players: [{ id: socket.id, playerId: hostPlayerId, name: hostName, isHost: true, connected: true, isOnline: true, premiumReady: false, avatar: avatar || null, sessionId: sessionId }],
+      players: [{ id: socket.id, playerId: hostPlayerId, deviceId: hostDeviceId, name: hostName, isHost: true, connected: true, isOnline: true, premiumReady: false, avatar: avatar || null, sessionId: sessionId }],
       state: 'lobby', // lobby, playing, freeze, results, summary
       deck: null,
       currentCardIndex: 0,
@@ -1444,12 +1458,13 @@ io.on('connection', (socket) => {
   });
 
   // Evento 2: Ingresso nella Stanza (Giocatore)
-  socket.on('join_room', ({ avatar }) => {
+  socket.on('join_room', ({ avatar, deviceId }) => {
     if (!authenticated || !socket.userData) {
       socket.emit('room_error', "Non sei autenticato.");
       return;
     }
     const { roomCode, playerName, sessionId, playerId: reqPlayerId } = socket.userData;
+    const reqDeviceId = deviceId || (socket.userData && (socket.userData.deviceId || socket.userData.deviceUuid)) || null;
     
     const code = cleanRoomCode(roomCode);
     const room = rooms[code];
@@ -1459,21 +1474,36 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // B. Controlla se è una riconnessione per lo stesso nome utente o playerId/sessionId
-    let player = room.players.find(p => !p.isBot && ((p.playerId && p.playerId === (reqPlayerId || sessionId)) || (p.sessionId && p.sessionId === sessionId) || p.name.toLowerCase() === playerName.toLowerCase().trim()));
+    // B. Controlla se è una riconnessione per deviceId, playerId/sessionId o stesso nome
+    let player = room.players.find(p => !p.isBot && (
+      (reqDeviceId && p.deviceId && p.deviceId === reqDeviceId) ||
+      (p.playerId && p.playerId === (reqPlayerId || sessionId)) ||
+      (p.sessionId && p.sessionId === sessionId) ||
+      p.name.toLowerCase() === playerName.toLowerCase().trim()
+    ));
+
     if (player) {
+      const oldSocketId = player.id;
       player.id = socket.id;
       player.connected = true;
       player.isOnline = true;
       if (avatar) player.avatar = avatar;
       if (sessionId) player.sessionId = sessionId;
       if (reqPlayerId) player.playerId = reqPlayerId;
+      if (reqDeviceId) player.deviceId = reqDeviceId;
+
+      // Migra/alias i voti espressi dal vecchio socketId al nuovo socketId
+      if (room.votes && oldSocketId && room.votes[oldSocketId]) {
+        room.votes[socket.id] = room.votes[oldSocketId];
+      }
 
       // Se l'Host si riconnette entro il grace period (15s):
       const isOriginalHostMatch = (room.hostDisconnectTimeout !== null) && (
         player.isHost ||
         room.hostId === socket.id ||
+        room.hostId === oldSocketId ||
         (room.hostSessionId && room.hostSessionId === sessionId) ||
+        (room.hostDeviceId && reqDeviceId && room.hostDeviceId === reqDeviceId) ||
         (room.hostName && room.hostName.toLowerCase() === player.name.toLowerCase().trim())
       );
 
@@ -1487,6 +1517,7 @@ io.on('connection', (socket) => {
         room.hostId = socket.id;
         room.hostName = player.name;
         if (sessionId) room.hostSessionId = sessionId;
+        if (reqDeviceId) room.hostDeviceId = reqDeviceId;
 
         io.to(code).emit('global_toast', { message: `👑 Host ${player.name} è rientrato in stanza!` });
         io.to(code).emit('host_reconnected', { hostName: player.name });
@@ -1513,6 +1544,11 @@ io.on('connection', (socket) => {
 
       broadcastRoomState(room);
       console.log(`Giocatore ${player.name} (isHost: ${player.isHost}) si è riconnesso (join_room) alla stanza ${code}`);
+
+      // Sincronizzazione immediata hot-swap se la partita è in corso o in fase risultati
+      if (room.state !== 'lobby') {
+        sendStateSync(socket, room, player);
+      }
       return;
     }
 
@@ -1548,9 +1584,20 @@ io.on('connection', (socket) => {
     currentRoomCode = code;
     currentPlayerName = playerName;
 
-    // Aggiungi giocatore
+    // Aggiungi giocatore con deviceId
     const newPlayerId = reqPlayerId || sessionId || ('p_' + Math.random().toString(36).substring(2, 9));
-    room.players.push({ id: socket.id, playerId: newPlayerId, name: playerName, isHost: false, connected: true, isOnline: true, premiumReady: false, avatar: avatar || null, sessionId: sessionId });
+    room.players.push({
+      id: socket.id,
+      playerId: newPlayerId,
+      deviceId: reqDeviceId,
+      name: playerName,
+      isHost: false,
+      connected: true,
+      isOnline: true,
+      premiumReady: false,
+      avatar: avatar || null,
+      sessionId: sessionId
+    });
     socket.join(code);
 
     socket.emit('room_joined', {
@@ -1723,7 +1770,7 @@ io.on('connection', (socket) => {
   // Evento 4: Invio del Voto dal Client
   socket.on('submit_vote', ({ voteType }) => {
     const room = rooms[currentRoomCode];
-    if (!room || room.state !== 'playing') return;
+    if (!room || (room.state !== 'playing' && room.state !== 'results')) return;
 
     // Registra il voto del mittente
     room.votes[socket.id] = voteType;
@@ -1735,10 +1782,19 @@ io.on('connection', (socket) => {
 
     io.to(room.roomCode).emit('player_voted_update', { votedPlayers: votedNames });
 
+    // Se il tempo è scaduto o siamo nell'overlay di fine turno, invia aggiornamento live del verdetto
+    if (room.timeIsUp || room.state === 'results') {
+      const roundVotes = room.players.map(p => ({
+        player: p.name,
+        vote: room.votes[p.id] || 'thinking'
+      }));
+      io.to(room.roomCode).emit('verdict_update', { votes: roundVotes });
+    }
+
     // Verifica se tutti i partecipanti attivi ed online hanno espresso il voto
     const activePlayers = room.players.filter(p => p.isBot || (p.connected !== false && p.isOnline !== false));
     const allVoted = activePlayers.length > 0 && activePlayers.every(p => room.votes[p.id]);
-    if (allVoted) {
+    if (allVoted && room.state === 'playing') {
       freezeRound(room, "TUTTI I VOTI REGISTRATI!");
     }
   });
@@ -2147,7 +2203,7 @@ io.on('connection', (socket) => {
   // ==========================================================================
   // 2. RE-BINDING DELLA CONNESSIONE & 3. STATE RECOVERY (Server-Side)
   // ==========================================================================
-  const handlePlayerReconnection = ({ roomCode, playerId, playerName, isHost, sessionId }) => {
+  const handlePlayerReconnection = ({ roomCode, playerId, playerName, isHost, sessionId, deviceId }) => {
     const code = cleanRoomCode(roomCode);
     const room = rooms[code];
     if (!room) {
@@ -2158,9 +2214,12 @@ io.on('connection', (socket) => {
 
     socket.emit('auth_completed');
     
-    // Trova il giocatore corrispondente nella stanza per playerId, sessionId o nome
+    const reqDeviceId = deviceId || (socket.userData && (socket.userData.deviceId || socket.userData.deviceUuid)) || null;
+
+    // Trova il giocatore corrispondente nella stanza per deviceId, playerId, sessionId o nome
     let player = room.players.find(p => 
       !p.isBot && (
+        (reqDeviceId && p.deviceId && p.deviceId === reqDeviceId) ||
         (playerId && p.playerId === playerId) || 
         (sessionId && p.sessionId === sessionId) || 
         (playerName && p.name.toLowerCase() === playerName.trim().toLowerCase())
@@ -2174,14 +2233,21 @@ io.on('connection', (socket) => {
     }
     
     // RE-BINDING: Aggiorna l'oggetto del giocatore sostituendo il vecchio socket con quello nuovo
+    const oldSocketId = player.id;
     player.id = socket.id;
     player.connected = true;
     player.isOnline = true;
+    if (reqDeviceId) player.deviceId = reqDeviceId;
     if (playerId) player.playerId = playerId;
     if (sessionId) player.sessionId = sessionId;
     
+    // Migra/alias i voti espressi dal vecchio socketId al nuovo socketId
+    if (room.votes && oldSocketId && room.votes[oldSocketId]) {
+      room.votes[socket.id] = room.votes[oldSocketId];
+    }
+
     // Annulla eventuale grace period di disconnessione Host
-    if (player.isHost || isHost) {
+    if (player.isHost || isHost || room.hostId === oldSocketId || (room.hostSessionId && room.hostSessionId === sessionId) || (room.hostDeviceId && reqDeviceId && room.hostDeviceId === reqDeviceId)) {
       if (room.hostDisconnectTimeout) {
         clearTimeout(room.hostDisconnectTimeout);
         room.hostDisconnectTimeout = null;
@@ -2189,18 +2255,22 @@ io.on('connection', (socket) => {
       }
       room.hostId = socket.id;
       player.isHost = true;
+      if (sessionId) room.hostSessionId = sessionId;
+      if (reqDeviceId) room.hostDeviceId = reqDeviceId;
     }
     
+    sanitizeRoomHost(room);
+
     currentRoomCode = code;
     currentPlayerName = player.name;
     
     socket.join(code);
     
-    // Informa gli altri giocatori della stanza (rimozione eventuale badge/icona grigia "offline")
-    io.to(code).emit('player_list_update', { players: room.players });
-    console.log(`[RE-BIND] Giocatore ${player.name} (${player.playerId || socket.id}) ricollegato alla stanza ${code}`);
+    // Informa gli altri giocatori della stanza
+    broadcastRoomState(room);
+    console.log(`[RE-BIND] Giocatore ${player.name} (${player.deviceId || player.playerId || socket.id}) ricollegato alla stanza ${code}`);
 
-    // STATE RECOVERY: invia lo stato esatto della stanza al client ricollegato
+    // STATE RECOVERY: invia lo stato esatto della stanza al client ricollegato (hot-swap)
     sendStateSync(socket, room, player);
   };
 
