@@ -202,6 +202,7 @@ function resetToMenu() {
     endScreen.style.display = 'none';
   }
   clearSession();
+  state.gameEnded = false;
   showScreen(el.screenWelcome);
   try { updatePremiumUI(); } catch (e) {}
 }
@@ -766,7 +767,8 @@ const state = {
   activeOverlayFilter: 'all',
   socketAuthenticated: false,
   authenticatedToken: null,
-  pendingSocketAction: null
+  pendingSocketAction: null,
+  gameEnded: false
 };
 
 // ==========================================================================
@@ -2539,6 +2541,10 @@ function showPurchaseModal() {
   const handleExitToMainMenu = (e) => {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
     try { AudioSynth.playConfirm(false); } catch (err) {}
+    // Pulisci la sessione della stanza PRIMA di disconnettersi per evitare che il ciclo
+    // disconnect→connect→AUTH_SUCCESS→reconnect_room trovi una stanza scaduta e mostri errori
+    state.gameEnded = true;
+    clearRoomSession();
     if (!state.isSoloMode && typeof socket !== 'undefined' && socket && socket.connected) {
       try {
         socket.emit('leave_room');
@@ -3008,11 +3014,11 @@ function setupSocketListeners() {
   socket.on('connect', () => {
     console.log("Connesso al server. ID Socket:", socket.id);
     state.socketAuthenticated = false;
-    state.authenticatedToken = null;
 
-    const savedToken = safeSessionStorage.getItem('overunder_token');
+    const savedToken = getStoredAuthToken();
     if (savedToken) {
       console.log('[SOCKET] connect: invio AUTH con token salvato');
+      state.authenticatedToken = savedToken;
       socket.emit('AUTH', { token: savedToken });
     } else if (state.pendingSocketAction) {
       executePendingSocketAction();
@@ -3026,12 +3032,12 @@ function setupSocketListeners() {
   socket.on('disconnect', (reason) => {
     console.warn("[SOCKET] Socket disconnesso:", reason);
     state.socketAuthenticated = false;
-    state.authenticatedToken = null;
+    // NOTA: NON azzerare authenticatedToken, il token è persistente nel localStorage
   });
 
   socket.on('AUTH_SUCCESS', () => {
     state.socketAuthenticated = true;
-    const savedToken = safeSessionStorage.getItem('overunder_token');
+    const savedToken = getStoredAuthToken();
     if (savedToken) {
       state.authenticatedToken = savedToken;
     }
@@ -3040,6 +3046,12 @@ function setupSocketListeners() {
 
     if (state.pendingSocketAction) {
       executePendingSocketAction();
+      return;
+    }
+
+    // Se il gioco è già terminato (schermata finale visibile), non tentare la riconnessione alla stanza
+    if (state.gameEnded) {
+      console.log('[AUTH_SUCCESS] Game already ended, skipping room reconnection.');
       return;
     }
 
@@ -3085,6 +3097,15 @@ function setupSocketListeners() {
       state.connectionTimeout = null;
     }
     state.connectionLoadingActive = false;
+    // Se il gioco è già terminato, pulisci silenziosamente senza messaggi bloccanti
+    if (state.gameEnded) {
+      console.log('[RECONNECT_FAILED] Game already ended, silent cleanup.');
+      clearSession();
+      // Non chiamare resetToMenu() se siamo sulla schermata di summary/risultati
+      const isOnSummary = el.screenSummary && el.screenSummary.classList.contains('active');
+      if (!isOnSummary) resetToMenu();
+      return;
+    }
     clearSession();
     resetToMenu();
   });
@@ -3097,6 +3118,14 @@ function setupSocketListeners() {
       state.connectionTimeout = null;
     }
     state.connectionLoadingActive = false;
+    // Se il gioco è già terminato, non mostrare avvisi bloccanti
+    if (state.gameEnded) {
+      console.log('[SESSION_FAILED] Game already ended, silent cleanup.');
+      clearSession();
+      const isOnSummary = el.screenSummary && el.screenSummary.classList.contains('active');
+      if (!isOnSummary) resetToMenu();
+      return;
+    }
     clearSession();
     resetToMenu();
   });
@@ -3230,6 +3259,7 @@ function setupSocketListeners() {
     state.roomIsPremium = !!isPremium;
     state.roomIsLocked = false;
     state.gameplayStarted = false;
+    state.gameEnded = false;
     state.hasSubmittedPremiumCards = false;
     state.localPremiumCards = [];
 
@@ -3261,6 +3291,7 @@ function setupSocketListeners() {
     state.roomIsPremium = !!isPremium;
     state.roomIsLocked = !!isLocked;
     state.gameplayStarted = false;
+    state.gameEnded = false;
     state.hasSubmittedPremiumCards = false;
     state.localPremiumCards = [];
 
@@ -3546,6 +3577,9 @@ function setupSocketListeners() {
     triggerVictorySoundOnce();
     state.isSoloMode = false;
     state.gameMode = 'multiplayer';
+    state.gameEnded = true;
+    // Pulisci la sessione della stanza ora: la partita è terminata, non serve più la riconnessione
+    clearRoomSession();
     renderGameOver(data);
   });
 
@@ -3657,6 +3691,14 @@ function setupSocketListeners() {
   });
 
   socket.on('room_closed', (message) => {
+    // Se il gioco è già terminato (siamo sulla schermata dei risultati), non interrompere il flusso
+    if (state.gameEnded) {
+      console.log('[ROOM_CLOSED] Game already ended, silent cleanup only.');
+      clearSession();
+      // Mostra un toast leggero e non bloccante
+      showToast("La stanza è stata chiusa. Tornerai al menù.", 3000);
+      return;
+    }
     showToast(message || "L'Host si è disconnesso. Partita terminata.", 6000);
     setTimeout(() => {
       clearSession();
