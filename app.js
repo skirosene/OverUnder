@@ -3909,9 +3909,9 @@ function requestCardRecoveryFromServer() {
 
 /**
  * Gestione dinamica dei media delle carte (Premium & Standard).
- * Se la carta contiene SOLO l'immagine (senza didascalia), la rende visibile DIRETTAMENTE
- * in formato grande ed espanso sul campo di gioco senza richiedere tap o modali di ingrandimento.
- * Se il caricamento fallisce o l'immagine è corrotta, applica un fallback testuale pulito anti-nero.
+ * PULIZIA TOTALE PREVENTIVA DEL DOM + LOGICA STRICT:
+ * - Se la carta ha un'immagine: mostra ESCLUSIVAMENTE l'immagine a tutto schermo (nascondendo/azzerando qualsiasi testo).
+ * - Se la carta ha solo testo: mostra ESCLUSIVAMENTE il testo (nascondendo/azzerando qualsiasi elemento immagine).
  */
 function updateGameplayCardMedia(prompt, image) {
   // GUARD CHECK SU UNDEFINED
@@ -3933,9 +3933,39 @@ function updateGameplayCardMedia(prompt, image) {
     return;
   }
 
-  if (!el.gameplayPromptImageContainer || !el.gameplayPromptImage) return;
-
   const promptCard = el.promptCard || document.getElementById('prompt-card');
+  const imgContainer = el.gameplayPromptImageContainer || document.getElementById('gameplay-prompt-image-container');
+  const imgElement = el.gameplayPromptImage || document.getElementById('gameplay-prompt-image');
+  const textElement = el.currentPromptText || document.getElementById('current-prompt-text');
+  const deckNameElement = el.currentDeckName || document.getElementById('current-deck-name');
+
+  // =========================================================================
+  // 1. RESET TOTALE IMMEDIATO DEL DOM DELLA CARTA (Anti-sovrapposizione & pulizia)
+  // =========================================================================
+  if (promptCard) {
+    promptCard.classList.remove('is-full-image');
+    promptCard.style.padding = '';
+  }
+  if (textElement) {
+    textElement.textContent = '';
+    textElement.style.display = 'none';
+  }
+  if (imgElement) {
+    imgElement.onerror = null;
+    imgElement.onload = null;
+    imgElement.src = '';
+    imgElement.style.display = 'none';
+  }
+  if (imgContainer) {
+    imgContainer.style.display = 'none';
+    imgContainer.style.position = 'relative';
+    imgContainer.style.inset = 'auto';
+  }
+  if (deckNameElement) {
+    deckNameElement.style.display = '';
+  }
+
+  // Sanitizzazione input
   const validImage = isValidImageString(image) ? image.trim() : null;
   const hasImage = !!validImage;
   const cleanPrompt = (prompt && typeof prompt === 'string') ? prompt.trim() : '';
@@ -3943,125 +3973,129 @@ function updateGameplayCardMedia(prompt, image) {
                           cleanPrompt === 'Carta Immagine' || 
                           cleanPrompt.startsWith('Immagine (') || 
                           cleanPrompt === 'immagine caricata' ||
-                          cleanPrompt.startsWith('image_');
-  const hasText = !isGenericPrompt && cleanPrompt.length > 0;
+                          cleanPrompt.startsWith('image_') ||
+                          cleanPrompt.startsWith('Carta Judgement Day');
 
-  // Fallback testuale pulito per azzerare totalmente il rischio di riquadri neri
+  // Fallback testuale di sicurezza se l'immagine non è reperibile dopo tutti i tentativi
   const applyTextFallback = () => {
     if (promptCard) {
       promptCard.classList.remove('is-full-image');
       promptCard.style.padding = '';
     }
-    if (el.currentDeckName) {
-      el.currentDeckName.style.display = '';
+    if (deckNameElement) {
+      deckNameElement.style.display = '';
     }
-    if (el.gameplayPromptImageContainer) {
-      el.gameplayPromptImageContainer.style.position = 'relative';
-      el.gameplayPromptImageContainer.style.inset = 'auto';
-      el.gameplayPromptImageContainer.style.display = 'none';
+    if (imgContainer) {
+      imgContainer.style.position = 'relative';
+      imgContainer.style.inset = 'auto';
+      imgContainer.style.display = 'none';
     }
-    if (el.gameplayPromptImage) {
-      el.gameplayPromptImage.src = '';
+    if (imgElement) {
+      imgElement.src = '';
+      imgElement.style.display = 'none';
     }
-    if (el.currentPromptText) {
-      el.currentPromptText.style.display = 'block';
+    if (textElement) {
+      textElement.style.display = 'block';
       const fallbackLabel = (cleanPrompt && !isGenericPrompt)
         ? cleanPrompt
-        : `Carta Judgement Day #${(state.currentCardIndex !== undefined ? state.currentCardIndex + 1 : (state.soloCardIndex !== undefined ? state.soloCardIndex + 1 : 1))}`;
-      el.currentPromptText.textContent = fallbackLabel;
+        : 'Carta Immagine';
+      textElement.textContent = fallbackLabel;
     }
   };
 
+  // =========================================================================
+  // 2. LOGICA STRICT: SE IMMAGINE -> SOLO IMMAGINE, SE TESTO -> SOLO TESTO
+  // =========================================================================
   if (hasImage) {
-    let imgRetryCount = 0;
-    const baseSourceUrl = validImage.split('?t=')[0];
-
-    // Configura gestori onload ed onerror con retry automatico (cache-buster ?t=) e fallback anti-nero
-    el.gameplayPromptImage.onerror = () => {
-      if (imgRetryCount < 2 && (baseSourceUrl.startsWith('/uploads/') || baseSourceUrl.startsWith('http'))) {
-        imgRetryCount++;
-        const separator = baseSourceUrl.includes('?') ? '&' : '?';
-        const retryUrl = `${baseSourceUrl}${separator}t=${Date.now()}`;
-        console.warn(`[IMAGE RETRY #${imgRetryCount}] Riprovo caricamento immagine: ${retryUrl}`);
-        el.gameplayPromptImage.src = retryUrl;
-        return;
-      }
-
-      console.warn(`[IMAGE LOAD FAIL] Impossibile caricare immagine carta dopo i tentativi, attivo fallback testuale pulito:`, baseSourceUrl.substring(0, 50));
-      applyTextFallback();
-      requestCardRecoveryFromServer();
-    };
-
-    el.gameplayPromptImage.onload = () => {
-      if (el.gameplayPromptImageContainer) {
-        el.gameplayPromptImageContainer.style.display = 'block';
-      }
-    };
-
-    el.gameplayPromptImage.src = validImage;
-    el.gameplayPromptImageContainer.style.display = 'block';
-
-    if (!hasText) {
-      // FULL-CARD (Sola Immagine): L'immagine occupa il 100% della card senza padding o testi
-      if (promptCard) {
-        promptCard.classList.add('is-full-image');
-        promptCard.style.padding = '0';
-      }
-      if (el.currentDeckName) {
-        el.currentDeckName.style.display = 'none';
-      }
-      el.gameplayPromptImageContainer.style.width = '100%';
-      el.gameplayPromptImageContainer.style.height = '100%';
-      el.gameplayPromptImageContainer.style.maxWidth = '100%';
-      el.gameplayPromptImageContainer.style.maxHeight = '100%';
-      el.gameplayPromptImageContainer.style.margin = '0';
-      el.gameplayPromptImageContainer.style.padding = '0';
-      el.gameplayPromptImageContainer.style.border = 'none';
-      el.gameplayPromptImageContainer.style.boxShadow = 'none';
-      el.gameplayPromptImageContainer.style.position = 'absolute';
-      el.gameplayPromptImageContainer.style.inset = '0';
-
-      el.gameplayPromptImage.style.width = '100%';
-      el.gameplayPromptImage.style.height = '100%';
-      el.gameplayPromptImage.style.objectFit = 'cover';
-      el.gameplayPromptImage.style.pointerEvents = 'none';
-      el.gameplayPromptImage.style.cursor = 'default';
-
-      if (el.currentPromptText) {
-        el.currentPromptText.style.display = 'none';
-        el.currentPromptText.textContent = '';
-      }
-    } else {
-      // IMMAGINE + DIDASCALIA CUSTOM (supporto ibrido)
-      if (promptCard) {
-        promptCard.classList.remove('is-full-image');
-        promptCard.style.padding = '';
-      }
-      if (el.currentDeckName) {
-        el.currentDeckName.style.display = '';
-      }
-      el.gameplayPromptImageContainer.style.position = 'relative';
-      el.gameplayPromptImageContainer.style.inset = 'auto';
-      el.gameplayPromptImageContainer.style.width = '130px';
-      el.gameplayPromptImageContainer.style.maxWidth = '130px';
-      el.gameplayPromptImageContainer.style.height = '130px';
-      el.gameplayPromptImageContainer.style.borderRadius = '12px';
-      el.gameplayPromptImageContainer.style.margin = '8px 0';
-      el.gameplayPromptImage.style.objectFit = 'cover';
-      el.gameplayPromptImage.style.pointerEvents = 'none';
-      el.gameplayPromptImage.style.cursor = 'default';
-
-      if (el.currentPromptText) {
-        el.currentPromptText.style.display = 'block';
-        el.currentPromptText.textContent = cleanPrompt;
-      }
+    // -----------------------------------------------------------------------
+    // CASO A: LA CARTA HA UN'IMMAGINE -> MOSTRA ESCLUSIVAMENTE L'IMMAGINE
+    // -----------------------------------------------------------------------
+    if (promptCard) {
+      promptCard.classList.add('is-full-image');
+      promptCard.style.padding = '0';
     }
+    if (deckNameElement) {
+      deckNameElement.style.display = 'none';
+    }
+    if (textElement) {
+      textElement.style.display = 'none';
+      textElement.textContent = '';
+    }
+
+    if (imgContainer) {
+      imgContainer.style.display = 'block';
+      imgContainer.style.width = '100%';
+      imgContainer.style.height = '100%';
+      imgContainer.style.maxWidth = '100%';
+      imgContainer.style.maxHeight = '100%';
+      imgContainer.style.margin = '0';
+      imgContainer.style.padding = '0';
+      imgContainer.style.border = 'none';
+      imgContainer.style.boxShadow = 'none';
+      imgContainer.style.position = 'absolute';
+      imgContainer.style.inset = '0';
+    }
+
+    if (imgElement) {
+      imgElement.style.display = 'block';
+      imgElement.style.width = '100%';
+      imgElement.style.height = '100%';
+      imgElement.style.objectFit = 'cover';
+      imgElement.style.pointerEvents = 'none';
+      imgElement.style.cursor = 'default';
+
+      let imgRetryCount = 0;
+      const baseSourceUrl = validImage.split('?t=')[0];
+
+      imgElement.onerror = () => {
+        if (imgRetryCount < 2 && (baseSourceUrl.startsWith('/uploads/') || baseSourceUrl.startsWith('http'))) {
+          imgRetryCount++;
+          const separator = baseSourceUrl.includes('?') ? '&' : '?';
+          const retryUrl = `${baseSourceUrl}${separator}t=${Date.now()}`;
+          console.warn(`[IMAGE RETRY #${imgRetryCount}] Riprovo caricamento immagine: ${retryUrl}`);
+          imgElement.src = retryUrl;
+          return;
+        }
+
+        console.warn(`[IMAGE LOAD FAIL] Impossibile caricare immagine carta dopo i tentativi, attivo fallback testuale:`, baseSourceUrl.substring(0, 50));
+        applyTextFallback();
+        requestCardRecoveryFromServer();
+      };
+
+      imgElement.onload = () => {
+        if (imgContainer) {
+          imgContainer.style.display = 'block';
+        }
+      };
+
+      imgElement.src = validImage;
+    }
+
   } else {
-    // SOLO TESTO
-    applyTextFallback();
+    // -----------------------------------------------------------------------
+    // CASO B: LA CARTA HA UN TESTO -> MOSTRA ESCLUSIVAMENTE IL TESTO
+    // -----------------------------------------------------------------------
+    if (promptCard) {
+      promptCard.classList.remove('is-full-image');
+      promptCard.style.padding = '';
+    }
+    if (deckNameElement) {
+      deckNameElement.style.display = '';
+    }
+    if (imgContainer) {
+      imgContainer.style.display = 'none';
+    }
+    if (imgElement) {
+      imgElement.src = '';
+      imgElement.style.display = 'none';
+    }
+    if (textElement) {
+      textElement.style.display = 'block';
+      textElement.textContent = cleanPrompt || 'Carta Gioco';
+    }
   }
 
-  // Gestione visibilità Tasto Info (i): ESCLUSO in Judgement Day (Gogna), VISIBILE in Solo e Stanza Standard
+  // Gestione visibilità Tasto Info (i): ESCLUSO in Judgement Day, VISIBILE in Solo e Stanza Standard
   const btnCardInfo = el.btnCardInfo || document.getElementById('btn-card-info');
   if (btnCardInfo) {
     const isJudgementDay = !!state.roomIsPremium;

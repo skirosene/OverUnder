@@ -1691,22 +1691,24 @@ io.on('connection', (socket) => {
     }
 
     if (room.isPremium) {
-      // Costruisci il mazzo personalizzato con le carte inviate dai partecipanti preservando text, image, ownerId
-      let customCards = (room.customCards || []).map((cardObj, index) => {
+      // Filtra e mantieni ESCLUSIVAMENTE le carte reali create dai partecipanti (nessuna carta fittizia di riempimento)
+      const validCards = (room.customCards || []).filter(c => {
+        if (!c) return false;
+        const txt = typeof c === 'string' ? c.trim() : (c.text || c.prompt || '').trim();
+        const img = (typeof c === 'object' && c.image && typeof c.image === 'string' && c.image.trim().length > 5) ? c.image.trim() : null;
+        return (txt.length > 0 && !txt.startsWith('Carta Judgement Day')) || !!img;
+      });
+
+      let customCards = validCards.map((cardObj, index) => {
         const und = Math.floor(Math.random() * 41) + 30; // Percentuale casuale realistica 30-70%
-        let promptText = typeof cardObj === 'string' ? cardObj : (cardObj.text || cardObj.prompt || '');
-        let image = (typeof cardObj === 'object' && cardObj !== null) ? (cardObj.image || null) : null;
-        if (image && typeof image === 'string') {
-          image = image.trim();
-          if (image.length < 5) image = null;
-        } else {
-          image = null;
+        let promptText = typeof cardObj === 'string' ? cardObj.trim() : (cardObj.text || cardObj.prompt || '').trim();
+        let image = (typeof cardObj === 'object' && cardObj !== null && typeof cardObj.image === 'string' && cardObj.image.trim().length > 5) ? cardObj.image.trim() : null;
+
+        // Se c'è solo l'immagine, non iniettare nessun placeholder o testo generico
+        if (image && (!promptText || promptText.startsWith('Immagine (') || promptText.startsWith('Carta Judgement Day') || promptText === 'Carta Immagine')) {
+          promptText = '';
         }
-        if (!promptText && image) {
-          promptText = `Immagine (${index + 1})`;
-        } else if (!promptText && !image) {
-          promptText = `Carta Judgement Day #${index + 1}`;
-        }
+
         const ownerId = (typeof cardObj === 'object' && cardObj !== null) ? (cardObj.ownerId || null) : null;
         const description = (typeof cardObj === 'object' && cardObj !== null) ? (cardObj.description || null) : null;
         return {
@@ -1723,7 +1725,7 @@ io.on('connection', (socket) => {
         };
       });
 
-      // Se non ci sono carte custom, usa un fallback dal mazzo predefinito per evitare crash
+      // Se non ci sono carte custom (es. nessun giocatore ha inserito nulla), usa un fallback dal mazzo base
       if (customCards.length === 0 && DECK_DATA && DECK_DATA.decks && DECK_DATA.decks[0]) {
         console.warn(`[ROOM ${currentRoomCode}] Avvio premium senza carte custom. Uso fallback dal mazzo base.`);
         customCards = DECK_DATA.decks[0].cards.slice(0, 10).map((c, i) => ({
@@ -1733,7 +1735,7 @@ io.on('connection', (socket) => {
         }));
       }
 
-      // Mescola le carte personalizzate
+      // Mescola ESCLUSIVAMENTE le carte create dai giocatori (il mazzo conterrà esattamente N carte reali)
       const shuffledCustom = customCards.sort(() => 0.5 - Math.random());
 
       room.deck = {
@@ -1987,12 +1989,10 @@ io.on('connection', (socket) => {
 
     const safeImage = (typeof card.image === 'string' && card.image.trim().length > 5) ? card.image.trim() : null;
     let safePrompt = (card.prompt || card.text || '').trim();
-    if (!safePrompt && safeImage) {
-      safePrompt = `Immagine (${room.currentCardIndex + 1})`;
-    } else if (!safePrompt && !safeImage) {
-      safePrompt = `Carta Judgement Day #${room.currentCardIndex + 1}`;
+    if (safeImage && (!safePrompt || safePrompt.startsWith('Immagine (') || safePrompt.startsWith('Carta Judgement Day') || safePrompt === 'Carta Immagine')) {
+      safePrompt = '';
     }
-    const safeText = (card.text || card.prompt || safePrompt).trim();
+    const safeText = safePrompt;
 
     socket.emit('current_card_recovery', {
       prompt: safePrompt,
@@ -2580,12 +2580,10 @@ function sendStateSync(socket, room, player) {
 
   const safeImage = (currentCard && typeof currentCard.image === 'string' && currentCard.image.trim().length > 5) ? currentCard.image.trim() : null;
   let safePrompt = currentCard ? (currentCard.prompt || currentCard.text || '').trim() : '';
-  if (!safePrompt && safeImage) {
-    safePrompt = `Immagine (${room.currentCardIndex + 1})`;
-  } else if (!safePrompt && !safeImage) {
-    safePrompt = `Carta Judgement Day #${room.currentCardIndex + 1}`;
+  if (safeImage && (!safePrompt || safePrompt.startsWith('Immagine (') || safePrompt.startsWith('Carta Judgement Day') || safePrompt === 'Carta Immagine')) {
+    safePrompt = '';
   }
-  const safeText = currentCard ? (currentCard.text || currentCard.prompt || safePrompt).trim() : '';
+  const safeText = safePrompt;
 
   const gameData = {
     deckName: room.deck ? room.deck.deck_name : '',
@@ -2694,12 +2692,10 @@ function startNewRound(room) {
   // Verifica e riparazione di sicurezza per dati corrotti o indefiniti
   const safeImage = (typeof card.image === 'string' && card.image.trim().length > 5) ? card.image.trim() : null;
   let safePrompt = (card.prompt || card.text || '').trim();
-  if (!safePrompt && safeImage) {
-    safePrompt = `Immagine (${room.currentCardIndex + 1})`;
-  } else if (!safePrompt && !safeImage) {
-    safePrompt = `Carta Judgement Day #${room.currentCardIndex + 1}`;
+  if (safeImage && (!safePrompt || safePrompt.startsWith('Immagine (') || safePrompt.startsWith('Carta Judgement Day') || safePrompt === 'Carta Immagine')) {
+    safePrompt = '';
   }
-  const safeText = (card.text || card.prompt || safePrompt).trim();
+  const safeText = safePrompt;
   const safeOwnerId = card.ownerId || null;
   const safeDescription = card.description || null;
 
