@@ -3973,9 +3973,21 @@ function updateGameplayCardMedia(prompt, image) {
   };
 
   if (hasImage) {
-    // Configura gestori onload ed onerror prima di impostare la sorgente
+    let imgRetryCount = 0;
+    const baseSourceUrl = validImage.split('?t=')[0];
+
+    // Configura gestori onload ed onerror con retry automatico (cache-buster ?t=) e fallback anti-nero
     el.gameplayPromptImage.onerror = () => {
-      console.warn(`[IMAGE LOAD FAIL] Impossibile caricare immagine carta, attivo fallback testuale pulito:`, validImage ? validImage.substring(0, 50) : '');
+      if (imgRetryCount < 2 && (baseSourceUrl.startsWith('/uploads/') || baseSourceUrl.startsWith('http'))) {
+        imgRetryCount++;
+        const separator = baseSourceUrl.includes('?') ? '&' : '?';
+        const retryUrl = `${baseSourceUrl}${separator}t=${Date.now()}`;
+        console.warn(`[IMAGE RETRY #${imgRetryCount}] Riprovo caricamento immagine: ${retryUrl}`);
+        el.gameplayPromptImage.src = retryUrl;
+        return;
+      }
+
+      console.warn(`[IMAGE LOAD FAIL] Impossibile caricare immagine carta dopo i tentativi, attivo fallback testuale pulito:`, baseSourceUrl.substring(0, 50));
       applyTextFallback();
       requestCardRecoveryFromServer();
     };
@@ -6749,6 +6761,10 @@ function resetPremiumCardInputState() {
   }
   if (el.inputPremiumCamera) {
     el.inputPremiumCamera.value = '';
+  }
+  if (activeCropper) {
+    try { activeCropper.destroy(); } catch (e) {}
+    activeCropper = null;
   }
 }
 
