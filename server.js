@@ -194,11 +194,22 @@ function verifyJudgementDayLicense(socket) {
     user = users[userId];
   }
   if (!user && requestingDeviceId) {
-    user = Object.values(users).find(u => (u.activeDeviceId === requestingDeviceId || u.deviceUuid === requestingDeviceId) && u.isPremium);
+    user = Object.values(users).find(u => (u.activeDeviceId === requestingDeviceId || u.deviceUuid === requestingDeviceId || u.id === requestingDeviceId) && u.isPremium);
   }
 
   if (!user) {
+    // Se il token JWT firmato è valido ed è Premium per questo device, consenti l'accesso
+    if (socket.userData.isPremium || socket.userData.premiumStatus === 'PREMIUM_A_VITA') {
+      return { valid: true, user: socket.userData };
+    }
     return { valid: false, reason: "Nessuna licenza Judgement Day attiva trovata per questo account.", code: 'NOT_FOUND' };
+  }
+
+  // Se l'utente premium non ha ancora activeDeviceId impostato, impostalo sul device richiedente
+  if (!user.activeDeviceId && requestingDeviceId) {
+    user.activeDeviceId = requestingDeviceId;
+    user.deviceUuid = requestingDeviceId;
+    writeUsersDb(users);
   }
 
   // 2. Controllo Accesso Esclusivo: il deviceId deve corrispondere ESATTAMENTE ad activeDeviceId
@@ -704,21 +715,46 @@ app.post('/api/auth/host', (req, res) => {
   const currentDeviceId = deviceId || deviceUuid || sessionId || 'host_' + cleanUsername.toLowerCase();
   const idKey = currentDeviceId;
 
-  // Cerca se esiste un record utente licenziato con questo activeDeviceId
-  const matchingUser = Object.values(users).find(u => 
-    u.isPremium && (u.activeDeviceId === currentDeviceId || u.deviceUuid === currentDeviceId)
+  // Cerca se esiste un token passato negli header
+  const authHeader = req.headers.authorization;
+  let decodedFromHeader = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      decodedFromHeader = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+    } catch (e) {}
+  }
+
+  // Cerca se esiste un record utente licenziato con questo activeDeviceId, deviceUuid o id
+  let matchingUser = Object.values(users).find(u => 
+    u.isPremium && (
+      (u.activeDeviceId && u.activeDeviceId === currentDeviceId) ||
+      (u.deviceUuid && u.deviceUuid === currentDeviceId) ||
+      (u.id && u.id === currentDeviceId) ||
+      (decodedFromHeader && decodedFromHeader.userId && u.id === decodedFromHeader.userId) ||
+      (decodedFromHeader && decodedFromHeader.email && u.email && u.email.toLowerCase() === decodedFromHeader.email.toLowerCase())
+    )
   );
 
   let isPremiumUser = false;
   let userEmail = null;
 
   if (matchingUser) {
+    if (!matchingUser.activeDeviceId) {
+      matchingUser.activeDeviceId = currentDeviceId;
+      matchingUser.deviceUuid = currentDeviceId;
+      writeUsersDb(users);
+    }
     const isExclusiveMatch = (matchingUser.activeDeviceId === currentDeviceId);
     if (isExclusiveMatch) {
       isPremiumUser = true;
       userEmail = matchingUser.email;
     } else {
-      console.log(`[AUTH HOST] Licenza non attiva per device ${currentDeviceId}: isExclusiveMatch=${isExclusiveMatch}`);
+      console.log(`[AUTH HOST] Licenza non attiva per device ${currentDeviceId}: activeDeviceId=${matchingUser.activeDeviceId}`);
+    }
+  } else if (decodedFromHeader && (decodedFromHeader.isPremium || decodedFromHeader.premiumStatus === 'PREMIUM_A_VITA')) {
+    if (!decodedFromHeader.activeDeviceId || decodedFromHeader.activeDeviceId === currentDeviceId || decodedFromHeader.deviceId === currentDeviceId) {
+      isPremiumUser = true;
+      userEmail = decodedFromHeader.email || null;
     }
   }
 
@@ -740,6 +776,9 @@ app.post('/api/auth/host', (req, res) => {
     user.deviceUuid = currentDeviceId;
     user.isPremium = isPremiumUser;
     user.premiumStatus = isPremiumUser ? 'PREMIUM_A_VITA' : 'STANDARD';
+    if (isPremiumUser && !user.activeDeviceId) {
+      user.activeDeviceId = currentDeviceId;
+    }
     if (userEmail) user.email = userEmail;
   }
 

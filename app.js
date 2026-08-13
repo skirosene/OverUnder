@@ -62,14 +62,73 @@ if (!sessionId) {
 }
 
 // Dispositivo Unico (UUID permanente) per l'accesso esclusivo (1 solo dispositivo attivo)
-let deviceId = safeStorage.getItem('overunder_deviceId');
-if (!deviceId || typeof deviceId !== 'string' || deviceId.trim().length < 8) {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    deviceId = crypto.randomUUID();
-  } else {
-    deviceId = 'dev_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+function getStoredDeviceId() {
+  let devId = safeStorage.getItem('overunder_deviceId') || (typeof localStorage !== 'undefined' ? localStorage.getItem('overunder_deviceId') : null);
+  if (!devId || typeof devId !== 'string' || devId.trim().length < 8) {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      devId = crypto.randomUUID();
+    } else {
+      devId = 'dev_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+    }
+    safeStorage.setItem('overunder_deviceId', devId);
+    try { localStorage.setItem('overunder_deviceId', devId); } catch (e) {}
   }
-  safeStorage.setItem('overunder_deviceId', deviceId);
+  return devId;
+}
+
+let deviceId = getStoredDeviceId();
+
+// Helper parsing JWT token
+function parseJwtPayload(token) {
+  if (!token || typeof token !== 'string') return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
+// Recupera token salvato da safeStorage / localStorage / sessionStorage con validazione di scadenza
+function getStoredAuthToken() {
+  const token = safeStorage.getItem('overunder_token') || 
+                safeSessionStorage.getItem('overunder_token') || 
+                (typeof localStorage !== 'undefined' ? localStorage.getItem('overunder_token') : null) || 
+                (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('overunder_token') : null) || 
+                null;
+  if (!token) return null;
+  const decoded = parseJwtPayload(token);
+  if (decoded && decoded.exp && (decoded.exp * 1000) < Date.now()) {
+    console.warn('[AUTH] Token memorizzato scaduto.');
+    return null;
+  }
+  return token;
+}
+
+// Salva stabilmente il token di autenticazione e i flag premium nel localStorage
+function setStoredAuthToken(token, isPremium = null) {
+  if (!token) return;
+  safeStorage.setItem('overunder_token', token);
+  safeSessionStorage.setItem('overunder_token', token);
+  try { localStorage.setItem('overunder_token', token); } catch (e) {}
+  try { sessionStorage.setItem('overunder_token', token); } catch (e) {}
+  state.authenticatedToken = token;
+
+  const decoded = parseJwtPayload(token);
+  const premiumStatus = (isPremium === true) || (decoded && (decoded.isPremium || decoded.premiumStatus === 'PREMIUM_A_VITA'));
+
+  if (premiumStatus) {
+    safeStorage.setItem('overunder_premium_unlocked', 'true');
+    safeStorage.setItem('overunder_judgement_purchased', 'true');
+    try { localStorage.setItem('overunder_premium_unlocked', 'true'); } catch (e) {}
+    try { localStorage.setItem('overunder_judgement_purchased', 'true'); } catch (e) {}
+  }
 }
 
 // Genera o recupera un playerId univoco e persistente per il browser del giocatore
@@ -102,17 +161,23 @@ function clearRoomSession() {
   safeSessionStorage.removeItem('overunder_isHost');
 }
 
+// Pulisce ESCLUSIVAMENTE i dati della stanza corrente, PRESERVANDO l'autenticazione del dispositivo
 function clearSession() {
   clearRoomSession();
   clearWatchdog();
-  safeSessionStorage.removeItem('overunder_token');
   safeSessionStorage.removeItem('overunder_pendingRoom');
+  try { localStorage.removeItem('overunder_pendingRoom'); } catch (e) {}
   state.roomCode = '';
   state.isHost = false;
   state.players = [];
   state.gameplayStarted = false;
-  state.socketAuthenticated = false;
-  state.authenticatedToken = null;
+  state.roomIsLocked = false;
+  state.roomIsPremium = false;
+  state.customCards = [];
+  state.userHasVoted = false;
+  state.votes = {};
+  state.currentCardIndex = 0;
+  // NOTA BENE: overunder_token, overunder_deviceId e lo stato premium rimangono intatti nel localStorage!
 }
 
 function resetToMenu() {
@@ -138,6 +203,7 @@ function resetToMenu() {
   }
   clearSession();
   showScreen(el.screenWelcome);
+  try { updatePremiumUI(); } catch (e) {}
 }
 
 function getSavedRoomSession() {
@@ -161,13 +227,20 @@ function getSavedRoomSession() {
 // SERVIZI DI AUTENTICAZIONE (JWT)
 // ==========================================================================
 async function authenticateHost(hostName) {
+  const currentDevId = getStoredDeviceId();
+  const existingToken = getStoredAuthToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (existingToken) {
+    headers['Authorization'] = 'Bearer ' + existingToken;
+  }
+
   const logRes = await fetch('/api/auth/host', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       username: hostName,
-      deviceId: deviceId,
-      deviceUuid: deviceId,
+      deviceId: currentDevId,
+      deviceUuid: currentDevId,
       sessionId,
       fingerprint: getDeviceFingerprint()
     })
@@ -180,13 +253,11 @@ async function authenticateHost(hostName) {
 
   const data = await logRes.json();
   if (data.token) {
-    safeSessionStorage.setItem('overunder_token', data.token);
-    safeStorage.setItem('overunder_token', data.token);
-    if (data.isPremium) {
-      safeStorage.setItem('overunder_premium_unlocked', 'true');
-    } else {
-      safeStorage.removeItem('overunder_premium_unlocked');
-    }
+    setStoredAuthToken(data.token, data.isPremium);
+  }
+  if (data.deviceId) {
+    deviceId = data.deviceId;
+    safeStorage.setItem('overunder_deviceId', deviceId);
   }
   return data.token;
 }
@@ -1039,6 +1110,19 @@ async function startApp() {
   localStorage.removeItem('overunder_trial_activated');
   localStorage.removeItem('overunder_trial_shown');
 
+  // Sincronizza stato e token salvato nel localStorage all'avvio
+  const savedToken = getStoredAuthToken();
+  if (savedToken) {
+    const decoded = parseJwtPayload(savedToken);
+    if (decoded && (decoded.isPremium || decoded.premiumStatus === 'PREMIUM_A_VITA')) {
+      safeStorage.setItem('overunder_premium_unlocked', 'true');
+      safeStorage.setItem('overunder_judgement_purchased', 'true');
+      try { localStorage.setItem('overunder_premium_unlocked', 'true'); } catch (e) {}
+      try { localStorage.setItem('overunder_judgement_purchased', 'true'); } catch (e) {}
+    }
+    state.authenticatedToken = savedToken;
+  }
+
   try { initClock(); } catch (e) { console.warn("initClock error:", e); }
   try { setupOnboardingTabs(); } catch (e) { console.warn("setupOnboardingTabs error:", e); }
   try { setupEventListeners(); } catch (e) { console.warn("setupEventListeners error:", e); }
@@ -1529,18 +1613,9 @@ function triggerParticleExplosion() {
 }
 
 function getDecodedToken() {
-  const token = sessionStorage.getItem('overunder_token');
+  const token = getStoredAuthToken();
   if (!token) return null;
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    return JSON.parse(jsonPayload);
-  } catch (e) {
-    return null;
-  }
+  return parseJwtPayload(token);
 }
 
 function checkPremiumStatusFromToken() {
@@ -1553,9 +1628,13 @@ function checkPremiumStatusFromToken() {
 }
 
 function checkJudgementDayAccess() {
-  const isPurchased = safeStorage.getItem('overunder_judgement_purchased') === 'true' || 
-                      safeStorage.getItem('overunder_premium_unlocked') === 'true' || 
-                      checkPremiumStatusFromToken();
+  const decoded = getDecodedToken();
+  const tokenIsPremium = !!(decoded && (decoded.isPremium || decoded.premiumStatus === 'PREMIUM_A_VITA'));
+  const isPurchased = tokenIsPremium || 
+                      safeStorage.getItem('overunder_judgement_purchased') === 'true' || 
+                      safeStorage.getItem('overunder_premium_unlocked') === 'true' ||
+                      (typeof localStorage !== 'undefined' && localStorage.getItem('overunder_premium_unlocked') === 'true') ||
+                      (typeof localStorage !== 'undefined' && localStorage.getItem('overunder_judgement_purchased') === 'true');
   return {
     hasAccess: isPurchased,
     isPurchased: isPurchased,
