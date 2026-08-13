@@ -2425,12 +2425,10 @@ function showPurchaseModal() {
       }
 
       if (state.roomIsPremium) {
-        // Se è Premium e non ci sono carte custom inviate né salvate locale, avvisa l'host
-        const hasCards = (state.players && state.players.some(p => p.premiumReady)) || 
-                         (state.localPremiumCards && state.localPremiumCards.length > 0);
-        if (!hasCards) {
-          showToast("Aggiungi almeno una carta prima di avviare la modalità Judgement Day! 👑", 4000);
-          return;
+        // Se l'host ha carte create in locale non ancora inviate, inviale subito
+        if (state.localPremiumCards && state.localPremiumCards.length > 0 && !state.hasSubmittedPremiumCards) {
+          socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
+          state.hasSubmittedPremiumCards = true;
         }
         socket.emit('start_game', { gameLength: state.gameLength });
       } else {
@@ -3421,6 +3419,9 @@ function setupSocketListeners() {
       if (me.premiumReady && !state.hasSubmittedPremiumCards) {
         state.hasSubmittedPremiumCards = true;
         console.log('[ROOM_PLAYERS_UPDATE] premiumReady confermato dal server per il giocatore locale.');
+        if (el.screenLobby && el.screenLobby.classList.contains('active')) {
+          setupLobbyUI();
+        }
       }
     }
 
@@ -3432,17 +3433,23 @@ function setupSocketListeners() {
   });
 
   // 4a-ter. ACK esplicito ricezione carte dal server (Judgement Day)
-  socket.on('cards_received_success', ({ cardsCount, premiumReady, playerName }) => {
+  const handleCardsAcknowledged = ({ cardsCount, premiumReady, playerName }) => {
     console.log(`[CARDS ACK] Server ha confermato ricezione carte. Totale mazzo: ${cardsCount}, premiumReady: ${premiumReady}, player: ${playerName}`);
     state.hasSubmittedPremiumCards = true;
-    // Cancella eventuale timeout di sicurezza
     if (state._premiumCardsAckTimeout) {
       clearTimeout(state._premiumCardsAckTimeout);
       state._premiumCardsAckTimeout = null;
     }
-    showToast(`✅ ${cardsCount} carte ricevute dal server!`, 2000);
+    const count = cardsCount || (state.localPremiumCards ? state.localPremiumCards.length : 1);
+    showToast(`✅ ${count} ${count === 1 ? 'carta inviata' : 'carte inviate'}!`, 2000);
+    if (el.screenLobby && el.screenLobby.classList.contains('active')) {
+      setupLobbyUI();
+    }
     renderLobbyPlayers();
-  });
+  };
+
+  socket.on('cards_received_success', handleCardsAcknowledged);
+  socket.on('premium_cards_acknowledged', handleCardsAcknowledged);
 
   // 4a. Sincronizzazione Rigorosa dello Stato Stanza (Validazione Server-Client)
   socket.on('room_state_update', ({ roomCode, state: roomState, players, hostId, hostName, isLocked, isPremium }) => {

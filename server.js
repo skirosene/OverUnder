@@ -1630,25 +1630,31 @@ io.on('connection', (socket) => {
 
   // Evento 3: Avvio della Partita (Solo Host) — CON BLINDATURA HOST E LOGGING
   socket.on('start_game', ({ gameLength }) => {
-    const room = rooms[currentRoomCode];
-    if (!room || room.hostId !== socket.id) return;
+    const room = rooms[currentRoomCode] || Object.values(rooms).find(r => r.hostId === socket.id || (r.hostSessionId && socket.userData && r.hostSessionId === socket.userData.userId));
+    if (!room) return;
+    const isHost = room.hostId === socket.id || (room.hostSessionId && socket.userData && room.hostSessionId === socket.userData.userId);
+    if (!isHost) return;
+
+    currentRoomCode = room.roomCode;
+    socket.join(room.roomCode);
 
     console.log(`[START GAME] Host "${room.hostName}" (${socket.id}) avvia partita per stanza ${currentRoomCode}. Stato pre-purga:`, room.players.map(p => ({ name: p.name, connected: p.connected, isOnline: p.isOnline, premiumReady: p.premiumReady, isHost: p.isHost })));
 
     // BLINDATURA HOST: forza lo stato dell'Host come connesso PRIMA della purga
-    const hostPlayer = room.players.find(p => p.id === socket.id || p.isHost);
+    let hostPlayer = room.players.find(p => p.id === socket.id || p.isHost || (room.hostSessionId && p.sessionId === room.hostSessionId));
     if (hostPlayer) {
       hostPlayer.connected = true;
       hostPlayer.isOnline = true;
+      hostPlayer.isHost = true;
       hostPlayer.id = socket.id; // Rebind socket ID attuale
+      room.hostId = socket.id;
       console.log(`[START GAME] Host "${hostPlayer.name}" forzato come connesso/online prima della purga.`);
     }
 
-    // FORCE-MARK PREMIUM READY: se ci sono carte nel mazzo, marca come pronti i giocatori connessi che non lo sono
-    if (room.isPremium && room.customCards.length > 0) {
+    // FORCE-MARK PREMIUM READY: se ci sono carte o giocatori attivi, considera validi i giocatori connessi per evitare blocchi
+    if (room.isPremium) {
       room.players.forEach(p => {
-        if (!p.premiumReady && (p.connected !== false && p.isOnline !== false)) {
-          console.log(`[START GAME FORCE READY] Giocatore "${p.name}" forzato premiumReady=true (carte presenti nel mazzo: ${room.customCards.length})`);
+        if (p.connected !== false && p.isOnline !== false) {
           p.premiumReady = true;
         }
       });
@@ -1664,6 +1670,8 @@ io.on('connection', (socket) => {
       if (hostPlayer) {
         hostPlayer.connected = true;
         hostPlayer.isOnline = true;
+        hostPlayer.isHost = true;
+        hostPlayer.id = socket.id;
         room.players.unshift(hostPlayer);
       }
     }
@@ -1856,31 +1864,59 @@ io.on('connection', (socket) => {
 
             b.premiumReady = true;
             io.to(r.roomCode).emit('player_list_update', { players: r.players });
-            console.log(`Bot ${b.name} pronto e carte inviate.`);
+            io.to(r.roomCode).emit('room_players_update', { players: r.players });
           }, delay);
         }
       }
     });
 
     io.to(room.roomCode).emit('player_list_update', { players: room.players });
-    console.log(`Bot aggiunti alla stanza ${currentRoomCode}`);
+    io.to(room.roomCode).emit('room_players_update', { players: room.players });
   });
 
-  // Evento 4c: Invio delle carte custom Premium (Gogna) — CON ACK ESPLICITO, BUFFER BASE64 & TRACKING OWNER
+  // Evento 4c: Invio Carte Personalizzate (Judgement Day)
   socket.on('submit_premium_cards', ({ cards }) => {
-    const room = rooms[currentRoomCode];
+    const room = rooms[currentRoomCode] || Object.values(rooms).find(r => r.players && r.players.some(p => p.id === socket.id));
     if (!room || !room.isPremium) {
       console.warn(`[CARDS REJECTED] Socket ${socket.id} ha inviato carte per stanza inesistente o non premium. currentRoomCode=${currentRoomCode}`);
       return;
     }
 
-    const player = room.players.find(p => p.id === socket.id);
-    const playerName = player ? player.name : socket.id;
+    currentRoomCode = room.roomCode;
+    socket.join(room.roomCode);
+
+    // Ricerca robusta del giocatore anche per deviceId o sessionId
+    let player = room.players.find(p => p.id === socket.id || (socket.userData && (
+      (socket.userData.deviceId && p.deviceId === socket.userData.deviceId) ||
+      (socket.userData.userId && p.sessionId === socket.userData.userId) ||
+      (socket.userData.playerName && p.name.toLowerCase() === socket.userData.playerName.toLowerCase())
+    )));
+
+    if (!player) {
+      const pName = (socket.userData && (socket.userData.playerName || socket.userData.username)) || 'Giocatore';
+      player = {
+        id: socket.id,
+        name: pName,
+        isHost: room.hostId === socket.id,
+        connected: true,
+        isOnline: true,
+        premiumReady: true,
+        avatar: null
+      };
+      room.players.push(player);
+    } else {
+      player.id = socket.id;
+      player.connected = true;
+      player.isOnline = true;
+      player.premiumReady = true;
+    }
+
+    const playerName = player.name;
     console.log(`[CARDS RECV START] Giocatore "${playerName}" (${socket.id}) sta inviando ${cards ? cards.length : 0} carte per stanza ${currentRoomCode}`);
 
-    // Rimuovi eventuali vecchie carte inviate in precedenza da questo socket per permettere aggiornamenti/cancellazioni pulite
+    // Rimuovi eventuali vecchie carte inviate in precedenza da questo socket o player per aggiornamenti puliti
     if (Array.isArray(room.customCards)) {
-      room.customCards = room.customCards.filter(c => c && c.ownerId !== socket.id);
+      room.customCards = room.customCards.filter(c => c && c.ownerId !== socket.id && c.ownerId !== player.id);
     } else {
       room.customCards = [];
     }
@@ -1903,7 +1939,7 @@ io.on('connection', (socket) => {
               text: text,
               prompt: text,
               image: image,
-              ownerId: socket.id
+              ownerId: player.id
             });
           }
         } else if (typeof cardObj === 'string') {
@@ -1913,32 +1949,30 @@ io.on('connection', (socket) => {
               text: trimmed,
               prompt: trimmed,
               image: null,
-              ownerId: socket.id
+              ownerId: player.id
             });
           }
         }
       });
     }
 
+    // Marca SEMPRE il giocatore come PRONTO
+    player.premiumReady = true;
+    console.log(`[CARDS RECV OK] Giocatore "${player.name}" marcato come premiumReady=true. Totale carte mazzo: ${room.customCards.length}`);
+
     // Sincronizza stato volatile su Redis
     syncRoomToRedis(room.roomCode, room);
 
-    // Marca il giocatore come PRONTO dopo aver salvato le carte nel mazzo
-    if (player) {
-      player.premiumReady = true;
-      console.log(`[CARDS RECV OK] Giocatore "${player.name}" marcato come premiumReady=true. Totale carte mazzo: ${room.customCards.length}`);
-    } else {
-      console.warn(`[CARDS RECV WARN] Giocatore non trovato nell'array players per socket ${socket.id} nella stanza ${currentRoomCode}`);
-    }
-
-    // ACK ESPLICITO al client mittente: conferma ricezione carte
-    socket.emit('cards_received_success', {
+    // ACK ESPLICITO al client mittente (doppio evento per massima compatibilità)
+    const ackData = {
       cardsCount: room.customCards.length,
       premiumReady: true,
-      playerName: player ? player.name : null
-    });
+      playerName: player.name
+    };
+    socket.emit('premium_cards_acknowledged', ackData);
+    socket.emit('cards_received_success', ackData);
 
-    // Broadcast IMMEDIATO aggiornamento stato a TUTTI i client (doppio canale per sicurezza)
+    // Broadcast IMMEDIATO aggiornamento stato a TUTTI i client
     io.to(room.roomCode).emit('player_list_update', { players: room.players });
     io.to(room.roomCode).emit('room_players_update', { players: room.players });
     console.log(`[CARDS BROADCAST] Aggiornamento player_list_update + room_players_update emesso per stanza ${room.roomCode}. Stato giocatori:`, room.players.map(p => ({ name: p.name, premiumReady: p.premiumReady })));
