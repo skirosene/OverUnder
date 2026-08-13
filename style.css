@@ -834,12 +834,19 @@ input[type="submit"] {
   gap: 10px;
 }
 
-/* Spinner caricamento fluido & continuo - Design Unificato Ufficiale Single-Color Cyan */
+/* Spinner caricamento fluido & continuo - Design Unificato Sfumatura Neon Purple & Cyan */
 .loader-spinner {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0%, rgba(0, 240, 255, 0.05) 15%, rgba(0, 240, 255, 0.4) 60%, rgba(0, 240, 255, 0.9) 90%, var(--color-underrated, #00f0ff) 100%);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    rgba(189, 51, 255, 0.15) 20%,
+    rgba(189, 51, 255, 0.7) 45%,
+    rgba(0, 240, 255, 0.9) 80%,
+    var(--color-underrated, #00f0ff) 100%
+  );
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
   -webkit-animation: spin 0.75s linear infinite !important;
@@ -848,7 +855,7 @@ input[type="submit"] {
   will-change: transform;
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
-  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.55));
+  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.5)) drop-shadow(0 0 6px rgba(189, 51, 255, 0.45));
   box-sizing: border-box;
 }
 
@@ -862,6 +869,7 @@ input[type="submit"] {
     background: transparent;
     border: 3.5px solid rgba(0, 240, 255, 0.2);
     border-top-color: var(--color-underrated, #00f0ff);
+    border-right-color: rgba(189, 51, 255, 0.75);
   }
 }
 
@@ -2168,11 +2176,12 @@ input[type="submit"] {
 .loader-spinner-mini {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #ffffff;
   border-radius: 50%;
-  -webkit-animation: spin 0.85s linear infinite !important;
-  animation: spin 0.85s linear infinite !important;
+  background: conic-gradient(from 0deg, transparent 0%, rgba(189, 51, 255, 0.4) 35%, rgba(0, 240, 255, 0.95) 85%, #00f0ff 100%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  -webkit-animation: spin 0.75s linear infinite !important;
+  animation: spin 0.75s linear infinite !important;
   position: absolute;
   right: 20px;
   will-change: transform;
@@ -3836,11 +3845,18 @@ input[type="submit"] {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0%, rgba(0, 240, 255, 0.05) 15%, rgba(0, 240, 255, 0.4) 60%, rgba(0, 240, 255, 0.9) 90%, var(--color-underrated, #00f0ff) 100%);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    rgba(189, 51, 255, 0.15) 20%,
+    rgba(189, 51, 255, 0.7) 45%,
+    rgba(0, 240, 255, 0.9) 80%,
+    var(--color-underrated, #00f0ff) 100%
+  );
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
   animation: spin 0.75s linear infinite;
-  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.55));
+  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.5)) drop-shadow(0 0 6px rgba(189, 51, 255, 0.45));
 }
 
 .splash-loading-text {
@@ -4340,7 +4356,7 @@ input[type="submit"] {
 .loader-spinner.premium-glow {
   width: 48px;
   height: 48px;
-  filter: drop-shadow(0 0 14px rgba(0, 240, 255, 0.75));
+  filter: drop-shadow(0 0 14px rgba(0, 240, 255, 0.75)) drop-shadow(0 0 10px rgba(189, 51, 255, 0.6));
 }
 
 .loading-spinner-container {
