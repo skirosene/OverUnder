@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=14800">
+  <link rel="stylesheet" href="/style.css?v=14900">
 </head>
 
 <body>
@@ -1295,25 +1295,9 @@
         <button id="btn-paywall-standard-buy" class="btn-sblocca-fucsia">
           ACQUISTA ORA
         </button>
-
-        <!-- Sezione Trasferimento Licenza Diretto -->
-        <div style="width: 100%; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 12px; margin-top: 6px; display: flex; flex-direction: column; gap: 8px; align-items: center;">
-          <div style="font-size: 0.74rem; font-weight: 700; color: #06b6d4; text-transform: uppercase; letter-spacing: 0.5px; text-align: center;">
-            Hai già acquistato? Trasferisci la licenza su questo dispositivo
-          </div>
-          <input type="email" id="transfer-license-email" class="text-input"
-            placeholder="Inserisci l'email usata per l'acquisto" autocomplete="email"
-            style="width: 100%; box-sizing: border-box; border-radius: 10px; font-size: 0.8rem; text-align: center; padding: 10px 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(6, 182, 212, 0.4); color: white;">
-          <button id="btn-transfer-license" class="btn-sblocca-fucsia"
-            style="background: linear-gradient(135deg, #06b6d4, #8e44ad); box-shadow: 0 4px 15px rgba(6, 182, 212, 0.35); width: 100%; font-size: 0.78rem; padding: 10px;">
-            TRASFERISCI LICENZA
-          </button>
-          <span id="transfer-license-error" class="error-msg" style="display: none; font-size: 0.72rem; text-align: center; width: 100%;"></span>
-        </div>
-
         <button id="btn-open-restore-modal" type="button"
-          style="background: none; border: none; color: #a0a0a0; font-size: 0.7rem; text-decoration: underline; cursor: pointer; padding: 4px; margin-top: 2px;">
-          Accesso avanzato con codice OTP
+          style="background: none; border: none; color: #06b6d4; font-size: 0.74rem; text-decoration: underline; cursor: pointer; padding: 6px 4px; margin-top: 2px; font-weight: 600; letter-spacing: 0.2px;">
+          Hai già acquistato? Trasferisci licenza con OTP
         </button>
         <button id="btn-paywall-standard-close" class="btn-paywall-close-styled">
           CHIUDI
@@ -1603,7 +1587,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=14800"></script>
+  <script src="/app.js?v=14900"></script>
 </body>
 
 </html>

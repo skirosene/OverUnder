@@ -2103,6 +2103,14 @@ function showPurchaseModal() {
     transferErrorMsg.style.display = 'none';
   }
 
+  function openTransferModal() {
+    resetTransferModalState();
+    if (restoreModal) {
+      restoreModal.style.display = 'flex';
+      restoreModal.classList.add('active');
+    }
+  }
+
   function resetTransferModalState() {
     if (otpTimerInterval) {
       clearInterval(otpTimerInterval);
@@ -2113,9 +2121,11 @@ function showPurchaseModal() {
     if (transferStepOtp) transferStepOtp.style.display = 'none';
     if (inputTransferEmail) {
       inputTransferEmail.disabled = false;
-      inputTransferEmail.readOnly = false;
+      inputTransferEmail.value = '';
     }
-    if (inputTransferOtp) inputTransferOtp.value = '';
+    if (inputTransferOtp) {
+      inputTransferOtp.value = '';
+    }
     if (btnRequestTransferOtp) {
       btnRequestTransferOtp.disabled = false;
       btnRequestTransferOtp.innerText = "INVIA CODICE";
@@ -2124,19 +2134,21 @@ function showPurchaseModal() {
       btnVerifyTransferOtp.disabled = false;
       btnVerifyTransferOtp.innerText = "CONFERMA";
     }
-    if (btnResendTransferOtp) btnResendTransferOtp.style.display = 'none';
+    if (btnResendTransferOtp) {
+      btnResendTransferOtp.style.display = 'none';
+    }
   }
 
   function startOtpCountdown() {
     if (otpTimerInterval) clearInterval(otpTimerInterval);
     otpCountdownSeconds = 60;
-    if (transferOtpTimer) transferOtpTimer.textContent = '60';
+    if (transferOtpTimer) transferOtpTimer.textContent = otpCountdownSeconds;
     if (transferOtpTimerBox) transferOtpTimerBox.style.display = 'flex';
     if (btnResendTransferOtp) btnResendTransferOtp.style.display = 'none';
 
     otpTimerInterval = setInterval(() => {
       otpCountdownSeconds--;
-      if (transferOtpTimer) transferOtpTimer.textContent = String(otpCountdownSeconds);
+      if (transferOtpTimer) transferOtpTimer.textContent = otpCountdownSeconds;
 
       if (otpCountdownSeconds <= 0) {
         clearInterval(otpTimerInterval);
@@ -2152,11 +2164,12 @@ function showPurchaseModal() {
   const btnOpenRestoreModal = el.btnOpenRestoreModal || document.getElementById('btn-open-restore-modal');
   if (btnOpenRestoreModal) {
     btnOpenRestoreModal.addEventListener('click', () => {
-      resetTransferModalState();
-      if (restoreModal) {
-        restoreModal.style.display = 'flex';
-        restoreModal.classList.add('active');
+      const standardModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
+      if (standardModal) {
+        standardModal.style.display = 'none';
+        standardModal.classList.remove('active');
       }
+      openTransferModal();
     });
   }
 
@@ -2176,7 +2189,6 @@ function showPurchaseModal() {
   const handleRequestOTP = async () => {
     hideTransferError();
     const rawEmail = inputTransferEmail ? inputTransferEmail.value : '';
-    // pulizia profonda per tastiere mobili (spazi invisibili, NBSP, maiuscole automatiche)
     const email = rawEmail.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').replace(/\s+/g, '').toLowerCase().trim();
     if (!email) {
       showTransferError("Inserisci la tua email!");
@@ -2201,7 +2213,6 @@ function showPurchaseModal() {
         throw new Error(data.error || "Nessun acquisto trovato per questa email.");
       }
 
-      // Transizione alla Fase 2
       if (inputTransferEmail) inputTransferEmail.disabled = true;
       if (transferEmailDisplay) transferEmailDisplay.textContent = email;
       if (transferStepEmail) transferStepEmail.style.display = 'none';
@@ -2257,10 +2268,18 @@ function showPurchaseModal() {
         btnVerifyTransferOtp.innerText = "VERIFICA IN CORSO...";
       }
 
+      const currentDeviceId = (typeof getStoredDeviceId === 'function') ? getStoredDeviceId() : (safeStorage.getItem('overunder_device_id') || 'dev_' + Date.now());
+
       const res = await fetch('/api/premium/verify-transfer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otpCode, deviceId: deviceId, deviceUuid: deviceId, sessionId })
+        body: JSON.stringify({
+          email: email,
+          otpCode: otpCode,
+          deviceId: currentDeviceId,
+          deviceUuid: currentDeviceId,
+          sessionId: safeSessionStorage.getItem('overunder_sessionId') || null
+        })
       });
 
       const data = await res.json().catch(() => ({}));
@@ -2273,19 +2292,24 @@ function showPurchaseModal() {
       }
 
       if (data.token) {
+        if (typeof setStoredAuthToken === 'function') {
+          setStoredAuthToken(data.token, true);
+        }
         safeSessionStorage.setItem('overunder_token', data.token);
         safeStorage.setItem('overunder_token', data.token);
         safeStorage.setItem('overunder_premium_unlocked', 'true');
+        safeStorage.setItem('overunder_judgement_purchased', 'true');
+        try { localStorage.setItem('overunder_premium_unlocked', 'true'); } catch (e) {}
+        try { localStorage.setItem('overunder_judgement_purchased', 'true'); } catch (e) {}
       }
 
       state.roomIsPremium = true;
       if (el.createPremiumToggle) {
         el.createPremiumToggle.checked = true;
       }
-      showToast("Dispositivo autorizzato con successo! 👑", 5000);
+      showToast("Licenza trasferita con successo! 👑", 5000);
       updatePremiumUI();
 
-      // Se l'Host si trova attualmente dentro la stanza/lobby, attiva subito la modalità Judgement Day per tutti
       if (socket && socket.connected && state.roomCode && state.isHost) {
         socket.emit('set_room_mode', { isPremium: true });
       }
