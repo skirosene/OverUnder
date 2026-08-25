@@ -16,6 +16,7 @@ const { Resend } = require('resend');
 const nodemailer = require('nodemailer');
 const Redis = require('ioredis');
 const { createAdapter } = require('@socket.io/redis-adapter');
+const sharp = require('sharp');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overunder_super_secret_key_12345_mvp';
 
@@ -1206,6 +1207,97 @@ app.post('/upload', upload.single('file'), (req, res) => {
   }
 
   res.json({ url: fileUrl });
+});
+
+// Endpoint Ricerca Immagini Web (Proxy Pixabay con fallback globale)
+app.get('/api/images/search', async (req, res) => {
+  const pixabayApiKey = process.env.PIXABAY_API_KEY ? process.env.PIXABAY_API_KEY.trim() : null;
+  if (!pixabayApiKey) {
+    return res.status(500).json({ error: "Chiave Pixabay API non configurata nel server (PIXABAY_API_KEY mancante)." });
+  }
+
+  const query = (req.query.q || '').trim();
+  if (!query) {
+    return res.status(400).json({ error: "Parametro di ricerca 'q' mancante o vuoto." });
+  }
+
+  try {
+    const itUrl = `https://pixabay.com/api/?key=${encodeURIComponent(pixabayApiKey)}&q=${encodeURIComponent(query)}&image_type=photo&safesearch=true&per_page=24&lang=it`;
+    let response = await fetch(itUrl);
+    let data = await response.json().catch(() => ({}));
+
+    // Fallback automatico senza filtro lingua se non ci sono risultati in italiano
+    if (!data.hits || data.hits.length === 0) {
+      const globalUrl = `https://pixabay.com/api/?key=${encodeURIComponent(pixabayApiKey)}&q=${encodeURIComponent(query)}&image_type=photo&safesearch=true&per_page=24`;
+      response = await fetch(globalUrl);
+      data = await response.json().catch(() => ({}));
+    }
+
+    if (!data.hits || !Array.isArray(data.hits)) {
+      return res.json([]);
+    }
+
+    const results = data.hits.map(hit => ({
+      id: hit.id,
+      previewUrl: hit.webformatURL,
+      fullUrl: hit.largeImageURL || hit.webformatURL,
+      tags: hit.tags
+    }));
+
+    return res.json(results);
+
+  } catch (err) {
+    console.error("[PIXABAY SEARCH ERROR]", err);
+    return res.status(500).json({ error: err.message || "Errore durante la ricerca su Pixabay." });
+  }
+});
+
+// Endpoint Download & Ottimizzazione Immagine da URL Web (.webp 85% max 1200x1200)
+app.post('/api/images/import-url', async (req, res) => {
+  const { imageUrl, roomCode } = req.body || {};
+  if (!imageUrl || typeof imageUrl !== 'string' || !imageUrl.startsWith('http')) {
+    return res.status(400).json({ error: "URL immagine non valido o mancante." });
+  }
+
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      return res.status(502).json({ error: `Impossibile scaricare l'immagine dalla sorgente (HTTP ${response.status}).` });
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const inputBuffer = Buffer.from(arrayBuffer);
+
+    // Elaborazione con Sharp: ridimensionamento max 1200x1200 e conversione WebP 85%
+    const webpBuffer = await sharp(inputBuffer)
+      .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toBuffer();
+
+    const filename = `web-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.webp`;
+    const filePath = path.join(uploadsDir, filename);
+
+    await fs.promises.writeFile(filePath, webpBuffer);
+
+    const fileUrl = '/uploads/' + filename;
+
+    // Se fornito il codice stanza, registra l'immagine tra gli asset della stanza
+    const cleanRoomCode = (roomCode || '').trim().toUpperCase();
+    if (cleanRoomCode && rooms[cleanRoomCode]) {
+      const room = rooms[cleanRoomCode];
+      if (!room.assets) room.assets = [];
+      if (!room.assets.includes(fileUrl)) {
+        room.assets.push(fileUrl);
+      }
+      console.log(`[ASSET IMPORT] Immagine web salvata e registrata per la stanza ${cleanRoomCode}: ${fileUrl}`);
+    }
+
+    return res.json({ success: true, url: fileUrl });
+
+  } catch (err) {
+    console.error("[IMAGE IMPORT ERROR]", err);
+    return res.status(500).json({ error: err.message || "Errore durante l'elaborazione e conversione dell'immagine." });
+  }
 });
 
 // ==========================================================================
