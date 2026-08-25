@@ -8354,7 +8354,7 @@ function setupWebImageSearch() {
 
     try {
       const res = await fetch(`/api/images/search?q=${encodeURIComponent(q)}`);
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ([]));
 
       if (loading) loading.style.display = 'none';
 
@@ -8362,9 +8362,7 @@ function setupWebImageSearch() {
         throw new Error(data.error || "Errore durante la ricerca.");
       }
 
-      const results = Array.isArray(data) ? data : (Array.isArray(data.results) ? data.results : []);
-
-      if (results.length === 0) {
+      if (!Array.isArray(data) || data.length === 0) {
         if (noResults) {
           noResults.textContent = `Nessuna immagine trovata per "${q}". Prova con altri termini.`;
           noResults.style.display = 'block';
@@ -8374,18 +8372,15 @@ function setupWebImageSearch() {
 
       if (grid) {
         grid.innerHTML = '';
-        results.forEach(hit => {
+        data.forEach(hit => {
           const card = document.createElement('div');
           card.className = 'web-img-card';
           card.style.cssText = 'position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; cursor: pointer; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03);';
           
-          const rawTitle = (hit.title || hit.tags || '').trim();
-          const previewSrc = hit.previewUrl || hit.thumbnail || hit.image || hit.fullUrl;
-          const fullSrc = hit.fullUrl || hit.image || hit.previewUrl || hit.thumbnail;
-
+          const tagFirst = hit.tags ? hit.tags.split(',')[0].trim() : '';
           card.innerHTML = `
-            <img src="${previewSrc}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover; display: block;" alt="${rawTitle}" onerror="this.parentElement.style.display='none'">
-            ${rawTitle ? `<div style="position: absolute; bottom: 0; left: 0; width: 100%; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,0.85)); font-size: 0.68rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600;">${rawTitle}</div>` : ''}
+            <img src="${hit.previewUrl}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover; display: block;" alt="${tagFirst}">
+            ${tagFirst ? `<div style="position: absolute; bottom: 0; left: 0; width: 100%; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,0.85)); font-size: 0.68rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600;">${tagFirst}</div>` : ''}
           `;
 
           card.addEventListener('click', async () => {
@@ -8395,7 +8390,7 @@ function setupWebImageSearch() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  imageUrl: fullSrc,
+                  imageUrl: hit.fullUrl || hit.previewUrl,
                   roomCode: state.roomCode || null
                 })
               });

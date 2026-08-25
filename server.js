@@ -17,13 +17,6 @@ const nodemailer = require('nodemailer');
 const Redis = require('ioredis');
 const { createAdapter } = require('@socket.io/redis-adapter');
 
-let DDG = null;
-try {
-  DDG = require('duck-duck-scrape');
-} catch (err) {
-  console.warn('[DDG INIT WARNING] Modulo duck-duck-scrape non disponibile:', err.message);
-}
-
 let sharp = null;
 try {
   sharp = require('sharp');
@@ -1222,113 +1215,46 @@ app.post('/upload', upload.single('file'), (req, res) => {
   res.json({ url: fileUrl });
 });
 
-/**
- * Helper per la ricerca immagini tramite DuckDuckGo (senza necessità di API Key)
- */
-async function searchDuckDuckGoImages(query) {
-  const cleanQuery = (query || '').trim();
-  if (!cleanQuery) return [];
-
-  // 1. Tenta prima tramite duck-duck-scrape se disponibile
-  if (DDG && typeof DDG.searchImages === 'function') {
-    try {
-      const searchResults = await DDG.searchImages(cleanQuery, {
-        safeSearch: DDG.SafeSearchType.MODERATE
-      }, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-          'Referer': 'https://duckduckgo.com/',
-          'Accept': 'application/json, text/javascript, */*; q=0.01',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      });
-      if (searchResults && Array.isArray(searchResults.results) && searchResults.results.length > 0) {
-        return searchResults.results.slice(0, 30).map((item, index) => ({
-          id: index,
-          previewUrl: item.thumbnail || item.image,
-          fullUrl: item.image || item.thumbnail,
-          title: item.title || ''
-        }));
-      }
-    } catch (ddgErr) {
-      console.warn('[DDG SCRAPE FALLBACK] Fallback su query diretta DDG:', ddgErr.message);
-    }
-  }
-
-  // 2. Fetch diretto DuckDuckGo (Massima affidabilità, meme/web reali)
-  try {
-    const vqdRes = await fetch('https://duckduckgo.com/?q=' + encodeURIComponent(cleanQuery), {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7'
-      }
-    });
-    const html = await vqdRes.text();
-    const vqdMatch = html.match(/vqd=['"]([0-9-]+)['"]/) || html.match(/vqd=([0-9-]+)/);
-    const vqd = vqdMatch ? (vqdMatch[1] || vqdMatch[2]) : null;
-
-    if (!vqd) {
-      console.warn('[DDG DIRECT] Token VQD non trovato per query:', cleanQuery);
-      return [];
-    }
-
-    const params = new URLSearchParams({
-      l: 'it-it',
-      o: 'json',
-      q: cleanQuery,
-      vqd: vqd,
-      f: ',,,',
-      p: '1'
-    });
-
-    const iRes = await fetch(`https://duckduckgo.com/i.js?${params.toString()}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-        'Referer': 'https://duckduckgo.com/',
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin'
-      }
-    });
-
-    if (!iRes.ok) {
-      return [];
-    }
-
-    const data = await iRes.json().catch(() => ({}));
-    if (!data.results || !Array.isArray(data.results)) {
-      return [];
-    }
-
-    return data.results.slice(0, 30).map((item, index) => ({
-      id: index,
-      previewUrl: item.thumbnail || item.image,
-      fullUrl: item.image || item.thumbnail,
-      title: item.title || ''
-    }));
-
-  } catch (err) {
-    console.error('[DDG SEARCH ERROR]', err);
-    return [];
-  }
-}
-
-// Endpoint Ricerca Immagini Web (DuckDuckGo Search - Meme & Web)
+// Endpoint Ricerca Immagini Web (Proxy Pixabay con fallback globale)
 app.get('/api/images/search', async (req, res) => {
+  const pixabayApiKey = process.env.PIXABAY_API_KEY ? process.env.PIXABAY_API_KEY.trim() : null;
+  if (!pixabayApiKey) {
+    return res.status(500).json({ error: "Chiave Pixabay API non configurata nel server (PIXABAY_API_KEY mancante)." });
+  }
+
   const query = (req.query.q || '').trim();
   if (!query) {
-    return res.json({ success: true, results: [] });
+    return res.status(400).json({ error: "Parametro di ricerca 'q' mancante o vuoto." });
   }
 
   try {
-    const formatted = await searchDuckDuckGoImages(query);
-    return res.json({ success: true, results: formatted });
+    const itUrl = `https://pixabay.com/api/?key=${encodeURIComponent(pixabayApiKey)}&q=${encodeURIComponent(query)}&image_type=photo&safesearch=true&per_page=24&lang=it`;
+    let response = await fetch(itUrl);
+    let data = await response.json().catch(() => ({}));
+
+    // Fallback automatico senza filtro lingua se non ci sono risultati in italiano
+    if (!data.hits || data.hits.length === 0) {
+      const globalUrl = `https://pixabay.com/api/?key=${encodeURIComponent(pixabayApiKey)}&q=${encodeURIComponent(query)}&image_type=photo&safesearch=true&per_page=24`;
+      response = await fetch(globalUrl);
+      data = await response.json().catch(() => ({}));
+    }
+
+    if (!data.hits || !Array.isArray(data.hits)) {
+      return res.json([]);
+    }
+
+    const results = data.hits.map(hit => ({
+      id: hit.id,
+      previewUrl: hit.webformatURL,
+      fullUrl: hit.largeImageURL || hit.webformatURL,
+      tags: hit.tags
+    }));
+
+    return res.json(results);
+
   } catch (err) {
-    console.error("[IMAGE SEARCH ENDPOINT ERROR]", err);
-    return res.json({ success: false, results: [] });
+    console.error("[PIXABAY SEARCH ERROR]", err);
+    return res.status(500).json({ error: err.message || "Errore durante la ricerca su Pixabay." });
   }
 });
 

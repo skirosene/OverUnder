@@ -13,7 +13,6 @@
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
     "cors": "^2.8.6",
-    "duck-duck-scrape": "^2.2.7",
     "express": "^4.19.2",
     "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.3",
@@ -25,7 +24,7 @@
     "stripe": "^22.4.0"
   },
   "optionalDependencies": {
-    "@img/sharp-libvips-linux-x64": "^1.0.4",
-    "@img/sharp-linux-x64": "^0.33.5"
+    "@img/sharp-linux-x64": "^0.33.5",
+    "@img/sharp-libvips-linux-x64": "^1.0.4"
   }
 }
