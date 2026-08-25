@@ -16,7 +16,13 @@ const { Resend } = require('resend');
 const nodemailer = require('nodemailer');
 const Redis = require('ioredis');
 const { createAdapter } = require('@socket.io/redis-adapter');
-const sharp = require('sharp');
+
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (err) {
+  console.warn('[SHARP INIT WARNING] Modulo sharp non disponibile o caricamento nativo fallito:', err.message);
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overunder_super_secret_key_12345_mvp';
 
@@ -1252,7 +1258,7 @@ app.get('/api/images/search', async (req, res) => {
   }
 });
 
-// Endpoint Download & Ottimizzazione Immagine da URL Web (.webp 85% max 1200x1200)
+// Endpoint Download & Ottimizzazione Immagine da URL Web (.webp 85% max 1200x1200 con fallback sicuro)
 app.post('/api/images/import-url', async (req, res) => {
   const { imageUrl, roomCode } = req.body || {};
   if (!imageUrl || typeof imageUrl !== 'string' || !imageUrl.startsWith('http')) {
@@ -1268,16 +1274,30 @@ app.post('/api/images/import-url', async (req, res) => {
     const arrayBuffer = await response.arrayBuffer();
     const inputBuffer = Buffer.from(arrayBuffer);
 
-    // Elaborazione con Sharp: ridimensionamento max 1200x1200 e conversione WebP 85%
-    const webpBuffer = await sharp(inputBuffer)
-      .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 85 })
-      .toBuffer();
+    let finalBuffer = inputBuffer;
+    let ext = 'webp';
 
-    const filename = `web-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.webp`;
+    // Elaborazione con Sharp (se disponibile): ridimensionamento max 1200x1200 e conversione WebP 85%
+    if (sharp) {
+      try {
+        finalBuffer = await sharp(inputBuffer)
+          .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+          .webp({ quality: 85 })
+          .toBuffer();
+        ext = 'webp';
+      } catch (sharpErr) {
+        console.warn("[SHARP PROCESSING FALLBACK] Errore elaborazione Sharp, salvataggio buffer grezzo:", sharpErr.message);
+        finalBuffer = inputBuffer;
+        ext = 'jpg';
+      }
+    } else {
+      ext = 'jpg';
+    }
+
+    const filename = `web-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${ext}`;
     const filePath = path.join(uploadsDir, filename);
 
-    await fs.promises.writeFile(filePath, webpBuffer);
+    await fs.promises.writeFile(filePath, finalBuffer);
 
     const fileUrl = '/uploads/' + filename;
 
