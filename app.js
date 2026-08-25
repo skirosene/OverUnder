@@ -6806,7 +6806,10 @@ function resetPremiumCardInputState() {
 function renderCapsules() {
   el.premiumCardsList.innerHTML = '';
   
-  state.localPremiumCards.forEach((cardObj, index) => {
+  // Ordine cronologico inverso: la carta più recente appare in cima alla lista
+  const reversedIndices = state.localPremiumCards.map((_, i) => i).reverse();
+  reversedIndices.forEach((index) => {
+    const cardObj = state.localPremiumCards[index];
     const capsule = document.createElement('div');
     
     const hasImage = isValidImageString(cardObj.image);
