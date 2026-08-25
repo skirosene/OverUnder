@@ -1948,10 +1948,11 @@ io.on('connection', (socket) => {
 
     if (!player) {
       const pName = (socket.userData && (socket.userData.playerName || socket.userData.username)) || 'Giocatore';
+      const isHostPlayer = room.hostId === socket.id || (room.hostName && room.hostName.toLowerCase() === pName.toLowerCase());
       player = {
         id: socket.id,
         name: pName,
-        isHost: room.hostId === socket.id,
+        isHost: isHostPlayer,
         connected: true,
         isOnline: true,
         premiumReady: true,
@@ -1963,6 +1964,9 @@ io.on('connection', (socket) => {
       player.connected = true;
       player.isOnline = true;
       player.premiumReady = true;
+      if (room.hostId === socket.id || (room.hostName && player.name && room.hostName.toLowerCase() === player.name.toLowerCase())) {
+        player.isHost = true;
+      }
     }
 
     const playerName = player.name;

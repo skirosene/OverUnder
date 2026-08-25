@@ -3350,7 +3350,9 @@ function setupSocketListeners() {
 
     const myPlayer = players.find(p => p.name === state.playerName);
     state.hasSubmittedPremiumCards = myPlayer ? !!myPlayer.premiumReady : false;
-    state.localPremiumCards = [];
+    if (!Array.isArray(state.localPremiumCards)) {
+      state.localPremiumCards = [];
+    }
 
     // Forzatura rendering della schermata corretta in base al tipo di stato
     if (roomState === 'lobby' || roomState === 'card_submission') {
@@ -4429,6 +4431,7 @@ function setupLobbyUI() {
       if (!state.isHost && el.lobbyPlayerWaiting) {
         el.lobbyPlayerWaiting.style.display = 'none';
       }
+      renderCapsules();
     }
   } else {
     if (el.roundsSelectorGrid) el.roundsSelectorGrid.style.display = 'grid';
