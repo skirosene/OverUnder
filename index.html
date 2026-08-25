@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=15400">
+  <link rel="stylesheet" href="/style.css?v=15500">
 </head>
 
 <body>
@@ -1259,7 +1259,7 @@
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 1.3rem;">🔍</span>
           <h3 style="margin: 0; font-family: var(--font-title); font-size: 1.05rem; font-weight: 800; color: white; letter-spacing: 0.3px;">
-            Cerca Immagine nel Web
+            Cerca GIF & Meme
           </h3>
         </div>
         <button id="btn-close-web-search-modal" type="button"
@@ -1269,7 +1269,7 @@
       <!-- Barra di ricerca -->
       <div style="padding: 14px 20px 8px 20px; display: flex; gap: 8px; align-items: center;">
         <div style="position: relative; flex: 1; display: flex; align-items: center;">
-          <input type="text" id="input-web-image-search" class="text-input" placeholder="Cerca foto, meme, personaggi..." autocomplete="off"
+          <input type="text" id="input-web-image-search" class="text-input" placeholder="Cerca GIF, meme, personaggi..." autocomplete="off"
             style="width: 100%; box-sizing: border-box; border-radius: 12px; font-size: 0.85rem; padding: 10px 38px 10px 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(189, 51, 255, 0.4); color: white;">
           <button id="btn-clear-web-image-search" type="button"
             style="display: none; position: absolute; right: 10px; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.1rem; cursor: pointer; padding: 2px;">&times;</button>
@@ -1292,13 +1292,13 @@
         <!-- Indicatore Importazione in corso -->
         <div id="web-search-importing" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(6px); z-index: 10; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
           <div class="loader-spinner" style="border-top-color: #06b6d4; width: 42px; height: 42px;"></div>
-          <span style="font-size: 0.88rem; color: #06b6d4; font-weight: 700;">Ottimizzazione e caricamento...</span>
+          <span style="font-size: 0.88rem; color: #06b6d4; font-weight: 700;">Conversione e ottimizzazione...</span>
         </div>
 
         <!-- Messaggio stato vuoto / iniziale -->
         <div id="web-search-placeholder" style="text-align: center; color: rgba(255, 255, 255, 0.4); font-size: 0.8rem; margin: auto; padding: 30px 10px;">
-          <span style="font-size: 2.2rem; display: block; margin-bottom: 8px;">🖼️</span>
-          Digita una parola chiave per cercare tra milioni di foto royalty-free
+          <span style="font-size: 2.2rem; display: block; margin-bottom: 8px;">🎬</span>
+          Digita una parola chiave per cercare tra milioni di GIF e meme
         </div>
 
         <!-- Messaggio nessun risultato -->
@@ -1660,7 +1660,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=15400"></script>
+  <script src="/app.js?v=15500"></script>
 </body>
 
 </html>

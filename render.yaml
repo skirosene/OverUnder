@@ -16,5 +16,5 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false
-      - key: PIXABAY_API_KEY
+      - key: GIPHY_API_KEY
         sync: false

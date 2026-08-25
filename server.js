@@ -1215,46 +1215,39 @@ app.post('/upload', upload.single('file'), (req, res) => {
   res.json({ url: fileUrl });
 });
 
-// Endpoint Ricerca Immagini Web (Proxy Pixabay con fallback globale)
+// Endpoint Ricerca Immagini & GIF Web (Integrazione Ufficiale Giphy API)
 app.get('/api/images/search', async (req, res) => {
-  const pixabayApiKey = process.env.PIXABAY_API_KEY ? process.env.PIXABAY_API_KEY.trim() : null;
-  if (!pixabayApiKey) {
-    return res.status(500).json({ error: "Chiave Pixabay API non configurata nel server (PIXABAY_API_KEY mancante)." });
+  const giphyApiKey = process.env.GIPHY_API_KEY ? process.env.GIPHY_API_KEY.trim() : null;
+  if (!giphyApiKey) {
+    return res.status(500).json({ error: "Chiave Giphy API non configurata nel server (GIPHY_API_KEY mancante)." });
   }
 
   const query = (req.query.q || '').trim();
   if (!query) {
-    return res.status(400).json({ error: "Parametro di ricerca 'q' mancante o vuoto." });
+    return res.json({ success: true, results: [] });
   }
 
   try {
-    const itUrl = `https://pixabay.com/api/?key=${encodeURIComponent(pixabayApiKey)}&q=${encodeURIComponent(query)}&image_type=photo&safesearch=true&per_page=24&lang=it`;
-    let response = await fetch(itUrl);
-    let data = await response.json().catch(() => ({}));
+    const giphyUrl = `https://api.giphy.com/v1/gifs/search?api_key=${encodeURIComponent(giphyApiKey)}&q=${encodeURIComponent(query)}&limit=24&rating=pg-13&lang=it`;
+    const response = await fetch(giphyUrl);
+    const data = await response.json().catch(() => ({}));
 
-    // Fallback automatico senza filtro lingua se non ci sono risultati in italiano
-    if (!data.hits || data.hits.length === 0) {
-      const globalUrl = `https://pixabay.com/api/?key=${encodeURIComponent(pixabayApiKey)}&q=${encodeURIComponent(query)}&image_type=photo&safesearch=true&per_page=24`;
-      response = await fetch(globalUrl);
-      data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || (data.meta && data.meta.msg) || `Giphy API error (${response.status})`);
     }
 
-    if (!data.hits || !Array.isArray(data.hits)) {
-      return res.json([]);
-    }
-
-    const results = data.hits.map(hit => ({
-      id: hit.id,
-      previewUrl: hit.webformatURL,
-      fullUrl: hit.largeImageURL || hit.webformatURL,
-      tags: hit.tags
+    const formatted = (data.data || []).map(item => ({
+      id: item.id,
+      previewUrl: item.images?.fixed_height_small?.url || item.images?.preview_gif?.url || item.images?.fixed_height?.url,
+      fullUrl: item.images?.original?.url || item.images?.downsized_large?.url || item.images?.fixed_height?.url,
+      title: item.title || ''
     }));
 
-    return res.json(results);
+    return res.json({ success: true, results: formatted });
 
   } catch (err) {
-    console.error("[PIXABAY SEARCH ERROR]", err);
-    return res.status(500).json({ error: err.message || "Errore durante la ricerca su Pixabay." });
+    console.error("[GIPHY SEARCH ERROR]", err);
+    return res.status(500).json({ error: err.message || "Errore durante la ricerca su Giphy." });
   }
 });
 
