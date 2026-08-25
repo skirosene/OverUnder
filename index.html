@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=14700">
+  <link rel="stylesheet" href="/style.css?v=14800">
 </head>
 
 <body>
@@ -1295,9 +1295,25 @@
         <button id="btn-paywall-standard-buy" class="btn-sblocca-fucsia">
           ACQUISTA ORA
         </button>
+
+        <!-- Sezione Trasferimento Licenza Diretto -->
+        <div style="width: 100%; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 12px; margin-top: 6px; display: flex; flex-direction: column; gap: 8px; align-items: center;">
+          <div style="font-size: 0.74rem; font-weight: 700; color: #06b6d4; text-transform: uppercase; letter-spacing: 0.5px; text-align: center;">
+            Hai già acquistato? Trasferisci la licenza su questo dispositivo
+          </div>
+          <input type="email" id="transfer-license-email" class="text-input"
+            placeholder="Inserisci l'email usata per l'acquisto" autocomplete="email"
+            style="width: 100%; box-sizing: border-box; border-radius: 10px; font-size: 0.8rem; text-align: center; padding: 10px 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(6, 182, 212, 0.4); color: white;">
+          <button id="btn-transfer-license" class="btn-sblocca-fucsia"
+            style="background: linear-gradient(135deg, #06b6d4, #8e44ad); box-shadow: 0 4px 15px rgba(6, 182, 212, 0.35); width: 100%; font-size: 0.78rem; padding: 10px;">
+            TRASFERISCI LICENZA
+          </button>
+          <span id="transfer-license-error" class="error-msg" style="display: none; font-size: 0.72rem; text-align: center; width: 100%;"></span>
+        </div>
+
         <button id="btn-open-restore-modal" type="button"
           style="background: none; border: none; color: #a0a0a0; font-size: 0.7rem; text-decoration: underline; cursor: pointer; padding: 4px; margin-top: 2px;">
-          Hai già acquistato? Accedi con la tua email
+          Accesso avanzato con codice OTP
         </button>
         <button id="btn-paywall-standard-close" class="btn-paywall-close-styled">
           CHIUDI
@@ -1538,6 +1554,24 @@
             Invia Email
           </a>
         </div>
+
+        <!-- Sezione 4: Gestisci / Recupera Licenza Judgement Day -->
+        <div class="sidebar-section glass-panel">
+          <div class="sidebar-section-header">
+            <span class="sidebar-section-icon">👑</span>
+            <div class="sidebar-section-text">
+              <div class="sidebar-item-title">Licenza Judgement Day</div>
+              <div class="sidebar-item-sub">Gestisci o recupera la tua licenza</div>
+            </div>
+          </div>
+          <button id="btn-sidebar-manage-license" class="sidebar-action-btn" style="background: linear-gradient(135deg, rgba(189, 51, 255, 0.25), rgba(6, 182, 212, 0.25)); border: 1px solid rgba(189, 51, 255, 0.45); cursor: pointer;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span>Gestisci / Recupera Licenza</span>
+          </button>
+        </div>
       </div>
 
       <!-- Footer Info -->
@@ -1569,7 +1603,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=14700"></script>
+  <script src="/app.js?v=14800"></script>
 </body>
 
 </html>

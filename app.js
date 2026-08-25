@@ -1404,6 +1404,15 @@ function initSettingsSidebar() {
     });
   }
 
+  // --- Gestione / Recupero Licenza Judgement Day dalle Impostazioni ---
+  const btnManageLicense = document.getElementById('btn-sidebar-manage-license');
+  if (btnManageLicense) {
+    btnManageLicense.addEventListener('click', () => {
+      closeSidebar();
+      showPurchaseModal();
+    });
+  }
+
   // --- Handling Legal Modal (Privacy Policy & Termini di Servizio) ---
   const linkPrivacy = document.getElementById('link-privacy-policy');
   const linkTerms = document.getElementById('link-terms-service');
@@ -1955,6 +1964,112 @@ function showPurchaseModal() {
       if (standardModal) {
         standardModal.style.display = 'none';
         standardModal.classList.remove('active');
+      }
+    });
+  }
+
+  // === TRASFERIMENTO DIRETTO LICENZA (EMAIL + DEVICE ID) ===
+  const inputDirectTransferEmail = document.getElementById('transfer-license-email');
+  const btnDirectTransferLicense = document.getElementById('btn-transfer-license');
+  const directTransferError = document.getElementById('transfer-license-error');
+
+  function showDirectTransferError(msg) {
+    if (directTransferError) {
+      directTransferError.textContent = msg;
+      directTransferError.style.display = 'block';
+    }
+  }
+
+  function hideDirectTransferError() {
+    if (directTransferError) {
+      directTransferError.textContent = '';
+      directTransferError.style.display = 'none';
+    }
+  }
+
+  async function handleDirectLicenseTransfer() {
+    hideDirectTransferError();
+    const rawEmail = inputDirectTransferEmail ? inputDirectTransferEmail.value : '';
+    const email = rawEmail.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').replace(/\s+/g, '').toLowerCase().trim();
+
+    if (!email) {
+      showDirectTransferError("Inserisci l'email usata per l'acquisto!");
+      return;
+    }
+
+    try {
+      if (btnDirectTransferLicense) {
+        btnDirectTransferLicense.disabled = true;
+        btnDirectTransferLicense.innerText = "TRASFERIMENTO IN CORSO...";
+      }
+
+      const currentDeviceId = (typeof getStoredDeviceId === 'function') ? getStoredDeviceId() : (safeStorage.getItem('overunder_device_id') || 'dev_' + Date.now());
+
+      const res = await fetch('/api/license/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          deviceId: currentDeviceId,
+          deviceUuid: currentDeviceId,
+          sessionId: safeSessionStorage.getItem('overunder_sessionId') || null
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.error || "Nessun acquisto trovato per questa email.");
+      }
+
+      if (data.token) {
+        if (typeof setStoredAuthToken === 'function') {
+          setStoredAuthToken(data.token, true);
+        }
+        safeSessionStorage.setItem('overunder_token', data.token);
+        safeStorage.setItem('overunder_token', data.token);
+        safeStorage.setItem('overunder_premium_unlocked', 'true');
+        safeStorage.setItem('overunder_judgement_purchased', 'true');
+        try { localStorage.setItem('overunder_premium_unlocked', 'true'); } catch (e) {}
+        try { localStorage.setItem('overunder_judgement_purchased', 'true'); } catch (e) {}
+      }
+
+      state.roomIsPremium = true;
+      if (el.createPremiumToggle) {
+        el.createPremiumToggle.checked = true;
+      }
+      updatePremiumUI();
+
+      if (socket && socket.connected && state.roomCode && state.isHost) {
+        socket.emit('set_room_mode', { isPremium: true });
+      }
+
+      const standardModal = el.paywallStandardModal || document.getElementById('paywall-standard-modal');
+      if (standardModal) {
+        standardModal.style.display = 'none';
+        standardModal.classList.remove('active');
+      }
+
+      showToast("Licenza trasferita con successo! 👑", 5000);
+
+    } catch (err) {
+      showDirectTransferError(err.message || "Errore durante il trasferimento.");
+    } finally {
+      if (btnDirectTransferLicense) {
+        btnDirectTransferLicense.disabled = false;
+        btnDirectTransferLicense.innerText = "TRASFERISCI LICENZA";
+      }
+    }
+  }
+
+  if (btnDirectTransferLicense) {
+    btnDirectTransferLicense.addEventListener('click', handleDirectLicenseTransfer);
+  }
+  if (inputDirectTransferEmail) {
+    inputDirectTransferEmail.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleDirectLicenseTransfer();
       }
     });
   }

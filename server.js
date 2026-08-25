@@ -716,6 +716,57 @@ app.post('/api/premium/verify-transfer', (req, res) => {
   });
 });
 
+// 3. Trasferimento Diretto Licenza (Email + DeviceId)
+app.post('/api/license/transfer', (req, res) => {
+  const { email, deviceId } = req.body;
+  if (!email || typeof email !== 'string' || !email.trim()) {
+    return res.status(400).json({ error: "Inserisci l'email usata per l'acquisto." });
+  }
+
+  const normalizedEmail = String(email).replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').replace(/\s+/g, '').toLowerCase().trim();
+  const targetDeviceId = deviceId || req.body.deviceUuid || req.body.sessionId || ('dev_' + Date.now());
+
+  // Cerca un record utente licenziato associato all'email
+  let user = Object.values(users).find(u => u.email && u.email.toLowerCase().trim() === normalizedEmail && u.isPremium);
+  if (!user) {
+    user = Object.values(users).find(u => u.email && u.email.toLowerCase().trim() === normalizedEmail);
+  }
+
+  if (!user || !user.isPremium) {
+    return res.status(404).json({ error: "Nessun acquisto o licenza Judgement Day trovata per questa email." });
+  }
+
+  // Licenza trovata: disassocia il vecchio dispositivo e associa ESCLUSIVAMENTE al nuovo targetDeviceId
+  user.isPremium = true;
+  user.premiumStatus = 'PREMIUM_A_VITA';
+  user.email = normalizedEmail;
+  user.activeDeviceId = targetDeviceId;
+  user.deviceUuid = targetDeviceId;
+  writeUsersDb(users);
+
+  const token = jwt.sign({
+    userId: user.id,
+    deviceUuid: targetDeviceId,
+    deviceId: targetDeviceId,
+    activeDeviceId: targetDeviceId,
+    email: normalizedEmail,
+    username: user.displayName || user.username || 'Host',
+    role: 'host',
+    isPremium: true,
+    premiumStatus: 'PREMIUM_A_VITA'
+  }, JWT_SECRET, { expiresIn: '365d' });
+
+  console.log(`[LICENSE DIRECT TRANSFER OK] Licenza Judgement Day per email ${normalizedEmail} trasferita con successo al dispositivo ${targetDeviceId}.`);
+
+  return res.status(200).json({
+    success: true,
+    message: "Licenza trasferita con successo!",
+    token: token,
+    isPremium: true,
+    deviceId: targetDeviceId
+  });
+});
+
 // Helper hashing password
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
