@@ -1408,8 +1408,9 @@ io.on('connection', (socket) => {
         }
         if (licenseCheck.code === 'TRANSFERRED') {
           socket.emit('license_transferred_error', { message: licenseCheck.reason });
+        } else {
+          socket.emit('license_error', { code: 'NO_LICENSE_FOUND', message: licenseCheck.reason });
         }
-        socket.emit('room_error', licenseCheck.reason);
         return;
       }
       if (socket.userData) {
@@ -2186,8 +2187,9 @@ io.on('connection', (socket) => {
       if (!licenseCheck.valid) {
         if (licenseCheck.code === 'TRANSFERRED') {
           socket.emit('license_transferred_error', { message: licenseCheck.reason });
+        } else {
+          socket.emit('license_error', { code: 'NO_LICENSE_FOUND', message: licenseCheck.reason });
         }
-        socket.emit('room_error', licenseCheck.reason);
         return;
       }
       if (socket.userData) socket.userData.isPremium = true;

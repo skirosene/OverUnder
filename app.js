@@ -2280,7 +2280,22 @@ function showPurchaseModal() {
     }
 
     const isPremiumToggleOn = el.createPremiumToggle ? el.createPremiumToggle.checked : false;
-    console.log("--> Tentativo creazione Stanza Premium...", { roomCode: code, isPremium: isPremiumToggleOn, name });
+
+    // 1. INTERCETTAZIONE PREVENTIVA CLIENT-SIDE:
+    if (isPremiumToggleOn) {
+      const access = checkJudgementDayAccess();
+      if (!access.hasAccess) {
+        console.warn("[PREVENT] Creazione stanza Premium bloccata: dispositivo privo di licenza attiva.");
+        if (el.createPremiumToggle) {
+          el.createPremiumToggle.checked = false;
+        }
+        updatePremiumUI();
+        showPurchaseModal();
+        return;
+      }
+    }
+
+    console.log("--> Tentativo creazione Stanza...", { roomCode: code, isPremium: isPremiumToggleOn, name });
 
     sessionStorage.setItem('overunder_playerName', name);
     sessionStorage.setItem('overunder_roomCode', code);
@@ -3352,16 +3367,54 @@ function setupSocketListeners() {
     showPurchaseModal();
   });
 
-  // Gestione Errore Licenza Trasferita su altro dispositivo (Accesso Esclusivo)
-  socket.on('license_transferred_error', (data) => {
-    console.warn('[LICENSE] Licenza trasferita su un altro dispositivo:', data);
+  // Gestione Errore Licenza Inattiva / Non Trovata (NO_LICENSE_FOUND / LICENSE_INACTIVE)
+  socket.on('license_error', (data) => {
+    console.warn('[LICENSE] Errore licenza dal server:', data);
+    state.connectionLoadingActive = false;
+    if (state.connectionTimeout) {
+      clearTimeout(state.connectionTimeout);
+      state.connectionTimeout = null;
+    }
+    state.pendingSocketAction = null;
+    state.roomCode = '';
+    state.roomIsPremium = false;
     safeStorage.removeItem('overunder_premium_unlocked');
     safeStorage.removeItem('overunder_judgement_purchased');
-    state.roomIsPremium = false;
     if (el.createPremiumToggle) {
       el.createPremiumToggle.checked = false;
     }
     updatePremiumUI();
+
+    if (el.screenLoading && el.screenLoading.classList.contains('active')) {
+      showScreen(el.screenOnboarding);
+    }
+
+    const msg = (data && data.message) ? data.message : "Nessuna licenza Judgement Day attiva trovata per questo dispositivo.";
+    showToast(`👑 ${msg}`, 5000);
+    showPurchaseModal();
+  });
+
+  // Gestione Errore Licenza Trasferita su altro dispositivo (Accesso Esclusivo)
+  socket.on('license_transferred_error', (data) => {
+    console.warn('[LICENSE] Licenza trasferita su un altro dispositivo:', data);
+    state.connectionLoadingActive = false;
+    if (state.connectionTimeout) {
+      clearTimeout(state.connectionTimeout);
+      state.connectionTimeout = null;
+    }
+    state.pendingSocketAction = null;
+    state.roomCode = '';
+    state.roomIsPremium = false;
+    safeStorage.removeItem('overunder_premium_unlocked');
+    safeStorage.removeItem('overunder_judgement_purchased');
+    if (el.createPremiumToggle) {
+      el.createPremiumToggle.checked = false;
+    }
+    updatePremiumUI();
+
+    if (el.screenLoading && el.screenLoading.classList.contains('active')) {
+      showScreen(el.screenOnboarding);
+    }
 
     const msg = data && data.message ? data.message : "Licenza trasferita su un altro dispositivo. Effettua nuovamente l'accesso con la tua email.";
     showToast(`⚠️ ${msg}`, 6000);
@@ -3369,6 +3422,33 @@ function setupSocketListeners() {
   });
 
   socket.on('room_error', (message) => {
+    const isLicenseMsg = typeof message === 'string' && (
+      message.toLowerCase().includes('licenza') ||
+      message.toLowerCase().includes('judgement') ||
+      message.toLowerCase().includes('gogna')
+    );
+
+    if (isLicenseMsg) {
+      console.warn('[ROOM_ERROR INTERCEPT] Errore relativo a licenza:', message);
+      state.connectionLoadingActive = false;
+      if (state.connectionTimeout) {
+        clearTimeout(state.connectionTimeout);
+        state.connectionTimeout = null;
+      }
+      state.pendingSocketAction = null;
+      state.roomIsPremium = false;
+      if (el.createPremiumToggle) {
+        el.createPremiumToggle.checked = false;
+      }
+      updatePremiumUI();
+      if (el.screenLoading && el.screenLoading.classList.contains('active')) {
+        showScreen(el.screenOnboarding);
+      }
+      showToast(`👑 ${message}`, 5000);
+      showPurchaseModal();
+      return;
+    }
+
     if (state.connectionLoadingActive) {
       clearTimeout(state.connectionTimeout);
       state.connectionLoadingActive = false;
