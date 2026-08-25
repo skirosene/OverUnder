@@ -2919,28 +2919,47 @@ function showPurchaseModal() {
   }
 
   // Home buttons per schermate kicked/room full/loading
+  // FIX: Reset totale dello stato per evitare loop infiniti sulla schermata di errore
+  const fullResetAndGoHome = () => {
+    AudioSynth.playConfirm(false);
+    // 1. Disattiva lo stato di connessione attivo e cancella i timer pendenti
+    state.connectionLoadingActive = false;
+    if (state.connectionTimeout) {
+      clearTimeout(state.connectionTimeout);
+      state.connectionTimeout = null;
+    }
+    state.connectionStartTime = null;
+    // 2. Pulisce pendingRoom da stato e storage
+    state.pendingRoomToJoin = null;
+    safeSessionStorage.removeItem('overunder_pendingRoom');
+    try { localStorage.removeItem('overunder_pendingRoom'); } catch (e) {}
+    // 3. Pulisce parametri URL residui (?room=..., /join/...)
+    try {
+      if (window.history && window.history.replaceState) {
+        const cleanUrl = window.location.protocol + '//' + window.location.host + '/';
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    } catch (e) {}
+    // 4. Disconnette e riconnette il socket per evitare eventi pendenti
+    if (socket && socket.connected) {
+      try { socket.emit('leave_room'); } catch (e) {}
+      try { socket.disconnect(); socket.connect(); } catch (e) {}
+    }
+    // 5. Reset completo della sessione e ritorno al menu
+    clearSession();
+    resetToMenu();
+  };
+
   if (el.btnKickedHome) {
-    el.btnKickedHome.addEventListener('click', () => {
-      AudioSynth.playConfirm(false);
-      clearSession();
-      resetToMenu();
-    });
+    el.btnKickedHome.addEventListener('click', fullResetAndGoHome);
   }
 
   if (el.btnRoomFullHome) {
-    el.btnRoomFullHome.addEventListener('click', () => {
-      AudioSynth.playConfirm(false);
-      clearSession();
-      resetToMenu();
-    });
+    el.btnRoomFullHome.addEventListener('click', fullResetAndGoHome);
   }
 
   if (el.btnLoadingHome) {
-    el.btnLoadingHome.addEventListener('click', () => {
-      AudioSynth.playConfirm(false);
-      clearSession();
-      resetToMenu();
-    });
+    el.btnLoadingHome.addEventListener('click', fullResetAndGoHome);
   }
 
   // Chiusura del menu contestuale cliccando fuori
