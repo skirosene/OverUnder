@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=15000">
+  <link rel="stylesheet" href="/style.css?v=15100">
 </head>
 
 <body>
@@ -443,9 +443,9 @@
               </svg>
             </button>
 
-            <!-- Popover opzioni foto Judgement Day (Scatta / Carica) -->
+            <!-- Popover opzioni foto Judgement Day (Scatta / Carica / Browser) -->
             <div id="premium-photo-popover" class="glass-panel"
-              style="display: none; position: absolute; bottom: 100%; left: 10px; transform: translateY(-8px); flex-direction: column; gap: 4px; padding: 6px; border-radius: 12px; z-index: 100; min-width: 130px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.12); animation: popover-fade-in-up 0.2s ease-out;">
+              style="display: none; position: absolute; bottom: 100%; left: 10px; transform: translateY(-8px); flex-direction: column; gap: 4px; padding: 6px; border-radius: 12px; z-index: 100; min-width: 140px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.12); animation: popover-fade-in-up 0.2s ease-out;">
               <button id="btn-premium-select-camera" type="button" class="popover-btn"
                 style="display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; color: white; font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; text-align: left; transition: background 0.15s ease;">
                 <span style="font-size: 0.95rem;">📷</span> Scatta
@@ -453,6 +453,10 @@
               <button id="btn-premium-select-upload" type="button" class="popover-btn"
                 style="display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; color: white; font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; text-align: left; transition: background 0.15s ease;">
                 <span style="font-size: 0.95rem;">📁</span> Carica
+              </button>
+              <button id="btn-premium-select-web" type="button" class="popover-btn"
+                style="display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; color: white; font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; text-align: left; transition: background 0.15s ease;">
+                <span style="font-size: 0.95rem;">🔍</span> Browser
               </button>
             </div>
 
@@ -1244,6 +1248,75 @@
     </div>
   </div>
 
+  <!-- Modal Ricerca Immagini Web (Pixabay Search) -->
+  <div id="web-image-search-modal" class="custom-modal-overlay"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 15000; justify-content: center; align-items: center; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 16px; box-sizing: border-box;">
+    <div class="glass-panel"
+      style="width: 100%; max-width: 480px; max-height: 85vh; display: flex; flex-direction: column; border-radius: 20px; border: 1px solid rgba(189, 51, 255, 0.35); box-shadow: 0 15px 40px rgba(0, 0, 0, 0.7); background: rgba(18, 18, 22, 0.95); overflow: hidden; position: relative;">
+      
+      <!-- Header modale -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.3rem;">🔍</span>
+          <h3 style="margin: 0; font-family: var(--font-title); font-size: 1.05rem; font-weight: 800; color: white; letter-spacing: 0.3px;">
+            Cerca Immagine nel Web
+          </h3>
+        </div>
+        <button id="btn-close-web-search-modal" type="button"
+          style="background: none; border: none; font-size: 1.8rem; color: rgba(255, 255, 255, 0.7); cursor: pointer; line-height: 1; padding: 0 4px;">&times;</button>
+      </div>
+
+      <!-- Barra di ricerca -->
+      <div style="padding: 14px 20px 8px 20px; display: flex; gap: 8px; align-items: center;">
+        <div style="position: relative; flex: 1; display: flex; align-items: center;">
+          <input type="text" id="input-web-image-search" class="text-input" placeholder="Cerca foto, meme, personaggi..." autocomplete="off"
+            style="width: 100%; box-sizing: border-box; border-radius: 12px; font-size: 0.85rem; padding: 10px 38px 10px 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(189, 51, 255, 0.4); color: white;">
+          <button id="btn-clear-web-image-search" type="button"
+            style="display: none; position: absolute; right: 10px; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.1rem; cursor: pointer; padding: 2px;">&times;</button>
+        </div>
+        <button id="btn-submit-web-image-search" class="btn-sblocca-fucsia"
+          style="padding: 10px 16px; font-size: 0.8rem; border-radius: 12px; background: linear-gradient(135deg, #bd33ff, #ff007f); width: auto; flex-shrink: 0; cursor: pointer;">
+          Cerca
+        </button>
+      </div>
+
+      <!-- Stato / Spinner / Risultati -->
+      <div id="web-search-body" style="flex: 1; overflow-y: auto; padding: 12px 20px 20px 20px; min-height: 220px; display: flex; flex-direction: column;">
+        
+        <!-- Spinner di caricamento ricerca -->
+        <div id="web-search-loading" style="display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 40px 0; margin: auto;">
+          <div class="loader-spinner" style="border-top-color: #bd33ff; width: 36px; height: 36px;"></div>
+          <span style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.7); font-weight: 600;">Ricerca in corso...</span>
+        </div>
+
+        <!-- Indicatore Importazione in corso -->
+        <div id="web-search-importing" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(6px); z-index: 10; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+          <div class="loader-spinner" style="border-top-color: #06b6d4; width: 42px; height: 42px;"></div>
+          <span style="font-size: 0.88rem; color: #06b6d4; font-weight: 700;">Ottimizzazione e caricamento...</span>
+        </div>
+
+        <!-- Messaggio stato vuoto / iniziale -->
+        <div id="web-search-placeholder" style="text-align: center; color: rgba(255, 255, 255, 0.4); font-size: 0.8rem; margin: auto; padding: 30px 10px;">
+          <span style="font-size: 2.2rem; display: block; margin-bottom: 8px;">🖼️</span>
+          Digita una parola chiave per cercare tra milioni di foto royalty-free
+        </div>
+
+        <!-- Messaggio nessun risultato -->
+        <div id="web-search-no-results" style="display: none; text-align: center; color: rgba(255, 255, 255, 0.6); font-size: 0.82rem; margin: auto; padding: 30px 10px;">
+          <span style="font-size: 2rem; display: block; margin-bottom: 8px;">😕</span>
+          Nessuna immagine trovata. Prova con termini diversi o più generici.
+        </div>
+
+        <!-- Griglia risultati immagini (2 colonne) -->
+        <div id="web-search-results-grid" style="display: none; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%;">
+          <!-- Card immagini iniettate dinamicamente via JS -->
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
 
   <!-- Menu Contestuale per Espulsione Giocatore (Lobby) -->
   <div id="kick-context-menu" class="kick-context-menu"
@@ -1587,7 +1660,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=15000"></script>
+  <script src="/app.js?v=15100"></script>
 </body>
 
 </html>

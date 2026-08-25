@@ -1009,6 +1009,17 @@ const el = {
   premiumPhotoPopover: document.getElementById('premium-photo-popover'),
   btnPremiumSelectCamera: document.getElementById('btn-premium-select-camera'),
   btnPremiumSelectUpload: document.getElementById('btn-premium-select-upload'),
+  btnPremiumSelectWeb: document.getElementById('btn-premium-select-web'),
+  webImageSearchModal: document.getElementById('web-image-search-modal'),
+  btnCloseWebSearchModal: document.getElementById('btn-close-web-search-modal'),
+  inputWebImageSearch: document.getElementById('input-web-image-search'),
+  btnClearWebImageSearch: document.getElementById('btn-clear-web-image-search'),
+  btnSubmitWebImageSearch: document.getElementById('btn-submit-web-image-search'),
+  webSearchLoading: document.getElementById('web-search-loading'),
+  webSearchImporting: document.getElementById('web-search-importing'),
+  webSearchPlaceholder: document.getElementById('web-search-placeholder'),
+  webSearchNoResults: document.getElementById('web-search-no-results'),
+  webSearchResultsGrid: document.getElementById('web-search-results-grid'),
   inputPremiumCamera: document.getElementById('input-premium-camera'),
   premiumImagePreviewContainer: document.getElementById('premium-image-preview-container'),
   premiumImagePreview: document.getElementById('premium-image-preview'),
@@ -7430,6 +7441,14 @@ function setupPremiumCreatorEvents() {
     });
   }
 
+  if (el.btnPremiumSelectWeb) {
+    el.btnPremiumSelectWeb.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (el.premiumPhotoPopover) el.premiumPhotoPopover.style.display = 'none';
+      openWebImageSearchModal();
+    });
+  }
+
   document.addEventListener('click', (e) => {
     if (el.premiumPhotoPopover && el.premiumPhotoPopover.style.display === 'flex') {
       if (!el.premiumPhotoPopover.contains(e.target) && e.target !== el.btnTriggerPremiumPhoto && !el.btnTriggerPremiumPhoto.contains(e.target)) {
@@ -7437,6 +7456,9 @@ function setupPremiumCreatorEvents() {
       }
     }
   });
+
+  // Configura la modale di ricerca immagini web Pixabay
+  setupWebImageSearch();
 
   if (el.btnCropperConfirm) {
     el.btnCropperConfirm.addEventListener('click', async () => {
@@ -8262,5 +8284,201 @@ function closeCardImageZoom() {
     zoomModal.style.display = 'none';
   }
   document.body.style.overflow = '';
+}
+
+// ==========================================================================
+// RICERCA & IMPORTAZIONE IMMAGINI WEB (PIXABAY BROWSER)
+// ==========================================================================
+
+function openWebImageSearchModal() {
+  const modal = el.webImageSearchModal || document.getElementById('web-image-search-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  modal.offsetHeight; // trigger reflow
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+  const input = el.inputWebImageSearch || document.getElementById('input-web-image-search');
+  if (input) {
+    setTimeout(() => { try { input.focus(); } catch (e) {} }, 150);
+  }
+}
+
+function closeWebImageSearchModal() {
+  const modal = el.webImageSearchModal || document.getElementById('web-image-search-modal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function setupWebImageSearch() {
+  const modal = el.webImageSearchModal || document.getElementById('web-image-search-modal');
+  const btnClose = el.btnCloseWebSearchModal || document.getElementById('btn-close-web-search-modal');
+  const input = el.inputWebImageSearch || document.getElementById('input-web-image-search');
+  const btnClear = el.btnClearWebImageSearch || document.getElementById('btn-clear-web-image-search');
+  const btnSubmit = el.btnSubmitWebImageSearch || document.getElementById('btn-submit-web-image-search');
+  const loading = el.webSearchLoading || document.getElementById('web-search-loading');
+  const importing = el.webSearchImporting || document.getElementById('web-search-importing');
+  const placeholder = el.webSearchPlaceholder || document.getElementById('web-search-placeholder');
+  const noResults = el.webSearchNoResults || document.getElementById('web-search-no-results');
+  const grid = el.webSearchResultsGrid || document.getElementById('web-search-results-grid');
+
+  if (btnClose) {
+    btnClose.addEventListener('click', closeWebImageSearchModal);
+  }
+
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeWebImageSearchModal();
+      }
+    });
+  }
+
+  let searchDebounceTimer = null;
+
+  async function performSearch(query) {
+    const q = (query || '').trim();
+    if (!q) {
+      if (loading) loading.style.display = 'none';
+      if (noResults) noResults.style.display = 'none';
+      if (grid) { grid.style.display = 'none'; grid.innerHTML = ''; }
+      if (placeholder) placeholder.style.display = 'block';
+      return;
+    }
+
+    if (placeholder) placeholder.style.display = 'none';
+    if (noResults) noResults.style.display = 'none';
+    if (grid) { grid.style.display = 'none'; grid.innerHTML = ''; }
+    if (loading) loading.style.display = 'flex';
+
+    try {
+      const res = await fetch(`/api/images/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json().catch(() => ([]));
+
+      if (loading) loading.style.display = 'none';
+
+      if (!res.ok) {
+        throw new Error(data.error || "Errore durante la ricerca.");
+      }
+
+      if (!Array.isArray(data) || data.length === 0) {
+        if (noResults) {
+          noResults.textContent = `Nessuna immagine trovata per "${q}". Prova con altri termini.`;
+          noResults.style.display = 'block';
+        }
+        return;
+      }
+
+      if (grid) {
+        grid.innerHTML = '';
+        data.forEach(hit => {
+          const card = document.createElement('div');
+          card.className = 'web-img-card';
+          card.style.cssText = 'position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; cursor: pointer; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03);';
+          
+          const tagFirst = hit.tags ? hit.tags.split(',')[0].trim() : '';
+          card.innerHTML = `
+            <img src="${hit.previewUrl}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover; display: block;" alt="${tagFirst}">
+            ${tagFirst ? `<div style="position: absolute; bottom: 0; left: 0; width: 100%; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,0.85)); font-size: 0.68rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600;">${tagFirst}</div>` : ''}
+          `;
+
+          card.addEventListener('click', async () => {
+            if (importing) importing.style.display = 'flex';
+            try {
+              const importRes = await fetch('/api/images/import-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  imageUrl: hit.fullUrl || hit.previewUrl,
+                  roomCode: state.roomCode || null
+                })
+              });
+              const importData = await importRes.json().catch(() => ({}));
+              if (!importRes.ok) {
+                throw new Error(importData.error || "Impossibile scaricare l'immagine.");
+              }
+
+              const savedUrl = importData.url;
+
+              if (state.editingPremiumCardIndex !== null && state.editingPremiumCardIndex !== undefined && state.localPremiumCards[state.editingPremiumCardIndex]) {
+                state.localPremiumCards[state.editingPremiumCardIndex].image = savedUrl;
+                state.editingPremiumCardIndex = null;
+                renderCapsules();
+                if (state.hasSubmittedPremiumCards) {
+                  socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
+                }
+                showToast("Immagine aggiornata con successo! 🖼️", 3000);
+              } else {
+                state.currentCroppedImage = savedUrl;
+                if (el.premiumImagePreview) el.premiumImagePreview.src = savedUrl;
+                if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'flex';
+                if (el.premiumCardInput) el.premiumCardInput.style.display = 'none';
+                if (el.btnTriggerPremiumPhoto) el.btnTriggerPremiumPhoto.style.display = 'none';
+                showToast("Foto pronta! Premi '+' per aggiungerla 📸", 3000);
+              }
+
+              closeWebImageSearchModal();
+              try { AudioSynth.playConfirm(true); } catch (e) {}
+
+            } catch (err) {
+              console.error("[IMPORT ERROR]", err);
+              showToast(err.message || "Errore importazione immagine");
+            } finally {
+              if (importing) importing.style.display = 'none';
+            }
+          });
+
+          grid.appendChild(card);
+        });
+
+        grid.style.display = 'grid';
+      }
+
+    } catch (err) {
+      if (loading) loading.style.display = 'none';
+      if (noResults) {
+        noResults.textContent = err.message || "Errore durante la ricerca.";
+        noResults.style.display = 'block';
+      }
+    }
+  }
+
+  if (input) {
+    input.addEventListener('input', () => {
+      const val = input.value;
+      if (btnClear) btnClear.style.display = val.length > 0 ? 'block' : 'none';
+      if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        performSearch(input.value);
+      }, 300);
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        performSearch(input.value);
+      }
+    });
+  }
+
+  if (btnClear) {
+    btnClear.addEventListener('click', () => {
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      btnClear.style.display = 'none';
+      performSearch('');
+    });
+  }
+
+  if (btnSubmit) {
+    btnSubmit.addEventListener('click', () => {
+      if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+      if (input) performSearch(input.value);
+    });
+  }
 }
 
