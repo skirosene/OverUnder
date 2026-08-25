@@ -1246,6 +1246,8 @@ function showScreen(targetScreen) {
   if (targetScreen !== el.screenGameplay) {
     closeCardInfoModal();
   }
+  if (typeof closeCardImageZoom === 'function') closeCardImageZoom();
+  if (typeof closeAvatarZoom === 'function') closeAvatarZoom();
 
   // Configura il timer counter cliccabile solo in gameplay per l'host
   if (targetScreen === el.screenGameplay) {
@@ -5984,8 +5986,12 @@ function renderGameOver({ awards, summary } = {}) {
       if (hasImage) {
         const imgContainer = item.querySelector('.summary-card-img-container');
         if (imgContainer) {
-          imgContainer.addEventListener('click', () => {
-            openCardImageZoom(res.image, isTechnicalName ? '' : res.prompt);
+          bindFastClick(imgContainer, (e) => {
+            if (e) {
+              e.stopPropagation();
+              e.preventDefault();
+            }
+            openCardImageZoom(res.image, isTechnicalName ? '' : (res.prompt || res.text));
           });
         }
       }
@@ -6832,7 +6838,7 @@ function renderCapsules() {
     const capsule = document.createElement('div');
     
     const hasImage = isValidImageString(cardObj.image);
-    const imgHtml = hasImage ? `<img src="${cardObj.image}" onerror="this.style.display='none'" style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover; margin-right: 8px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15);">` : '';
+    const imgHtml = hasImage ? `<img src="${cardObj.image}" class="capsule-img-thumb" onerror="this.style.display='none'" style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover; margin-right: 8px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15); cursor: pointer;" title="Ingrandisci immagine">` : '';
     const genericName = `Immagine (${index + 1})`;
     const textToDisplay = (hasImage && !cardObj.text) ? genericName : (cardObj.text || genericName);
 
@@ -6850,6 +6856,17 @@ function renderCapsules() {
       const input = capsule.querySelector('.capsule-inline-input');
       const btnSave = capsule.querySelector('.btn-capsule-save');
       const btnCancel = capsule.querySelector('.btn-capsule-cancel');
+      const imgThumb = capsule.querySelector('.capsule-img-thumb');
+
+      if (imgThumb) {
+        bindFastClick(imgThumb, (e) => {
+          if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+          }
+          openCardImageZoom(cardObj.image, cardObj.text);
+        });
+      }
 
       const saveInlineEdit = () => {
         const newText = input.value.trim();
@@ -6908,8 +6925,22 @@ function renderCapsules() {
       const btnQuickEdit = capsule.querySelector('.capsule-quick-edit');
       const btnQuickDelete = capsule.querySelector('.capsule-quick-delete');
       const textSpan = capsule.querySelector('.capsule-text');
+      const imgThumb = capsule.querySelector('.capsule-img-thumb');
 
-      const toggleExpandText = () => {
+      if (imgThumb) {
+        bindFastClick(imgThumb, (e) => {
+          if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+          }
+          openCardImageZoom(cardObj.image, cardObj.text);
+        });
+      }
+
+      const toggleExpandText = (e) => {
+        if (e && e.target && e.target.closest('.capsule-img-thumb')) {
+          return;
+        }
         if (textSpan) {
           textSpan.classList.toggle('expanded');
         }
@@ -7792,29 +7823,25 @@ function setupAvatarEvents() {
   const btnZoomClose = document.getElementById('btn-avatar-zoom-close');
   if (zoomModal && btnZoomClose) {
     btnZoomClose.addEventListener('click', () => {
-      zoomModal.classList.remove('active');
-      zoomModal.style.display = 'none';
+      closeAvatarZoom();
     });
     zoomModal.addEventListener('click', (e) => {
       if (e.target === zoomModal) {
-        zoomModal.classList.remove('active');
-        zoomModal.style.display = 'none';
+        closeAvatarZoom();
       }
     });
   }
 
   // Eventi per chiudere lo zoom dell'immagine della carta (Gogna)
-  const cardZoomModal = el.cardImageZoomModal;
-  const btnCardZoomClose = el.btnCardImageZoomClose;
+  const cardZoomModal = el.cardImageZoomModal || document.getElementById('card-image-zoom-modal');
+  const btnCardZoomClose = el.btnCardImageZoomClose || document.getElementById('btn-card-image-zoom-close');
   if (cardZoomModal && btnCardZoomClose) {
     btnCardZoomClose.addEventListener('click', () => {
-      cardZoomModal.classList.remove('active');
-      cardZoomModal.style.display = 'none';
+      closeCardImageZoom();
     });
     cardZoomModal.addEventListener('click', (e) => {
       if (e.target === cardZoomModal) {
-        cardZoomModal.classList.remove('active');
-        cardZoomModal.style.display = 'none';
+        closeCardImageZoom();
       }
     });
   }
@@ -7960,10 +7987,58 @@ function openAvatarZoom(player) {
   zoomModal.style.display = 'flex';
   zoomModal.offsetHeight;
   zoomModal.classList.add('active');
+  document.body.style.overflow = 'hidden';
 }
 
-function openCardImageZoom(imageSrc, promptText) {
-  // ABOLITA: Le immagini sul campo di gioco sono già grandi e ben visibili in formato Full-Card direttamente.
-  return;
+function closeAvatarZoom() {
+  const zoomModal = document.getElementById('avatar-zoom-modal');
+  if (zoomModal) {
+    zoomModal.classList.remove('active');
+    zoomModal.style.display = 'none';
+  }
+  document.body.style.overflow = '';
+}
+
+function openCardImageZoom(imageSrc, promptText = '') {
+  if (!imageSrc) return;
+  const zoomModal = el.cardImageZoomModal || document.getElementById('card-image-zoom-modal');
+  const zoomImage = el.cardImageZoomImage || document.getElementById('card-image-zoom-image');
+  const zoomPrompt = el.cardImageZoomPrompt || document.getElementById('card-image-zoom-prompt');
+
+  if (!zoomModal) return;
+
+  if (zoomImage) {
+    zoomImage.src = imageSrc;
+  }
+  if (zoomPrompt) {
+    const raw = (promptText || '').trim();
+    const isTech = !raw || 
+                   /^immagine\s*\(\d+\)$/i.test(raw) || 
+                   raw.toLowerCase() === 'immagine' ||
+                   raw.toLowerCase() === 'immagine caricata' ||
+                   raw.toLowerCase() === 'carta immagine' ||
+                   /\.(webp|jpg|jpeg|png|gif)$/i.test(raw);
+    if (!isTech && raw) {
+      zoomPrompt.textContent = raw;
+      zoomPrompt.style.display = 'block';
+    } else {
+      zoomPrompt.textContent = '';
+      zoomPrompt.style.display = 'none';
+    }
+  }
+
+  zoomModal.style.display = 'flex';
+  zoomModal.offsetHeight;
+  zoomModal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCardImageZoom() {
+  const zoomModal = el.cardImageZoomModal || document.getElementById('card-image-zoom-modal');
+  if (zoomModal) {
+    zoomModal.classList.remove('active');
+    zoomModal.style.display = 'none';
+  }
+  document.body.style.overflow = '';
 }
 
