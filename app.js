@@ -1415,15 +1415,6 @@ function initSettingsSidebar() {
     });
   }
 
-  // --- Gestione / Recupero Licenza Judgement Day dalle Impostazioni ---
-  const btnManageLicense = document.getElementById('btn-sidebar-manage-license');
-  if (btnManageLicense) {
-    btnManageLicense.addEventListener('click', () => {
-      closeSidebar();
-      showPurchaseModal();
-    });
-  }
-
   // --- Handling Legal Modal (Privacy Policy & Termini di Servizio) ---
   const linkPrivacy = document.getElementById('link-privacy-policy');
   const linkTerms = document.getElementById('link-terms-service');
