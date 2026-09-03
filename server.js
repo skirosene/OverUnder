@@ -2198,7 +2198,7 @@ io.on('connection', (socket) => {
   // Evento 6: Prossima Carta / Avanzamento Turno (Host o Watchdog di emergenza)
   const handleNextCardRequest = () => {
     const room = rooms[currentRoomCode];
-    if (!room || (room.state !== 'results' && room.state !== 'playing')) return;
+    if (!room || (room.state !== 'results' && room.state !== 'playing' && room.state !== 'CARD_VOIDED')) return;
 
     // Debounce rapido anti double-click (600ms)
     const now = Date.now();
@@ -2246,7 +2246,7 @@ io.on('connection', (socket) => {
     }
 
     // Solo l'host può comandare l'avanzamento, a meno che non sia scattato lo sblocco per stanza bloccata
-    const isStuckOrReady = room.state === 'results' || allVoted || room.timeIsUp;
+    const isStuckOrReady = room.state === 'results' || room.state === 'CARD_VOIDED' || allVoted || room.timeIsUp;
     if (!isHost && !isStuckOrReady) return;
 
     // Pulizia rigorosa e preventiva di tutti i timer
@@ -2458,18 +2458,59 @@ io.on('connection', (socket) => {
     // Calcola il quorum dinamico per eccesso (abbondanza) rispetto ai giocatori attualmente connessi alla stanza:
     const activePlayers = (room.players || []).filter(p => p.isBot || (p.connected !== false && p.isOnline !== false));
     const totalPlayers = Math.max(1, activePlayers.length || (room.players ? room.players.length : 1));
-    const threshold = Math.ceil(totalPlayers / 3); // 33.3% calcolato per eccesso (es: 1-3 giocatori = 1, 4-6 giocatori = 2)
+    const alertThreshold = Math.ceil(totalPlayers / 3); // 33.3% calcolato per eccesso
+    const majorityThreshold = Math.floor(totalPlayers / 2) + 1; // >50% maggioranza assoluta
 
-    console.log(`[REPORT CARD] Stanza ${room.roomCode} - Carta #${room.currentCardIndex}: ${card.reports.size}/${totalPlayers} segnalazioni (soglia: ${threshold})`);
+    console.log(`[REPORT CARD] Stanza ${room.roomCode} - Carta #${room.currentCardIndex}: ${card.reports.size}/${totalPlayers} segnalazioni (Soglia 33%: ${alertThreshold}, Maggioranza >50%: ${majorityThreshold})`);
 
-    // Se currentCard.reports.size >= threshold e l'alert non è ancora stato inviato per questa carta (!currentCard.hostNotified)
-    if (card.reports.size >= threshold && !card.hostNotified) {
+    // VERIFICA SOGLIA MAGGIORANZA ASSOLUTA >50% (ANNULLAMENTO CARTA)
+    if (card.reports.size >= majorityThreshold && (room.state === 'playing' || room.state === 'VOTING')) {
+      console.log(`[CARD VOIDED] Stanza ${room.roomCode}: Carta #${room.currentCardIndex} annullata (>50% segnalazioni: ${card.reports.size}/${totalPlayers}).`);
+
+      // 1. Arresta immediatamente il timer di votazione e tutti i timer del round
+      clearAllRoomTimers(room);
+      if (room.votingTimer) { clearTimeout(room.votingTimer); room.votingTimer = null; }
+      if (room.roundTimeout) { clearTimeout(room.roundTimeout); room.roundTimeout = null; }
+
+      // 2. Invalida il token del round per prevenire race condition o callback residui
+      const voidToken = `void_${room.currentCardIndex}_${Date.now()}`;
+      room.currentRoundToken = voidToken;
+      room.roundId = voidToken;
+
+      // 3. Imposta lo stato della stanza su CARD_VOIDED
+      room.state = 'CARD_VOIDED';
+
+      // 4. Annulla i voti del turno senza calcolare punteggi
+      room.votes = {};
+      room.timeIsUp = true;
+      room.currentCardBlurred = false;
+
+      // 5. Emetti l'evento socket a TUTTI i client connessi (Host compreso)
+      io.to(room.roomCode).emit('card_voided_screen', {
+        reason: 'majority_reported',
+        reportCount: card.reports.size,
+        totalPlayers: totalPlayers,
+        threshold: majorityThreshold
+      });
+
+      // Se la carta contiene un file caricato, registralo per la rimozione
+      if (card.image && card.image.startsWith('/uploads/')) {
+        if (!room.reportedFiles) room.reportedFiles = [];
+        if (!room.reportedFiles.includes(card.image)) {
+          room.reportedFiles.push(card.image);
+        }
+      }
+      return;
+    }
+
+    // Se currentCard.reports.size >= alertThreshold e l'alert non è ancora stato inviato per questa carta (!currentCard.hostNotified)
+    if (card.reports.size >= alertThreshold && !card.hostNotified) {
       card.hostNotified = true;
       if (room.hostId) {
         io.to(room.hostId).emit('card_report_alert', {
           reportCount: card.reports.size,
           totalPlayers: totalPlayers,
-          threshold: threshold,
+          threshold: alertThreshold,
           cardIndex: room.currentCardIndex
         });
         console.log(`[REPORT THRESHOLD HIT] Stanza ${room.roomCode}: Alert inviato all'host ${room.hostId}`);

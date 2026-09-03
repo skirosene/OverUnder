@@ -984,6 +984,9 @@ const el = {
   btnRestart: document.getElementById('btn-restart'),
   btnReportCard: document.getElementById('btn-report-card'),
   btnToggleBlur: document.getElementById('btn-toggle-blur'),
+  cardVoidedOverlay: document.getElementById('card-voided-overlay'),
+  btnVoidedNextCard: document.getElementById('btn-voided-next-card'),
+  voidedPlayerWait: document.getElementById('voided-player-wait'),
   promptCard: document.getElementById('prompt-card'),
   reportAlertModal: document.getElementById('report-alert-modal'),
   reportAlertModalText: document.getElementById('report-alert-modal-text'),
@@ -1291,6 +1294,8 @@ function showScreen(targetScreen) {
 
   if (targetScreen !== el.screenGameplay) {
     closeCardInfoModal();
+    const voidedOverlay = el.cardVoidedOverlay || document.getElementById('card-voided-overlay');
+    if (voidedOverlay) voidedOverlay.style.display = 'none';
   }
   if (typeof closeCardImageZoom === 'function') closeCardImageZoom();
   if (typeof closeAvatarZoom === 'function') closeAvatarZoom();
@@ -2844,6 +2849,18 @@ function updateHostBlurButtonVisibility() {
     });
   }
 
+  // Tasto Avanzamento da Schermata Carta Rimossa (Solo Host)
+  if (el.btnVoidedNextCard) {
+    el.btnVoidedNextCard.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!state.isHost) return;
+      el.btnVoidedNextCard.disabled = true;
+      if (typeof socket !== 'undefined' && socket && socket.connected) {
+        socket.emit('next_card');
+      }
+    });
+  }
+
   // Tasto Segnala (Bandierina Silente con soglia dinamica)
   if (el.btnReportCard) {
     el.btnReportCard.addEventListener('click', (e) => {
@@ -3937,6 +3954,8 @@ function setupSocketListeners() {
     }
     const reportAlertModal = el.reportAlertModal || document.getElementById('report-alert-modal');
     if (reportAlertModal) reportAlertModal.style.display = 'none';
+    const voidedOverlay = el.cardVoidedOverlay || document.getElementById('card-voided-overlay');
+    if (voidedOverlay) voidedOverlay.style.display = 'none';
     const promptCard = el.promptCard || document.getElementById('prompt-card');
     if (promptCard) promptCard.classList.remove('card-censored');
     const censorNotice = document.getElementById('card-censored-notice');
@@ -4209,6 +4228,44 @@ function setupSocketListeners() {
   // 16. Controllo Blur Carta in Tempo Reale (Broadcast a tutti i giocatori)
   socket.on('card_blur_state_changed', ({ isBlurred }) => {
     updateCardBlurUI(isBlurred);
+  });
+
+  // 17. Schermata Dedicata "Carta Rimossa" (>50% Segnalazioni)
+  socket.on('card_voided_screen', ({ reason, totalPlayers, reportCount, threshold }) => {
+    console.log(`[CARD VOIDED] Carta annullata dal gruppo (${reportCount}/${totalPlayers})`);
+
+    // 1. Ferma subito i timer locali del client
+    stopTimerLoop();
+    closeTimerPicker();
+
+    // 2. Chiudi eventuali modali aperte (alert host, card info, zoom)
+    const alertModal = el.reportAlertModal || document.getElementById('report-alert-modal');
+    if (alertModal) alertModal.style.display = 'none';
+    closeCardInfoModal();
+    if (typeof closeCardImageZoom === 'function') closeCardImageZoom();
+
+    // 3. Mostra la schermata "Carta Rimossa"
+    const voidedOverlay = el.cardVoidedOverlay || document.getElementById('card-voided-overlay');
+    const btnVoidedNext = el.btnVoidedNextCard || document.getElementById('btn-voided-next-card');
+    const voidedWait = el.voidedPlayerWait || document.getElementById('voided-player-wait');
+
+    if (voidedOverlay) {
+      voidedOverlay.style.display = 'flex';
+    }
+
+    if (state.isHost) {
+      if (btnVoidedNext) {
+        btnVoidedNext.style.display = 'block';
+        btnVoidedNext.disabled = false;
+      }
+      if (voidedWait) voidedWait.style.display = 'none';
+    } else {
+      if (btnVoidedNext) btnVoidedNext.style.display = 'none';
+      if (voidedWait) voidedWait.style.display = 'flex';
+    }
+
+    // Segnale acustico
+    try { AudioSynth.playTimeout(); } catch (e) {}
   });
 
   socket.on('global_toast', ({ message }) => {

@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=16700">
+  <link rel="stylesheet" href="/style.css?v=17000">
 </head>
 
 <body>
@@ -695,6 +695,46 @@
               <p>In attesa dell'Host...</p>
             </div>
           </div>
+        </div>
+
+        <!-- SCHERMATA DEDICATA: CARTA RIMOSSA (>50% SEGNALAZIONI) -->
+        <div id="card-voided-overlay" class="card-voided-overlay"
+          style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10000; background: rgba(10, 10, 14, 0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); flex-direction: column; align-items: center; justify-content: space-between; padding: 40px 24px calc(32px + env(safe-area-inset-bottom)) 24px; box-sizing: border-box; text-align: center; animation: popover-fade-in-up 0.25s ease-out;">
+          
+          <div style="flex: 0 0 20px;"></div>
+
+          <!-- Contenuto Centrale -->
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; max-width: 380px; width: 100%;">
+            <div style="width: 76px; height: 76px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); border: 2px solid rgba(239, 68, 68, 0.5); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; box-shadow: 0 0 35px rgba(239, 68, 68, 0.35); animation: pulse 2s infinite ease-in-out;">
+              ⚠️
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <h2 style="margin: 0; font-family: var(--font-title); font-size: 1.6rem; font-weight: 800; color: #ef4444; letter-spacing: 1px; text-transform: uppercase;">
+                CARTA RIMOSSA
+              </h2>
+              <p style="margin: 0; font-family: var(--font-body); font-size: 0.95rem; line-height: 1.5; color: rgba(255, 255, 255, 0.85);">
+                Questa carta ha superato il 50% delle segnalazioni dei giocatori ed è stata annullata.
+              </p>
+            </div>
+          </div>
+
+          <!-- Area Azione Inferiore (Host vs Giocatori) -->
+          <div style="width: 100%; max-width: 360px; display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: auto;">
+            <!-- Pulsante Host -->
+            <button id="btn-voided-next-card" type="button" class="btn btn-primary"
+              style="display: none; width: 100%; padding: 15px 20px; font-family: var(--font-title); font-size: 1rem; font-weight: 800; letter-spacing: 0.5px; border-radius: 14px; background: linear-gradient(135deg, #06b6d4, #3b82f6); color: #ffffff; border: none; box-shadow: 0 4px 20px rgba(6, 182, 212, 0.4); cursor: pointer; transition: transform 0.15s ease;">
+              PROSSIMA CARTA ➔
+            </button>
+
+            <!-- Attesa Giocatore Semplice -->
+            <div id="voided-player-wait" style="display: none; flex-direction: column; align-items: center; gap: 10px;">
+              <div class="loader-spinner" style="width: 28px; height: 28px; border-top-color: #f59e0b;"></div>
+              <p style="margin: 0; font-size: 0.85rem; color: rgba(255, 255, 255, 0.65); font-weight: 600;">
+                In attesa che l'Host passi alla prossima carta...
+              </p>
+            </div>
+          </div>
+
         </div>
 
       </section>
@@ -1686,7 +1726,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=16700"></script>
+  <script src="/app.js?v=17000"></script>
 </body>
 
 </html>
