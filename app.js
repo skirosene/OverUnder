@@ -967,6 +967,7 @@ const el = {
   lobbyRoomCode: document.getElementById('lobby-room-code'),
   btnLobbyInvite: document.getElementById('btn-lobby-invite'),
   btnLobbyModeration: document.getElementById('btn-lobby-moderation'),
+  btnLobbySuggestCard: document.getElementById('btn-lobby-suggest-card'),
   btnLobbyQr: document.getElementById('btn-lobby-qr'),
   qrModal: document.getElementById('qr-modal'),
   btnQrModalClose: document.getElementById('btn-qr-modal-close'),
@@ -1034,6 +1035,17 @@ const el = {
   moderationInfoModal: document.getElementById('moderation-info-modal'),
   btnModerationInfoClose: document.getElementById('btn-moderation-info-close'),
   btnModerationInfoX: document.getElementById('btn-moderation-info-x'),
+
+  // Modal Suggerisci una Carta (Stanza Standard)
+  suggestCardModal: document.getElementById('suggest-card-modal'),
+  suggestCardFormState: document.getElementById('suggest-card-form-state'),
+  suggestCardSuccessState: document.getElementById('suggest-card-success-state'),
+  suggestCardTextarea: document.getElementById('suggest-card-textarea'),
+  suggestCardCounter: document.getElementById('suggest-card-counter'),
+  btnSuggestCardSubmit: document.getElementById('btn-suggest-card-submit'),
+  btnSuggestCardX: document.getElementById('btn-suggest-card-x'),
+  btnSuggestAnother: document.getElementById('btn-suggest-another'),
+  btnSuggestClose: document.getElementById('btn-suggest-close'),
   
   // Orologio barra di stato
   statusClock: document.getElementById('status-clock'),
@@ -2640,6 +2652,15 @@ function showPurchaseModal() {
       openModerationInfoModal();
     });
   }
+  const btnLobbySuggest = el.btnLobbySuggestCard || document.getElementById('btn-lobby-suggest-card');
+  if (btnLobbySuggest) {
+    btnLobbySuggest.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      try { AudioSynth.playConfirm(false); } catch (err) {}
+      openSuggestCardModal();
+    });
+  }
   if (btnQrModalClose) {
     btnQrModalClose.addEventListener('click', closeQrModal);
   }
@@ -2650,6 +2671,64 @@ function showPurchaseModal() {
       }
     });
   }
+
+  // Eventi Modale Suggerisci una Carta
+  const suggestTextarea = el.suggestCardTextarea || document.getElementById('suggest-card-textarea');
+  if (suggestTextarea) {
+    suggestTextarea.addEventListener('input', (e) => {
+      const val = e.target.value || '';
+      const counter = el.suggestCardCounter || document.getElementById('suggest-card-counter');
+      if (counter) counter.textContent = `${val.length} / 180`;
+      const btnSubmit = el.btnSuggestCardSubmit || document.getElementById('btn-suggest-card-submit');
+      if (btnSubmit) btnSubmit.disabled = (val.trim().length === 0);
+    });
+  }
+
+  const btnSuggestSubmit = el.btnSuggestCardSubmit || document.getElementById('btn-suggest-card-submit');
+  if (btnSuggestSubmit) {
+    btnSuggestSubmit.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      submitCardSuggestion();
+    });
+  }
+
+  const btnSuggestAnother = el.btnSuggestAnother || document.getElementById('btn-suggest-another');
+  if (btnSuggestAnother) {
+    btnSuggestAnother.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      resetSuggestCardForm();
+    });
+  }
+
+  const btnSuggestClose = el.btnSuggestClose || document.getElementById('btn-suggest-close');
+  if (btnSuggestClose) {
+    btnSuggestClose.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      closeSuggestCardModal();
+    });
+  }
+
+  const btnSuggestX = el.btnSuggestCardX || document.getElementById('btn-suggest-card-x');
+  if (btnSuggestX) {
+    btnSuggestX.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      closeSuggestCardModal();
+    });
+  }
+
+  const suggestModal = el.suggestCardModal || document.getElementById('suggest-card-modal');
+  if (suggestModal) {
+    suggestModal.addEventListener('click', (e) => {
+      if (e.target === suggestModal) {
+        closeSuggestCardModal();
+      }
+    });
+  }
+
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (qrModal && (qrModal.style.display === 'flex' || !qrModal.classList.contains('hidden'))) {
@@ -2658,6 +2737,10 @@ function showPurchaseModal() {
       const modModal = el.moderationInfoModal || document.getElementById('moderation-info-modal');
       if (modModal && modModal.style.display === 'flex') {
         closeModerationInfoModal();
+      }
+      const sugModal = el.suggestCardModal || document.getElementById('suggest-card-modal');
+      if (sugModal && sugModal.style.display === 'flex') {
+        closeSuggestCardModal();
       }
     }
   });
@@ -4773,6 +4856,116 @@ function closeModerationInfoModal() {
 }
 
 // ==========================================================================
+// MODALE SUGGERISCI UNA CARTA (SOLO STANZA STANDARD)
+// ==========================================================================
+function openSuggestCardModal() {
+  const modal = el.suggestCardModal || document.getElementById('suggest-card-modal');
+  const formState = el.suggestCardFormState || document.getElementById('suggest-card-form-state');
+  const successState = el.suggestCardSuccessState || document.getElementById('suggest-card-success-state');
+  const textarea = el.suggestCardTextarea || document.getElementById('suggest-card-textarea');
+  const counter = el.suggestCardCounter || document.getElementById('suggest-card-counter');
+  const btnSubmit = el.btnSuggestCardSubmit || document.getElementById('btn-suggest-card-submit');
+
+  if (formState && successState) {
+    formState.style.display = 'flex';
+    formState.style.opacity = '1';
+    successState.style.display = 'none';
+    successState.style.opacity = '0';
+  }
+
+  if (textarea && counter && btnSubmit) {
+    textarea.value = '';
+    counter.textContent = '0 / 180';
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = '<span class="btn-suggest-text">INVIA CARTA</span>';
+  }
+
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.offsetHeight; // trigger reflow
+    modal.classList.add('active');
+    if (textarea) {
+      setTimeout(() => textarea.focus(), 120);
+    }
+  }
+}
+
+function closeSuggestCardModal() {
+  const modal = el.suggestCardModal || document.getElementById('suggest-card-modal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+}
+
+function submitCardSuggestion() {
+  const textarea = el.suggestCardTextarea || document.getElementById('suggest-card-textarea');
+  const btnSubmit = el.btnSuggestCardSubmit || document.getElementById('btn-suggest-card-submit');
+  const formState = el.suggestCardFormState || document.getElementById('suggest-card-form-state');
+  const successState = el.suggestCardSuccessState || document.getElementById('suggest-card-success-state');
+
+  const text = (textarea ? textarea.value : '').trim();
+  if (!text) return;
+
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = `
+      <span style="width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #ffffff; border-radius: 50%; display: inline-block; animation: spin 0.6s linear infinite;"></span>
+      <span>Invio in corso...</span>
+    `;
+  }
+
+  if (socket && socket.connected) {
+    socket.emit('suggest_card', {
+      text,
+      playerName: state.playerName || '',
+      roomCode: state.roomCode || ''
+    });
+  }
+
+  // Transizione fluida e realistica con stato di caricamento (circa 700ms)
+  setTimeout(() => {
+    if (formState && successState) {
+      formState.style.opacity = '0';
+      setTimeout(() => {
+        formState.style.display = 'none';
+        successState.style.display = 'flex';
+        successState.offsetHeight; // trigger reflow
+        successState.style.opacity = '1';
+        try { AudioSynth.playConfirm(true); } catch (err) {}
+      }, 150);
+    }
+  }, 700);
+}
+
+function resetSuggestCardForm() {
+  const formState = el.suggestCardFormState || document.getElementById('suggest-card-form-state');
+  const successState = el.suggestCardSuccessState || document.getElementById('suggest-card-success-state');
+  const textarea = el.suggestCardTextarea || document.getElementById('suggest-card-textarea');
+  const counter = el.suggestCardCounter || document.getElementById('suggest-card-counter');
+  const btnSubmit = el.btnSuggestCardSubmit || document.getElementById('btn-suggest-card-submit');
+
+  if (textarea && counter && btnSubmit) {
+    textarea.value = '';
+    counter.textContent = '0 / 180';
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = '<span class="btn-suggest-text">INVIA CARTA</span>';
+  }
+
+  if (successState && formState) {
+    successState.style.opacity = '0';
+    setTimeout(() => {
+      successState.style.display = 'none';
+      formState.style.display = 'flex';
+      formState.offsetHeight; // trigger reflow
+      formState.style.opacity = '1';
+      if (textarea) textarea.focus();
+    }, 150);
+  }
+  try { AudioSynth.playConfirm(false); } catch (err) {}
+}
+
+// ==========================================================================
 // MODALE ALLERTA MODERAZIONE HOST (SOGLIA 33.3% SEGNALAZIONI)
 // ==========================================================================
 function openHostModerationAlertModal() {
@@ -4854,11 +5047,19 @@ function setupLobbyUI() {
   if (el.btnAddBots) el.btnAddBots.style.display = 'block';
   if (el.roundsSelectorGrid) el.roundsSelectorGrid.classList.remove('rounds-vertical');
   
-  // Tasto Info Moderazione "!" nella lobby (visibile SOLO in Judgement Day)
+  // Controllo visibilità tasti nell'angolo in alto a sinistra della card lobby
   const isJudgementDay = !!(state.roomIsPremium || state.roomMode === 'judgement' || state.gameMode === 'judgement');
   const btnLobbyMod = el.btnLobbyModeration || document.getElementById('btn-lobby-moderation');
-  if (btnLobbyMod) {
-    btnLobbyMod.style.display = isJudgementDay ? 'flex' : 'none';
+  const btnLobbySuggest = el.btnLobbySuggestCard || document.getElementById('btn-lobby-suggest-card');
+
+  if (isJudgementDay) {
+    // In Judgement Day: mostra tasto "!", nascondi penna stilografica
+    if (btnLobbyMod) btnLobbyMod.style.display = 'flex';
+    if (btnLobbySuggest) btnLobbySuggest.style.display = 'none';
+  } else {
+    // In Stanza Standard: mostra penna stilografica "Suggerisci Carta", nascondi tasto "!"
+    if (btnLobbyMod) btnLobbyMod.style.display = 'none';
+    if (btnLobbySuggest) btnLobbySuggest.style.display = 'flex';
   }
   
   if (state.isHost) {
@@ -5494,6 +5695,8 @@ function setupSoloLobbyUI() {
   el.lobbyHeader.style.display = 'none';
   const btnLobbyModSolo = el.btnLobbyModeration || document.getElementById('btn-lobby-moderation');
   if (btnLobbyModSolo) btnLobbyModSolo.style.display = 'none';
+  const btnLobbySuggestSolo = el.btnLobbySuggestCard || document.getElementById('btn-lobby-suggest-card');
+  if (btnLobbySuggestSolo) btnLobbySuggestSolo.style.display = 'none';
   el.lobbyPlayersPanel.style.display = 'none';
   el.btnAddBots.style.display = 'none';
   el.roundsSelectorGrid.classList.add('rounds-vertical');

@@ -2543,6 +2543,16 @@ io.on('connection', (socket) => {
   socket.on('report_card', handleCardReport);
   socket.on('report_current_card', handleCardReport);
 
+  // Evento 7b-bis: Suggerimento Carta dai Giocatori (Modalità Standard)
+  socket.on('suggest_card', ({ text, playerName, roomCode }) => {
+    if (!text || typeof text !== 'string') return;
+    const cleanText = text.trim().slice(0, 300);
+    const author = (playerName && typeof playerName === 'string' && playerName.trim()) 
+      ? playerName.trim() 
+      : (socket.userData ? socket.userData.username : 'Anonimo');
+    console.log(`[CARD SUGGESTION] Da "${author}" (stanza: ${roomCode || 'N/A'}, socket: ${socket.id}): "${cleanText}"`);
+  });
+
   // Evento 7c: Toggle Blur Carta (Solo Host, Judgement Day)
   socket.on('toggle_card_blur', () => {
     const room = rooms[currentRoomCode];

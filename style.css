@@ -5257,7 +5257,8 @@ input[type="submit"] {
 /* ==========================================================================
    QR CODE LOBBY BUTTON & TASTO INFO MODERAZIONE LOBBY (#qr-modal & Judgement Day)
    ========================================================================== */
-.btn-lobby-moderation {
+.btn-lobby-moderation,
+.btn-lobby-suggest-card {
   position: absolute;
   top: 15px;
   left: 15px;
@@ -5281,17 +5282,55 @@ input[type="submit"] {
 }
 
 .btn-lobby-moderation:hover,
-.btn-lobby-moderation:active {
+.btn-lobby-moderation:active,
+.btn-lobby-suggest-card:hover,
+.btn-lobby-suggest-card:active {
   background: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.35);
   transform: scale(1.08);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
-.btn-lobby-moderation svg {
+.btn-lobby-moderation svg,
+.btn-lobby-suggest-card svg {
   width: 18px;
   height: 18px;
   stroke: currentColor;
+}
+
+/* Textarea Modale Suggerisci Carta */
+.suggest-card-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 12px;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.suggest-card-textarea:focus {
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  background: rgba(0, 0, 0, 0.48);
+}
+
+.suggest-card-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+#btn-suggest-card-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 .btn-lobby-qr {
