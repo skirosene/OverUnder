@@ -1363,6 +1363,7 @@ function deserializeRoomFromRedis(rawJson) {
     parsed.votingTimer = null;
     parsed.verdictTimer = null;
     parsed.hostDisconnectTimeout = null;
+    parsed.currentCardReports = new Set();
     return parsed;
   } catch (err) {
     console.error('[REDIS PARSE ERR]:', err);
@@ -1635,7 +1636,8 @@ io.on('connection', (socket) => {
       blacklist: [],
       isLocked: false,
       timerDurationMs: 10000, // Durata timer round (5000 o 10000)
-      cardBlurred: false // Stato blur carta (controllato dall'Host)
+      cardBlurred: false, // Stato blur carta (controllato dall'Host)
+      currentCardReports: new Set() // Tracciamento univoco segnalazioni per carta corrente
     };
 
     // Sincronizza stato iniziale su Redis con TTL 2 ore
@@ -2448,15 +2450,24 @@ io.on('connection', (socket) => {
     console.log(`[ROOM MODE] Stanza ${room.roomCode} cambiata a ${room.isPremium ? 'Judgement Day' : 'Standard'} dall'Host`);
   });
 
-  // Evento 7b: Segnalazione Carta Corrente (Silente, Moderazione)
-  socket.on('report_current_card', () => {
+  // Evento 7b: Segnalazione Carta Corrente (Silente, Moderazione & Anti-Spam Idempotente)
+  const handleCardReport = () => {
     const room = rooms[currentRoomCode];
     if (!room || room.state !== 'playing') return;
 
-    const card = room.deck.cards[room.currentCardIndex];
+    if (!(room.currentCardReports instanceof Set)) {
+      room.currentCardReports = new Set();
+    }
+    const reporterId = (socket.userData && (socket.userData.userId || socket.userData.sessionId)) || socket.id;
+    if (room.currentCardReports.has(reporterId)) {
+      return; // Già segnalata da questo utente per la carta corrente
+    }
+    room.currentCardReports.add(reporterId);
+
+    const card = room.deck && room.deck.cards && room.deck.cards[room.currentCardIndex];
     if (!card) return;
 
-    console.log(`[MODERATION] Carta segnalata nella stanza ${room.roomCode} dal client ${socket.id}: text="${card.prompt || ''}", image="${card.image || ''}"`);
+    console.log(`[MODERATION] Carta segnalata nella stanza ${room.roomCode} dall'utente ${reporterId} (${socket.id}): text="${card.prompt || ''}", image="${card.image || ''}"`);
 
     if (card.image && card.image.startsWith('/uploads/')) {
       if (!room.reportedFiles) {
@@ -2467,7 +2478,10 @@ io.on('connection', (socket) => {
         console.log(`[MODERATION] File registrato per la rimozione a fine sessione: ${card.image}`);
       }
     }
-  });
+  };
+
+  socket.on('report_card', handleCardReport);
+  socket.on('report_current_card', handleCardReport);
 
   // Evento 7c: Toggle Blur Carta (Solo Host, Judgement Day)
   socket.on('toggle_card_blur', () => {
@@ -2924,6 +2938,7 @@ function startNewRound(room) {
   room.timeIsUp = false; // Reset stato fine tempo
   room.freezeMessage = '';
   room.cardBlurred = false; // Reset blur carta ad ogni nuova carta
+  room.currentCardReports = new Set(); // Reset idempotente segnalazioni carta
   room.roundStartTime = Date.now();
 
   const timerMs = room.timerDurationMs || 10000;

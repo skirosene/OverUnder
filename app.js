@@ -2808,15 +2808,17 @@ function showPurchaseModal() {
     bindFastClick(btnSummaryCancelPlayer, handleExitToMainMenu);
   }
 
-  // Tasto Segnala (Bandierina Silente)
+  // Tasto Segnala (Bandierina Silente & Anti-Spam Arancione)
   if (el.btnReportCard) {
     el.btnReportCard.addEventListener('click', (e) => {
       e.stopPropagation();
-      el.btnReportCard.style.color = '#F59E0B'; // feedback visivo arancione
-      setTimeout(() => {
-        el.btnReportCard.style.color = 'rgba(255, 255, 255, 0.15)';
-      }, 1000);
-      socket.emit('report_current_card');
+      e.preventDefault();
+      if (el.btnReportCard.classList.contains('flag-reported')) return;
+      el.btnReportCard.classList.add('flag-reported');
+      el.btnReportCard.style.pointerEvents = 'none';
+      if (socket && socket.connected) {
+        socket.emit('report_card');
+      }
     });
   }
 
@@ -3470,6 +3472,7 @@ function setupSocketListeners() {
       if (gameData.cardBlurred !== undefined) {
         window.currentCardBlurred = !!gameData.cardBlurred;
       }
+      resetReportFlagUI();
       if (el.currentDeckName) el.currentDeckName.textContent = state.currentDeckName;
       updateGameplayCardMedia(gameData.prompt, gameData.image);
       
@@ -3896,6 +3899,7 @@ function setupSocketListeners() {
     // Reset automatico blur carta ad ogni nuova carta
     window.currentCardBlurred = false;
     updateBlurUI(false);
+    resetReportFlagUI();
 
     // Reset interfaccia gameplay
     if (el.currentDeckName) el.currentDeckName.textContent = state.currentDeckName;
@@ -4265,6 +4269,16 @@ function updateBlurUI(isBlurred) {
   if (hostBtn) hostBtn.classList.toggle('active', !!isBlurred);
 }
 
+// Reset visivo locale bandierina di segnalazione
+function resetReportFlagUI() {
+  const btn = el.btnReportCard || document.getElementById('btn-report-card');
+  if (btn) {
+    btn.classList.remove('flag-reported');
+    btn.style.pointerEvents = 'auto';
+    btn.style.color = '';
+  }
+}
+
 // RenderCard alias per compatibilità e garanzia di persistenza blur
 window.renderCard = function(prompt, image) {
   if (prompt !== undefined || image !== undefined) {
@@ -4502,6 +4516,9 @@ function updateGameplayCardMedia(prompt, image) {
 
   // Sincronizza stato grafico Blur dopo ogni aggiornamento del DOM
   updateBlurUI(window.currentCardBlurred || false);
+
+  // Ripristina stato neutro della bandierina di segnalazione per la nuova carta
+  resetReportFlagUI();
 }
 
 // ==========================================================================

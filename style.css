@@ -6742,3 +6742,19 @@ input[type="submit"] {
 .btn-card-info {
   z-index: 20 !important;
 }
+
+/* Feedback Visivo Bandierina di Segnalazione (Arancione & Anti-Spam) */
+.flag-reported,
+#btn-report-card.flag-reported {
+  color: #F97316 !important; /* Arancione vivido */
+  fill: #F97316 !important;
+  stroke: #EA580C !important;
+  transform: scale(1.1);
+  pointer-events: none !important;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+#btn-report-card.flag-reported svg {
+  fill: #F97316 !important;
+  color: #F97316 !important;
+}
