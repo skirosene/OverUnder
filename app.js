@@ -8274,8 +8274,54 @@ function closeCardImageZoom() {
 }
 
 // ==========================================================================
-// RICERCA & IMPORTAZIONE IMMAGINI WEB (PIXABAY BROWSER)
+// RICERCA & IMPORTAZIONE IMMAGINI WEB
 // ==========================================================================
+
+const SEARCH_PLACEHOLDERS = [
+  "Cerca Hulk...",
+  "Cerca Leonardo DiCaprio...",
+  "Cerca una reazione felice...",
+  "Cerca Harry Potter...",
+  "Cerca film cult...",
+  "Cerca Shrek...",
+  "Cerca esultanze sportive...",
+  "Cerca cartoni animati..."
+];
+
+let searchPlaceholderInterval = null;
+let currentPlaceholderIndex = 0;
+
+function startPlaceholderRotation() {
+  stopPlaceholderRotation(false);
+  const input = el.inputWebImageSearch || document.getElementById('input-web-image-search');
+  if (!input) return;
+  if (document.activeElement === input || input.value.trim().length > 0) return;
+
+  input.placeholder = SEARCH_PLACEHOLDERS[currentPlaceholderIndex];
+
+  searchPlaceholderInterval = setInterval(() => {
+    const inp = el.inputWebImageSearch || document.getElementById('input-web-image-search');
+    if (!inp || document.activeElement === inp || inp.value.trim().length > 0) {
+      stopPlaceholderRotation(false);
+      return;
+    }
+    currentPlaceholderIndex = (currentPlaceholderIndex + 1) % SEARCH_PLACEHOLDERS.length;
+    inp.placeholder = SEARCH_PLACEHOLDERS[currentPlaceholderIndex];
+  }, 2800);
+}
+
+function stopPlaceholderRotation(clearPlaceholder = false) {
+  if (searchPlaceholderInterval) {
+    clearInterval(searchPlaceholderInterval);
+    searchPlaceholderInterval = null;
+  }
+  if (clearPlaceholder) {
+    const input = el.inputWebImageSearch || document.getElementById('input-web-image-search');
+    if (input) {
+      input.placeholder = '';
+    }
+  }
+}
 
 function openWebImageSearchModal() {
   const modal = el.webImageSearchModal || document.getElementById('web-image-search-modal');
@@ -8284,13 +8330,15 @@ function openWebImageSearchModal() {
   modal.offsetHeight; // trigger reflow
   modal.classList.add('active');
   document.body.style.overflow = 'hidden';
+
   const input = el.inputWebImageSearch || document.getElementById('input-web-image-search');
-  if (input) {
-    setTimeout(() => { try { input.focus(); } catch (e) {} }, 150);
+  if (input && !input.value.trim()) {
+    startPlaceholderRotation();
   }
 }
 
 function closeWebImageSearchModal() {
+  stopPlaceholderRotation(false);
   const modal = el.webImageSearchModal || document.getElementById('web-image-search-modal');
   if (!modal) return;
   modal.classList.remove('active');
@@ -8353,7 +8401,16 @@ function setupWebImageSearch() {
 
       if (results.length === 0) {
         if (noResults) {
-          noResults.textContent = `Nessuna GIF trovata per "${q}". Prova con altri termini.`;
+          const subEl = document.getElementById('web-search-no-results-sub');
+          if (subEl) {
+            subEl.textContent = `Non abbiamo trovato immagini per "${q}". Prova con altri termini.`;
+          } else {
+            noResults.innerHTML = `
+              <span style="font-size: 2.4rem; display: block; margin-bottom: 10px;">🔍</span>
+              <div style="font-family: var(--font-title); font-size: 1rem; font-weight: 700; color: #ffffff; margin-bottom: 6px;">Nessun risultato</div>
+              <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.55); line-height: 1.4; max-width: 280px; margin: 0 auto;">Non abbiamo trovato immagini per "${q}". Prova con altri termini.</div>
+            `;
+          }
           noResults.style.display = 'block';
         }
         return;
@@ -8430,14 +8487,28 @@ function setupWebImageSearch() {
     } catch (err) {
       if (loading) loading.style.display = 'none';
       if (noResults) {
-        noResults.textContent = err.message || "Errore durante la ricerca.";
+        const subEl = document.getElementById('web-search-no-results-sub');
+        if (subEl) {
+          subEl.textContent = err.message || "Errore durante la ricerca.";
+        }
         noResults.style.display = 'block';
       }
     }
   }
 
   if (input) {
+    input.addEventListener('focus', () => {
+      stopPlaceholderRotation(true);
+    });
+
+    input.addEventListener('blur', () => {
+      if (!input.value.trim()) {
+        startPlaceholderRotation();
+      }
+    });
+
     input.addEventListener('input', () => {
+      stopPlaceholderRotation(true);
       const val = input.value;
       if (btnClear) btnClear.style.display = val.length > 0 ? 'block' : 'none';
       if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
@@ -8460,6 +8531,7 @@ function setupWebImageSearch() {
       if (input) {
         input.value = '';
         input.focus();
+        stopPlaceholderRotation(true);
       }
       btnClear.style.display = 'none';
       performSearch('');
@@ -8473,4 +8545,5 @@ function setupWebImageSearch() {
     });
   }
 }
+
 

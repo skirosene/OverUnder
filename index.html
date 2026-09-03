@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=16100">
+  <link rel="stylesheet" href="/style.css?v=16200">
 </head>
 
 <body>
@@ -456,7 +456,7 @@
               </button>
               <button id="btn-premium-select-web" type="button" class="popover-btn"
                 style="display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; color: white; font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; text-align: left; transition: background 0.15s ease;">
-                <span style="font-size: 0.95rem;">🔍</span> Browser
+                <span style="font-size: 0.95rem;">🔍</span> Cerca nel Web
               </button>
             </div>
 
@@ -1259,7 +1259,7 @@
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 1.3rem;">🔍</span>
           <h3 style="margin: 0; font-family: var(--font-title); font-size: 1.05rem; font-weight: 800; color: white; letter-spacing: 0.3px;">
-            Cerca Meme nel Web
+            Cerca nel Web
           </h3>
         </div>
         <button id="btn-close-web-search-modal" type="button"
@@ -1269,7 +1269,7 @@
       <!-- Barra di ricerca -->
       <div style="padding: 14px 20px 8px 20px; display: flex; gap: 8px; align-items: center;">
         <div style="position: relative; flex: 1; display: flex; align-items: center;">
-          <input type="text" id="input-web-image-search" class="text-input" placeholder="Cerca Hulk, VIP, Meme, Film..." autocomplete="off"
+          <input type="text" id="input-web-image-search" class="text-input" placeholder="Cerca Hulk..." autocomplete="off"
             style="width: 100%; box-sizing: border-box; border-radius: 12px; font-size: 0.85rem; padding: 10px 38px 10px 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(189, 51, 255, 0.4); color: white;">
           <button id="btn-clear-web-image-search" type="button"
             style="display: none; position: absolute; right: 10px; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.1rem; cursor: pointer; padding: 2px;">&times;</button>
@@ -1296,15 +1296,17 @@
         </div>
 
         <!-- Messaggio stato vuoto / iniziale -->
-        <div id="web-search-placeholder" style="text-align: center; color: rgba(255, 255, 255, 0.4); font-size: 0.8rem; margin: auto; padding: 30px 10px;">
-          <span style="font-size: 2.2rem; display: block; margin-bottom: 8px;">🎬</span>
-          Digita una parola chiave per cercare tra milioni di meme e GIF
+        <div id="web-search-placeholder" style="text-align: center; margin: auto; padding: 30px 10px;">
+          <span style="font-size: 2.4rem; display: block; margin-bottom: 10px;">🔍</span>
+          <div style="font-family: var(--font-title); font-size: 1rem; font-weight: 700; color: #ffffff; margin-bottom: 6px;">Trova l'immagine perfetta</div>
+          <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.55); line-height: 1.4; max-width: 280px; margin: 0 auto;">Digita una parola chiave per trovare l'immagine da inserire nella carta.</div>
         </div>
 
         <!-- Messaggio nessun risultato -->
-        <div id="web-search-no-results" style="display: none; text-align: center; color: rgba(255, 255, 255, 0.6); font-size: 0.82rem; margin: auto; padding: 30px 10px;">
-          <span style="font-size: 2rem; display: block; margin-bottom: 8px;">😕</span>
-          Nessuna immagine trovata. Prova con termini diversi o più generici.
+        <div id="web-search-no-results" style="display: none; text-align: center; margin: auto; padding: 30px 10px;">
+          <span style="font-size: 2.4rem; display: block; margin-bottom: 10px;">🔍</span>
+          <div id="web-search-no-results-title" style="font-family: var(--font-title); font-size: 1rem; font-weight: 700; color: #ffffff; margin-bottom: 6px;">Nessun risultato</div>
+          <div id="web-search-no-results-sub" style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.55); line-height: 1.4; max-width: 280px; margin: 0 auto;">Non abbiamo trovato immagini per questo termine. Prova con altri termini.</div>
         </div>
 
         <!-- Griglia risultati immagini (2 colonne) -->
@@ -1643,7 +1645,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=16100"></script>
+  <script src="/app.js?v=16200"></script>
 </body>
 
 </html>
