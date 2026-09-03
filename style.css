@@ -6687,3 +6687,24 @@ input[type="submit"] {
   padding-right: 4px;
 }
 
+/* ==========================================================================
+   MODERAZIONE CARTE (BLUR SEGNALAZIONE & FEEDBACK BANDIERINA)
+   ========================================================================== */
+.prompt-card.card-censored #gameplay-prompt-image-container,
+.prompt-card.card-censored #gameplay-prompt-image,
+.prompt-card.card-censored #current-prompt-text {
+  filter: blur(22px) grayscale(90%);
+  -webkit-filter: blur(22px) grayscale(90%);
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.3s ease;
+}
+
+#btn-report-card.reported {
+  color: #F59E0B !important;
+  cursor: default;
+  transform: scale(1.1);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+

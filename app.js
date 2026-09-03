@@ -724,6 +724,7 @@ const state = {
   totalCards: 0,
   userHasVoted: false,
   roundEndActive: false,
+  hasReportedCurrentCard: false,
   
   timerStartTime: null,
   timerRequestId: null,
@@ -981,6 +982,11 @@ const el = {
   summaryPlayerWaiting: document.getElementById('summary-player-waiting'),
   btnRestart: document.getElementById('btn-restart'),
   btnReportCard: document.getElementById('btn-report-card'),
+  promptCard: document.getElementById('prompt-card'),
+  reportAlertModal: document.getElementById('report-alert-modal'),
+  reportAlertModalText: document.getElementById('report-alert-modal-text'),
+  btnReportAlertBlur: document.getElementById('btn-report-alert-blur'),
+  btnReportAlertIgnore: document.getElementById('btn-report-alert-ignore'),
   btnCardInfo: document.getElementById('btn-card-info'),
   cardInfoModal: document.getElementById('card-info-modal'),
   cardInfoModalTitle: document.getElementById('card-info-modal-title'),
@@ -2768,15 +2774,52 @@ function showPurchaseModal() {
     bindFastClick(btnSummaryCancelPlayer, handleExitToMainMenu);
   }
 
-  // Tasto Segnala (Bandierina Silente)
+// Funzione per applicare l'effetto censura/blur alla carta corrente
+function applyCardCensorship() {
+  const promptCard = el.promptCard || document.getElementById('prompt-card');
+  if (promptCard) {
+    promptCard.classList.add('card-censored');
+    if (!document.getElementById('card-censored-notice')) {
+      const notice = document.createElement('div');
+      notice.id = 'card-censored-notice';
+      notice.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.88); border: 1px solid rgba(245, 158, 11, 0.6); padding: 8px 16px; border-radius: 12px; color: #f59e0b; font-family: var(--font-title); font-size: 0.85rem; font-weight: 700; z-index: 5; text-align: center; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.6);';
+      notice.innerHTML = '⚠️ Contenuto oscurato';
+      promptCard.appendChild(notice);
+    }
+  }
+}
+
+  // Tasto Segnala (Bandierina Silente con soglia dinamica)
   if (el.btnReportCard) {
     el.btnReportCard.addEventListener('click', (e) => {
       e.stopPropagation();
-      el.btnReportCard.style.color = '#F59E0B'; // feedback visivo arancione
-      setTimeout(() => {
-        el.btnReportCard.style.color = 'rgba(255, 255, 255, 0.15)';
-      }, 1000);
-      socket.emit('report_current_card');
+      if (state.hasReportedCurrentCard) return;
+      state.hasReportedCurrentCard = true;
+      el.btnReportCard.disabled = true;
+      el.btnReportCard.style.pointerEvents = 'none';
+      if (typeof socket !== 'undefined' && socket && socket.connected) {
+        socket.emit('report_card');
+      }
+    });
+  }
+
+  // Gestione pulsanti Modale Allerta Segnalazione (Solo Host)
+  if (el.btnReportAlertBlur) {
+    el.btnReportAlertBlur.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (el.reportAlertModal) el.reportAlertModal.style.display = 'none';
+      applyCardCensorship();
+      if (typeof socket !== 'undefined' && socket && socket.connected) {
+        socket.emit('censor_current_card');
+      }
+      showToast("Carta oscurata dal moderatore 🙈", 3000);
+    });
+  }
+
+  if (el.btnReportAlertIgnore) {
+    el.btnReportAlertIgnore.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (el.reportAlertModal) el.reportAlertModal.style.display = 'none';
     });
   }
 
@@ -3826,6 +3869,22 @@ function setupSocketListeners() {
       updateTimerPickerSelection();
     }
 
+    // Reset stato bandierina segnalazione e censura del round precedente
+    state.hasReportedCurrentCard = false;
+    if (el.btnReportCard) {
+      el.btnReportCard.disabled = false;
+      el.btnReportCard.style.pointerEvents = '';
+      el.btnReportCard.style.color = 'rgba(255, 255, 255, 0.15)';
+      el.btnReportCard.classList.remove('reported');
+      el.btnReportCard.setAttribute('title', 'Segnala contenuto inappropriato');
+    }
+    const reportAlertModal = el.reportAlertModal || document.getElementById('report-alert-modal');
+    if (reportAlertModal) reportAlertModal.style.display = 'none';
+    const promptCard = el.promptCard || document.getElementById('prompt-card');
+    if (promptCard) promptCard.classList.remove('card-censored');
+    const censorNotice = document.getElementById('card-censored-notice');
+    if (censorNotice) censorNotice.remove();
+
     // Reset overlay
     if (el.roundEndOverlay) el.roundEndOverlay.classList.remove('active');
     if (el.roundEndOverlayVoteActions) el.roundEndOverlayVoteActions.style.display = 'none';
@@ -4058,6 +4117,35 @@ function setupSocketListeners() {
   socket.on('room_lock_update', ({ isLocked }) => {
     state.roomIsLocked = !!isLocked;
     updateLockIcon();
+  });
+
+  // 13. Segnalazione Carta e Feedback Visivo Bandierina
+  socket.on('report_confirmed', () => {
+    if (el.btnReportCard) {
+      el.btnReportCard.style.color = '#F59E0B';
+      el.btnReportCard.classList.add('reported');
+      el.btnReportCard.setAttribute('title', 'Carta segnalata');
+    }
+    showToast("Segnalazione inviata al moderatore ⚠️", 2500);
+  });
+
+  // 14. Pop-up di Allerta Gravità Segnalazioni (Esclusivo per l'Host)
+  socket.on('card_report_alert', ({ reportCount, totalPlayers, threshold }) => {
+    if (!state.isHost) return;
+    const modal = el.reportAlertModal || document.getElementById('report-alert-modal');
+    const textEl = el.reportAlertModalText || document.getElementById('report-alert-modal-text');
+    if (textEl) {
+      textEl.textContent = `Questa carta ha superato la soglia critica del 33% delle segnalazioni (${reportCount} su ${totalPlayers} giocatori). Come moderatore della stanza, valuta se oscurarla o procedere.`;
+    }
+    if (modal) {
+      modal.style.display = 'flex';
+      try { AudioSynth.playConfirm(false); } catch (e) {}
+    }
+  });
+
+  // 15. Carta oscurata/censurata dall'Host per l'intera stanza
+  socket.on('card_censored', () => {
+    applyCardCensorship();
   });
 
   socket.on('global_toast', ({ message }) => {

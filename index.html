@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=16500">
+  <link rel="stylesheet" href="/style.css?v=16600">
 </head>
 
 <body>
@@ -1319,6 +1319,39 @@
     </div>
   </div>
 
+  <!-- Modal Allerta Segnalazione Carta (Solo Host) -->
+  <div id="report-alert-modal" class="custom-modal-overlay"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 20000; justify-content: center; align-items: center; background: rgba(0, 0, 0, 0.82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 16px; box-sizing: border-box;">
+    <div class="glass-panel"
+      style="width: 100%; max-width: 420px; background: rgba(26, 18, 12, 0.96); border: 2px solid #f59e0b; box-shadow: 0 15px 45px rgba(245, 158, 11, 0.35), 0 0 30px rgba(239, 68, 68, 0.2); border-radius: 20px; padding: 24px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; animation: popover-fade-in-up 0.25s ease-out;">
+      
+      <div style="width: 54px; height: 54px; border-radius: 50%; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); display: flex; align-items: center; justify-content: center; font-size: 1.8rem;">
+        ⚠️
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <h3 style="margin: 0; font-family: var(--font-title); font-size: 1.12rem; font-weight: 800; color: #f59e0b; letter-spacing: 0.5px; text-transform: uppercase;">
+          ATTENZIONE: CARTA SEGNALATA
+        </h3>
+        <p id="report-alert-modal-text" style="margin: 0; font-size: 0.85rem; line-height: 1.45; color: rgba(255, 255, 255, 0.85);">
+          Questa carta ha superato la soglia critica del 33% delle segnalazioni. Come moderatore della stanza, valuta se oscurarla o procedere.
+        </p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 4px;">
+        <button id="btn-report-alert-blur" type="button"
+          style="width: 100%; padding: 12px; border-radius: 12px; border: none; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; font-family: var(--font-title); font-weight: 700; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); transition: transform 0.15s ease;">
+          <span>🙈</span> Oscura Carta (Blur)
+        </button>
+        <button id="btn-report-alert-ignore" type="button"
+          style="width: 100%; padding: 11px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.75); font-family: var(--font-body); font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: background 0.15s ease;">
+          Ignora / Chiudi
+        </button>
+      </div>
+
+    </div>
+  </div>
+
 
   <!-- Menu Contestuale per Espulsione Giocatore (Lobby) -->
   <div id="kick-context-menu" class="kick-context-menu"
@@ -1645,7 +1678,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=16500"></script>
+  <script src="/app.js?v=16600"></script>
 </body>
 
 </html>

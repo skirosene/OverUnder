@@ -2436,25 +2436,65 @@ io.on('connection', (socket) => {
     console.log(`[ROOM MODE] Stanza ${room.roomCode} cambiata a ${room.isPremium ? 'Judgement Day' : 'Standard'} dall'Host`);
   });
 
-  // Evento 7b: Segnalazione Carta Corrente (Silente, Moderazione)
-  socket.on('report_current_card', () => {
+  // Evento 7b: Segnalazione Carta Corrente (Moderazione con soglia 33.3% e alert all'Host)
+  const handleReportCard = () => {
     const room = rooms[currentRoomCode];
-    if (!room || room.state !== 'playing') return;
+    if (!room || room.state !== 'playing' || !room.deck || !room.deck.cards) return;
 
     const card = room.deck.cards[room.currentCardIndex];
     if (!card) return;
 
-    console.log(`[MODERATION] Carta segnalata nella stanza ${room.roomCode} dal client ${socket.id}: text="${card.prompt || ''}", image="${card.image || ''}"`);
+    if (!card.reports || !(card.reports instanceof Set)) {
+      card.reports = new Set(Array.isArray(card.reports) ? card.reports : []);
+    }
 
-    if (card.image && card.image.startsWith('/uploads/')) {
-      if (!room.reportedFiles) {
-        room.reportedFiles = [];
+    // Salva l'ID univoco del giocatore nel Set
+    const reporterId = socket.userId || socket.sessionId || socket.id;
+    card.reports.add(reporterId);
+
+    // Rispondi al singolo client con l'evento report_confirmed
+    socket.emit('report_confirmed', { cardIndex: room.currentCardIndex });
+
+    // Calcola il quorum dinamico per eccesso (abbondanza) rispetto ai giocatori attualmente connessi alla stanza:
+    const activePlayers = (room.players || []).filter(p => p.isBot || (p.connected !== false && p.isOnline !== false));
+    const totalPlayers = Math.max(1, activePlayers.length || (room.players ? room.players.length : 1));
+    const threshold = Math.ceil(totalPlayers / 3); // 33.3% calcolato per eccesso (es: 1-3 giocatori = 1, 4-6 giocatori = 2)
+
+    console.log(`[REPORT CARD] Stanza ${room.roomCode} - Carta #${room.currentCardIndex}: ${card.reports.size}/${totalPlayers} segnalazioni (soglia: ${threshold})`);
+
+    // Se currentCard.reports.size >= threshold e l'alert non è ancora stato inviato per questa carta (!currentCard.hostNotified)
+    if (card.reports.size >= threshold && !card.hostNotified) {
+      card.hostNotified = true;
+      if (room.hostId) {
+        io.to(room.hostId).emit('card_report_alert', {
+          reportCount: card.reports.size,
+          totalPlayers: totalPlayers,
+          threshold: threshold,
+          cardIndex: room.currentCardIndex
+        });
+        console.log(`[REPORT THRESHOLD HIT] Stanza ${room.roomCode}: Alert inviato all'host ${room.hostId}`);
       }
+    }
+
+    // Moderazione e tracking dei file caricati
+    if (card.image && card.image.startsWith('/uploads/')) {
+      if (!room.reportedFiles) room.reportedFiles = [];
       if (!room.reportedFiles.includes(card.image)) {
         room.reportedFiles.push(card.image);
         console.log(`[MODERATION] File registrato per la rimozione a fine sessione: ${card.image}`);
       }
     }
+  };
+
+  socket.on('report_card', handleReportCard);
+  socket.on('report_current_card', handleReportCard);
+
+  // Evento censura/oscuramento da parte dell'Host (moderatore)
+  socket.on('censor_current_card', () => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id || room.state !== 'playing') return;
+    io.to(room.roomCode).emit('card_censored', { cardIndex: room.currentCardIndex });
+    console.log(`[MODERATION] Carta #${room.currentCardIndex} oscurata (blur) dall'Host nella stanza ${room.roomCode}`);
   });
 
   // ==========================================================================
@@ -2916,6 +2956,10 @@ function startNewRound(room) {
     endGame(room);
     return;
   }
+
+  // Tracciamento segnalazioni uniche e flag notifica Host per questa specifica carta
+  card.reports = new Set();
+  card.hostNotified = false;
 
   // 3. Assegna identificativo univoco (Round Token) a questa specifica fase di votazione
   const currentToken = `round_${room.currentCardIndex}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
