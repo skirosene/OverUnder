@@ -692,13 +692,6 @@ function _unlockAudioContext() {
       AudioSynth._unlocked = true;
     }
   } catch (e) {}
-
-  // Sblocco automatico colonna sonora menu al primo tocco
-  try {
-    if (typeof MenuMusic !== 'undefined' && !MenuMusic.isPlaying && MenuMusic.shouldPlayOnCurrentScreen()) {
-      MenuMusic.play();
-    }
-  } catch (e) {}
 }
 ['pointerdown', 'touchstart', 'click', 'keydown'].forEach(evtType => {
   window.addEventListener(evtType, _unlockAudioContext, { passive: true });
@@ -714,172 +707,6 @@ function triggerVictorySoundOnce() {
     console.warn("[AUDIO TRIGGER] Victory sound error:", e);
   }
 }
-
-// ==========================================================================
-// COLONNA SONORA MENU & LOBBY (SINGLETON, AUTOPLAY BYPASS & FADE-IN)
-// ==========================================================================
-const MENU_MUSIC_URL = '/audio/Marble_and_Palms.mp3';
-
-const MenuMusic = {
-  audio: null,
-  fadeTimer: null,
-  targetVolume: 0.6,
-  isPlaying: false,
-  _initialized: false,
-  _bypassArmed: false,
-
-  init() {
-    if (this._initialized && this.audio) return;
-    try {
-      this.audio = new Audio(MENU_MUSIC_URL);
-      this.audio.loop = true;
-      this.audio.volume = 0;
-      this.audio.preload = 'auto';
-      this._initialized = true;
-    } catch (e) {
-      console.warn('[MENU MUSIC] Inizializzazione Audio fallita:', e);
-    }
-  },
-
-  play() {
-    if (AudioSynth.isMuted) return;
-    this.init();
-    if (!this.audio) return;
-
-    // Se sta già suonando regolarmente a volume pieno, mantieni la riproduzione
-    if (this.isPlaying && !this.audio.paused && this.audio.volume >= this.targetVolume) {
-      return;
-    }
-
-    this.isPlaying = true;
-    if (this.fadeTimer) {
-      clearInterval(this.fadeTimer);
-      this.fadeTimer = null;
-    }
-
-    const playPromise = this.audio.play();
-    if (playPromise !== undefined) {
-      playPromise
-        .then(() => {
-          this.fadeIn(800);
-        })
-        .catch((err) => {
-          // I browser bloccano l'autoplay prima del tocco dell'utente
-          this.isPlaying = false;
-          this.armAutoplayBypass();
-        });
-    }
-  },
-
-  armAutoplayBypass() {
-    if (this._bypassArmed) return;
-    this._bypassArmed = true;
-
-    const handleFirstUserInteraction = () => {
-      ['pointerdown', 'click', 'touchstart'].forEach(evtType => {
-        window.removeEventListener(evtType, handleFirstUserInteraction, true);
-      });
-      this._bypassArmed = false;
-
-      // Avvia la riproduzione solo se l'utente si trova ancora nelle schermate di menu o lobby
-      if (this.shouldPlayOnCurrentScreen()) {
-        this.play();
-      }
-    };
-
-    ['pointerdown', 'click', 'touchstart'].forEach(evtType => {
-      window.addEventListener(evtType, handleFirstUserInteraction, { once: true, capture: true, passive: true });
-    });
-  },
-
-  fadeIn(durationMs = 800) {
-    if (!this.audio) return;
-    if (AudioSynth.isMuted) {
-      this.audio.volume = 0;
-      return;
-    }
-
-    if (this.fadeTimer) clearInterval(this.fadeTimer);
-    const startVol = this.audio.volume;
-    const steps = 20;
-    const stepInterval = Math.max(15, Math.floor(durationMs / steps));
-    const volIncrement = (this.targetVolume - startVol) / steps;
-
-    this.fadeTimer = setInterval(() => {
-      if (!this.audio) {
-        clearInterval(this.fadeTimer);
-        this.fadeTimer = null;
-        return;
-      }
-      let newVol = this.audio.volume + volIncrement;
-      if (newVol >= this.targetVolume) {
-        this.audio.volume = this.targetVolume;
-        clearInterval(this.fadeTimer);
-        this.fadeTimer = null;
-      } else {
-        this.audio.volume = Math.max(0, Math.min(1, newVol));
-      }
-    }, stepInterval);
-  },
-
-  stop(instant = true) {
-    this.isPlaying = false;
-    if (this.fadeTimer) {
-      clearInterval(this.fadeTimer);
-      this.fadeTimer = null;
-    }
-    if (!this.audio) return;
-
-    if (instant) {
-      this.audio.pause();
-      this.audio.volume = 0;
-      this.audio.currentTime = 0;
-    } else {
-      const steps = 10;
-      const stepInterval = 25;
-      const volDecrement = this.audio.volume / steps;
-
-      this.fadeTimer = setInterval(() => {
-        if (!this.audio) {
-          clearInterval(this.fadeTimer);
-          this.fadeTimer = null;
-          return;
-        }
-        let newVol = this.audio.volume - volDecrement;
-        if (newVol <= 0.05) {
-          this.audio.volume = 0;
-          this.audio.pause();
-          this.audio.currentTime = 0;
-          clearInterval(this.fadeTimer);
-          this.fadeTimer = null;
-        } else {
-          this.audio.volume = Math.max(0, newVol);
-        }
-      }, stepInterval);
-    }
-  },
-
-  shouldPlayOnCurrentScreen(targetScreen = null) {
-    if (AudioSynth.isMuted) return false;
-    const activeScreen = targetScreen || (typeof el !== 'undefined' && el.screenSplash && el.screenSplash.classList.contains('active') ? el.screenSplash : document.querySelector('.screen.active'));
-    if (!activeScreen) return true;
-    const id = activeScreen.id;
-    return (
-      id === 'screen-splash' ||
-      id === 'screen-welcome' ||
-      id === 'screen-onboarding' ||
-      id === 'screen-lobby'
-    );
-  },
-
-  syncWithScreen(targetScreen) {
-    if (this.shouldPlayOnCurrentScreen(targetScreen)) {
-      this.play();
-    } else {
-      this.stop(true);
-    }
-  }
-};
 
 // ==========================================================================
 // CONFIGURAZIONE STATO & ELEMENTI DOM
@@ -1359,7 +1186,6 @@ async function startApp() {
   
   try { updateAudioButtonUI(); } catch (e) { console.warn("updateAudioButtonUI error:", e); }
   try { initSettingsSidebar(); } catch (e) { console.warn("initSettingsSidebar error:", e); }
-  try { MenuMusic.play(); } catch (e) { console.warn("MenuMusic play error:", e); }
   try { runSplashScreen(hasRoomParam); } catch (e) { console.warn("runSplashScreen error:", e); }
   try { updatePremiumUI(); } catch (e) { console.warn("updatePremiumUI error:", e); }
 }
@@ -1478,11 +1304,6 @@ function showScreen(targetScreen) {
     }
     hideSoloPersonalityPopup();
   }
-
-  // Sincronizzazione colonna sonora menu / lobby (Stop immediato in-game, fade-in nel menu)
-  if (typeof MenuMusic !== 'undefined') {
-    MenuMusic.syncWithScreen(targetScreen);
-  }
 }
 
 // Configurazione Tab dell'Onboarding (2 tab: Solo, Crea)
@@ -1593,13 +1414,6 @@ function initSettingsSidebar() {
           AudioSynth.init();
           AudioSynth.playConfirm(true);
         } catch (err) {}
-        if (typeof MenuMusic !== 'undefined' && MenuMusic.shouldPlayOnCurrentScreen()) {
-          MenuMusic.play();
-        }
-      } else {
-        if (typeof MenuMusic !== 'undefined') {
-          MenuMusic.stop(true);
-        }
       }
     });
   }
@@ -3171,13 +2985,6 @@ function showPurchaseModal() {
       if (!AudioSynth.isMuted) {
         AudioSynth.init();
         AudioSynth.playConfirm(true);
-        if (typeof MenuMusic !== 'undefined' && MenuMusic.shouldPlayOnCurrentScreen()) {
-          MenuMusic.play();
-        }
-      } else {
-        if (typeof MenuMusic !== 'undefined') {
-          MenuMusic.stop(true);
-        }
       }
     });
   }
@@ -3964,11 +3771,6 @@ function setupSocketListeners() {
 
   // 5. Partita Avviata
   socket.on('game_started', ({ deckName, totalCards, imageUrls }) => {
-    // Arresto immediato colonna sonora del menu
-    if (typeof MenuMusic !== 'undefined') {
-      MenuMusic.stop(true);
-    }
-
     state.isSoloMode = false;
     state.gameMode = 'multiplayer';
     state.currentDeckName = deckName;
@@ -5285,11 +5087,6 @@ function setupSoloLobbyUI() {
 }
 
 function startSoloGame(length = 30) {
-  // Arresto immediato colonna sonora menu
-  if (typeof MenuMusic !== 'undefined') {
-    MenuMusic.stop(true);
-  }
-
   try {
     // 1. Assicurati che l'array delle carte sia caricato COMPLETAMENTE prima del rendering
     if (!state.soloAvailableDecks || !Array.isArray(state.soloAvailableDecks) || state.soloAvailableDecks.length === 0) {

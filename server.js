@@ -536,8 +536,6 @@ try {
 // ROTTE EXPRESS (Static Files, Uploads, Auth, and IAP)
 // ==========================================================================
 app.use(express.static(__dirname));
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/audio', express.static(path.join(__dirname, 'public', 'audio')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Fallback route per link d'invito / QR code (/join?room=XXX o /join/XXX)
