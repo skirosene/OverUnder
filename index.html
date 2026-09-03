@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=18300">
+  <link rel="stylesheet" href="/style.css?v=18400">
 </head>
 
 <body>
@@ -587,9 +587,9 @@
                 <line x1="12" y1="8" x2="12.01" y2="8"></line>
               </svg>
             </button>
-            <!-- Tasto Segnala (Discreto, invisibile/semi-trasparente) -->
+            <!-- Tasto Segnala (Discreto, grigio neutro di default) -->
             <button id="btn-report-card" title="Segnala contenuto inappropriato"
-              style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: rgba(255, 255, 255, 0.15); cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; z-index: 10; transition: color 0.2s ease;">
+              style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: #9CA3AF; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; z-index: 20; transition: color 0.2s ease;">
               <svg viewBox="0 0 24 24" style="width: 1.1rem; height: 1.1rem;" fill="currentColor">
                 <path d="M12.36 6l.4 2H18v6h-3.36l-.4-2H7V6h5.36M14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6L14 4z" />
               </svg>
@@ -1709,7 +1709,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=18300"></script>
+  <script src="/app.js?v=18400"></script>
 </body>
 
 </html>

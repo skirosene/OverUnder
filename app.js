@@ -2819,6 +2819,7 @@ function showPurchaseModal() {
       e.preventDefault();
       if (el.btnReportCard.classList.contains('flag-reported')) return;
       el.btnReportCard.classList.add('flag-reported');
+      el.btnReportCard.style.color = '#F97316';
       el.btnReportCard.style.pointerEvents = 'none';
       if (socket && socket.connected) {
         socket.emit('report_card');
@@ -4316,7 +4317,7 @@ function resetReportFlagUI() {
   if (btn) {
     btn.classList.remove('flag-reported');
     btn.style.pointerEvents = 'auto';
-    btn.style.color = '';
+    btn.style.color = '#9CA3AF';
   }
 }
 

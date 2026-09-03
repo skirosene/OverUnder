@@ -6732,9 +6732,30 @@ input[type="submit"] {
 }
 
 #host-blur-btn.active {
-  color: #00f0ff;
-  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.8));
+  color: #EF4444 !important;
+  filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.85)) !important;
   transform: scale(1.12);
+}
+
+/* Tasto Segnala (Bandierina) - Di default Grigia, mai blu */
+#btn-report-card {
+  color: #9CA3AF !important; /* Grigio neutro e nitido */
+  fill: #9CA3AF !important;
+  transition: color 0.2s ease, transform 0.2s ease, fill 0.2s ease;
+  z-index: 20 !important;
+}
+
+#btn-report-card svg {
+  fill: currentColor;
+}
+
+#btn-report-card:hover {
+  color: #D1D5DB !important;
+  fill: #D1D5DB !important;
+}
+
+#btn-report-card:active {
+  transform: scale(0.9);
 }
 
 /* Eleva la bandierina di segnalazione e info sopra l'overlay */
