@@ -6882,3 +6882,142 @@ input[type="submit"] {
   z-index: 5;
   pointer-events: none;
 }
+
+/* ==========================================================================
+   OVERLAY CARTA ANNULLATA AL 50% SEGNALAZIONI (MODERAZIONE RAPIDA)
+   ========================================================================== */
+.card-voided-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 10, 16, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  z-index: 1000;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.card-voided-overlay.active {
+  display: flex !important;
+  opacity: 1;
+}
+
+.card-voided-content {
+  width: 90%;
+  max-width: 350px;
+  background: rgba(20, 20, 30, 0.88);
+  border: 1.5px solid rgba(239, 68, 68, 0.45);
+  border-radius: 20px;
+  padding: 28px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85), 0 0 30px rgba(239, 68, 68, 0.2);
+  transform: scale(0.9) translateY(10px);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.card-voided-overlay.active .card-voided-content {
+  transform: scale(1) translateY(0);
+}
+
+.card-voided-icon-box {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1.5px solid rgba(239, 68, 68, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.25);
+}
+
+.card-voided-title {
+  font-family: var(--font-title);
+  font-weight: 900;
+  font-size: 1.35rem;
+  letter-spacing: 1px;
+  color: #EF4444;
+  margin: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.card-voided-subtitle {
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 280px;
+}
+
+.card-voided-actions {
+  width: 100%;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.card-voided-btn-next {
+  width: 100%;
+  padding: 13px 20px;
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.8px;
+  border-radius: 12px;
+  background: #EF4444 !important;
+  border: 1px solid #DC2626 !important;
+  color: #FFFFFF !important;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(239, 68, 68, 0.45);
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+  text-transform: uppercase;
+}
+
+.card-voided-btn-next:hover {
+  background: #DC2626 !important;
+  box-shadow: 0 6px 22px rgba(239, 68, 68, 0.6);
+}
+
+.card-voided-btn-next:active {
+  transform: scale(0.97);
+}
+
+.card-voided-btn-next:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.card-voided-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  padding: 8px 0;
+}
+
+.card-voided-waiting .loader-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #EF4444;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}

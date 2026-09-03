@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=18500">
+  <link rel="stylesheet" href="/style.css?v=18600">
 </head>
 
 <body>
@@ -702,6 +702,28 @@
             <div id="round-end-player-wait" class="round-end-waiting">
               <div class="loader-spinner"></div>
               <p>In attesa dell'Host...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Overlay Carta Rimossa (Soglia 50% Segnalazioni - Moderazione Automatica) -->
+        <div id="card-voided-overlay" class="card-voided-overlay" style="display: none;">
+          <div class="card-voided-content glass-panel">
+            <div class="card-voided-icon-box">
+              ⚠️
+            </div>
+            <h2 class="card-voided-title">CARTA RIMOSSA</h2>
+            <p class="card-voided-subtitle">Troppe segnalazioni ricevute dai giocatori.</p>
+            <div class="card-voided-actions">
+              <!-- Solo Host -->
+              <button id="btn-voided-next" class="btn btn-primary card-voided-btn-next" style="display: none;">
+                PROSSIMA CARTA
+              </button>
+              <!-- Solo Non-Host -->
+              <div id="voided-player-wait" class="card-voided-waiting" style="display: none;">
+                <div class="loader-spinner"></div>
+                <p>In attesa che l'Host passi alla prossima carta...</p>
+              </div>
             </div>
           </div>
         </div>
@@ -1747,7 +1769,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=18500"></script>
+  <script src="/app.js?v=18600"></script>
 </body>
 
 </html>

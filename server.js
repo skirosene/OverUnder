@@ -2213,7 +2213,7 @@ io.on('connection', (socket) => {
   // Evento 6: Prossima Carta / Avanzamento Turno (Host o Watchdog di emergenza)
   const handleNextCardRequest = () => {
     const room = rooms[currentRoomCode];
-    if (!room || (room.state !== 'results' && room.state !== 'playing')) return;
+    if (!room || (room.state !== 'results' && room.state !== 'playing' && room.state !== 'CARD_VOIDED')) return;
 
     // Debounce rapido anti double-click (600ms)
     const now = Date.now();
@@ -2250,23 +2250,33 @@ io.on('connection', (socket) => {
       const safeImage = (typeof card.image === 'string' && card.image.trim().length > 5) ? card.image.trim() : null;
       const safeOwnerId = card.ownerId || null;
 
-      room.playerResponses.push({
-        prompt: safePrompt,
-        text: safeText,
-        image: safeImage,
-        ownerId: safeOwnerId,
-        votes: roundVotes,
-        stats: card.global_stats || null,
-        isPermanentlyBlurred: !!card.isPermanentlyBlurred
-      });
+      if (!card.isVoided) {
+        room.playerResponses.push({
+          prompt: safePrompt,
+          text: safeText,
+          image: safeImage,
+          ownerId: safeOwnerId,
+          votes: roundVotes,
+          stats: card.global_stats || null,
+          isPermanentlyBlurred: !!card.isPermanentlyBlurred
+        });
+      }
     }
 
     // Solo l'host può comandare l'avanzamento, a meno che non sia scattato lo sblocco per stanza bloccata
-    const isStuckOrReady = room.state === 'results' || allVoted || room.timeIsUp;
+    const isStuckOrReady = room.state === 'results' || room.state === 'CARD_VOIDED' || allVoted || room.timeIsUp;
     if (!isHost && !isStuckOrReady) return;
 
     // Pulizia rigorosa e preventiva di tutti i timer
     clearAllRoomTimers(room);
+
+    // Esclusione totale delle carte annullate prima del calcolo o avanzamento
+    if (Array.isArray(room.playerResponses)) {
+      room.playerResponses = room.playerResponses.filter(c => !c.isVoided);
+    }
+    if (Array.isArray(room.playedCards)) {
+      room.playedCards = room.playedCards.filter(c => !c.isVoided);
+    }
 
     room.currentCardIndex++;
     if (room.deck && room.deck.cards && room.currentCardIndex < room.deck.cards.length) {
@@ -2481,10 +2491,38 @@ io.on('connection', (socket) => {
       }
     }
 
-    // Trigger Soglia 33.3% Segnalazioni -> Alert Popup all'Host
-    const totalPlayers = (room.players && room.players.length > 0) ? room.players.length : 1;
+    // Trigger Soglia 50% & 33.3% Segnalazioni
+    const totalPlayers = (room.players && room.players.length > 0) 
+      ? room.players.length 
+      : (Array.isArray(room.players) ? 1 : Object.keys(room.players || {}).length || 1);
+    const halfThreshold = Math.ceil(totalPlayers / 2);
     const reportQuorum = Math.ceil(totalPlayers / 3);
 
+    // 1. Trigger Soglia 50% Segnalazioni -> Stop Atomico del Round e Annullamento Carta
+    if (room.currentCardReports.size >= halfThreshold && (room.state === 'playing' || room.state === 'VOTING')) {
+      clearAllRoomTimers(room);
+      room.votingTimer = null;
+      room.roundToken = Date.now();
+      room.currentRoundToken = `voided_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      room.state = 'CARD_VOIDED';
+      card.isVoided = true;
+      if (room.currentCard) room.currentCard.isVoided = true;
+      room.votes = {}; // Annulla all'istante ogni voto registrato per questa carta
+
+      // Esclusione totale preventiva da playerResponses e playedCards
+      if (Array.isArray(room.playerResponses)) {
+        room.playerResponses = room.playerResponses.filter(c => !c.isVoided);
+      }
+      if (Array.isArray(room.playedCards)) {
+        room.playedCards = room.playedCards.filter(c => !c.isVoided);
+      }
+
+      io.to(room.roomCode).emit('card_voided_abruptly');
+      console.log(`[MODERATION VOID 50%] Quorum 50% raggiunto (${room.currentCardReports.size}/${totalPlayers}) nella stanza ${room.roomCode}. Carta ${room.currentCardIndex} ANNULLATA istantaneamente.`);
+      return;
+    }
+
+    // 2. Trigger Soglia 33.3% Segnalazioni -> Alert Popup all'Host
     if (room.currentCardReports.size >= reportQuorum) {
       if (!card.alertSent) {
         card.alertSent = true;
@@ -2910,6 +2948,7 @@ function sendStateSync(socket, room, player) {
     cardBlurred: !!room.cardBlurred,
     isBlurLocked: !!room.isBlurLocked,
     isPermanentlyBlurred: !!(currentCard && currentCard.isPermanentlyBlurred),
+    isVoided: !!(currentCard && currentCard.isVoided),
     roundId: room.roundId || 0
   };
 
@@ -3148,15 +3187,17 @@ function freezeRound(room, message) {
   const safeImage = (typeof card.image === 'string' && card.image.trim().length > 5) ? card.image.trim() : null;
   const safeOwnerId = card.ownerId || null;
 
-  room.playerResponses.push({
-    prompt: safePrompt,
-    text: safeText,
-    image: safeImage,
-    ownerId: safeOwnerId,
-    votes: roundVotes,
-    stats: card.global_stats || null,
-    isPermanentlyBlurred: !!card.isPermanentlyBlurred
-  });
+  if (!card.isVoided) {
+    room.playerResponses.push({
+      prompt: safePrompt,
+      text: safeText,
+      image: safeImage,
+      ownerId: safeOwnerId,
+      votes: roundVotes,
+      stats: card.global_stats || null,
+      isPermanentlyBlurred: !!card.isPermanentlyBlurred
+    });
+  }
 
   // Calcola percentuali del gruppo
   let countUnder = 0;
@@ -3196,6 +3237,14 @@ function endGame(room) {
   if (!room) return;
   clearAllRoomTimers(room);
   room.state = 'summary';
+
+  // Esclusione totale delle carte annullate dai dati di fine partita
+  if (Array.isArray(room.playerResponses)) {
+    room.playerResponses = room.playerResponses.filter(c => !c.isVoided);
+  }
+  if (Array.isArray(room.playedCards)) {
+    room.playedCards = room.playedCards.filter(c => !c.isVoided);
+  }
 
   // Calcola i premi speciali
   const awards = calculateAwards(room);
@@ -3251,7 +3300,8 @@ function calculateAwards(room) {
     };
   });
 
-  room.playerResponses.forEach(res => {
+  const validResponses = (room.playerResponses || []).filter(c => !c.isVoided);
+  validResponses.forEach(res => {
     let countUnder = 0;
     let countOver = 0;
     res.votes.forEach(v => {

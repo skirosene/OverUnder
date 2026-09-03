@@ -1043,6 +1043,9 @@ const el = {
   btnNextOverlay: document.getElementById('btn-next-overlay'),
   roundEndPlayerWait: document.getElementById('round-end-player-wait'),
   btnAddBots: document.getElementById('btn-add-bots'),
+  cardVoidedOverlay: document.getElementById('card-voided-overlay'),
+  btnVoidedNext: document.getElementById('btn-voided-next'),
+  voidedPlayerWait: document.getElementById('voided-player-wait'),
   roundEndOverlayVoteActions: document.getElementById('round-end-overlay-vote-actions'),
   btnNextUnder: document.getElementById('btn-next-under'),
   btnNextOver: document.getElementById('btn-next-over'),
@@ -2906,6 +2909,21 @@ function showPurchaseModal() {
     });
   }
 
+  // Pulsante Prossima Carta su Schermata Carta Rimossa (Solo Host)
+  const btnVoidedNext = el.btnVoidedNext || document.getElementById('btn-voided-next');
+  if (btnVoidedNext) {
+    btnVoidedNext.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (!state.isHost) return;
+      btnVoidedNext.disabled = true;
+      btnVoidedNext.style.pointerEvents = 'none';
+      if (socket && socket.connected) {
+        socket.emit('next_card');
+      }
+    });
+  }
+
   // Tasto Info Carta (i) - Solo Single Player e Stanza Standard
   if (el.btnCardInfo) {
     el.btnCardInfo.addEventListener('click', (e) => {
@@ -3572,10 +3590,16 @@ function setupSocketListeners() {
       state.timerRequestId = requestAnimationFrame(gameLoop);
       
       showScreen(el.screenGameplay);
+      hideCardVoidedScreen();
+    } else if (roomState === 'CARD_VOIDED' || roomState === 'card_voided') {
+      showScreen(el.screenGameplay);
+      showCardVoidedScreen();
     } else if (roomState === 'results') {
+      hideCardVoidedScreen();
       if (gameData.results) renderRoundResults(gameData.results);
       else showScreen(el.screenResults);
     } else if (roomState === 'summary') {
+      hideCardVoidedScreen();
       if (gameData.summary) renderGameOver(gameData.summary);
       else showScreen(el.screenSummary);
     }
@@ -3971,6 +3995,7 @@ function setupSocketListeners() {
     window.currentCardBlurred = false;
     window.isBlurLocked = false;
     closeHostModerationAlertModal();
+    hideCardVoidedScreen();
     updateBlurUI(false, false);
     resetReportFlagUI();
 
@@ -4048,6 +4073,15 @@ function setupSocketListeners() {
   socket.on('host_moderation_alert', () => {
     if (!state.isHost) return;
     openHostModerationAlertModal();
+    try {
+      AudioSynth.playGong();
+    } catch (e) {}
+  });
+
+  // 7f. Annullamento Istantaneo Carta al 50% Segnalazioni
+  socket.off('card_voided_abruptly');
+  socket.on('card_voided_abruptly', () => {
+    showCardVoidedScreen();
     try {
       AudioSynth.playGong();
     } catch (e) {}
@@ -4733,6 +4767,55 @@ function closeHostModerationAlertModal() {
   if (modal) {
     modal.classList.remove('active');
     modal.style.display = 'none';
+  }
+}
+
+// ==========================================================================
+// SCHERMATA DEDICATA CARTA RIMOSSA (SOGLIA 50% SEGNALAZIONI)
+// ==========================================================================
+function showCardVoidedScreen() {
+  stopTimerLoop();
+  clearWatchdog();
+  closeHostModerationAlertModal();
+  if (el.roundEndOverlay) el.roundEndOverlay.classList.remove('active');
+  if (el.roundEndOverlayVoteActions) el.roundEndOverlayVoteActions.style.display = 'none';
+  if (el.gameplayAvatarsWrapper) el.gameplayAvatarsWrapper.style.display = 'none';
+  if (el.btnUnderrated) el.btnUnderrated.classList.add('disabled');
+  if (el.btnOverrated) el.btnOverrated.classList.add('disabled');
+
+  const overlay = el.cardVoidedOverlay || document.getElementById('card-voided-overlay');
+  const btnNext = el.btnVoidedNext || document.getElementById('btn-voided-next');
+  const waitMsg = el.voidedPlayerWait || document.getElementById('voided-player-wait');
+
+  if (overlay) {
+    overlay.style.display = 'flex';
+    overlay.offsetHeight; // trigger reflow per transizione fluida
+    overlay.classList.add('active');
+  }
+
+  if (state.isHost) {
+    if (btnNext) {
+      btnNext.style.display = 'block';
+      btnNext.disabled = false;
+      btnNext.style.pointerEvents = 'auto';
+    }
+    if (waitMsg) waitMsg.style.display = 'none';
+  } else {
+    if (btnNext) btnNext.style.display = 'none';
+    if (waitMsg) waitMsg.style.display = 'flex';
+  }
+}
+
+function hideCardVoidedScreen() {
+  const overlay = el.cardVoidedOverlay || document.getElementById('card-voided-overlay');
+  if (overlay) {
+    overlay.classList.remove('active');
+    overlay.style.display = 'none';
+  }
+  const btnNext = el.btnVoidedNext || document.getElementById('btn-voided-next');
+  if (btnNext) {
+    btnNext.disabled = false;
+    btnNext.style.pointerEvents = 'auto';
   }
 }
 
@@ -6415,6 +6498,7 @@ function renderGameOver({ awards, summary } = {}) {
   triggerVictorySoundOnce();
   state.isSoloMode = false;
   state.gameMode = 'multiplayer';
+  hideCardVoidedScreen();
 
   // Assicurati che l'overlay del single player sia tassativamente nascosto
   const singlePlayerEndScreen = document.getElementById('single-player-end-screen');
@@ -6464,10 +6548,10 @@ function renderGameOver({ awards, summary } = {}) {
     }
   }
 
-  // 2. Genera sezione "TUTTI I VERDETTI"
+  // 2. Genera sezione "TUTTI I VERDETTI" (esclude tassativamente le carte annullate)
   if (el.summaryCardsList) {
     el.summaryCardsList.innerHTML = '';
-    const summaryList = Array.isArray(summary) ? summary : [];
+    const summaryList = (Array.isArray(summary) ? summary : []).filter(res => !res.isVoided);
     summaryList.forEach((res, idx) => {
       const item = document.createElement('div');
       item.className = 'summary-item glass-panel';
