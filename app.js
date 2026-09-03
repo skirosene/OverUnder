@@ -789,10 +789,8 @@ function checkAndArmWatchdog(reason = '') {
   const votedBadges = el.gameplayPlayersStatus ? el.gameplayPlayersStatus.querySelectorAll('.player-status-badge.has-voted') : [];
   const allVotedUI = activePlayers.length > 0 && votedBadges.length >= activePlayers.length;
 
-  const elapsed = Date.now() - (state.timerStartTime || Date.now());
-  const isZeroTimer = elapsed >= state.timerDurationMs || (el.timerCounter && (el.timerCounter.textContent === '0.0s' || el.timerCounter.textContent === '0s'));
-
-  if (allVotedUI || isZeroTimer || reason === 'all_voted' || reason === 'time_up') {
+  // AUTORITÀ ESCLUSIVA SERVER: armiamo il watchdog solo su notifica autoritativa del server (time_up) o se tutti i giocatori hanno votato
+  if (allVotedUI || reason === 'all_voted' || reason === 'time_up') {
     if (watchdogTimer && watchdogTargetCardIndex === state.currentCardIndex) {
       return;
     }
@@ -801,17 +799,17 @@ function checkAndArmWatchdog(reason = '') {
     watchdogTargetCardIndex = state.currentCardIndex;
 
     watchdogTimer = setTimeout(() => {
+      // Avanzamento di sicurezza solo se la stanza è ancora bloccata sullo stesso round e con overlay di fine round attivo
       if (state.currentCardIndex === watchdogTargetCardIndex &&
-          el.screenGameplay && el.screenGameplay.classList.contains('active')) {
-        console.log("Watchdog: forzato avanzamento carta per evitare freeze");
-        if (socket && socket.connected) {
+          el.screenGameplay && el.screenGameplay.classList.contains('active') &&
+          state.roundEndActive) {
+        console.log("Watchdog: forzato avanzamento carta per evitare deadlock dopo timeout autoritativo");
+        if (socket && socket.connected && state.isHost) {
           socket.emit('next_card');
-          socket.emit('nextCard');
-          socket.emit('advanceTurn');
         }
       }
       watchdogTimer = null;
-    }, 4000);
+    }, 8000);
   }
 }
 
@@ -2621,6 +2619,8 @@ function showPurchaseModal() {
   if (el.btnNextOverlay) {
     el.btnNextOverlay.addEventListener('click', () => {
       if (!state.isHost) return;
+      el.btnNextOverlay.disabled = true;
+      setTimeout(() => { if (el.btnNextOverlay) el.btnNextOverlay.disabled = false; }, 1000);
       socket.emit('next_card');
     });
   }
@@ -2671,6 +2671,8 @@ function showPurchaseModal() {
   if (el.btnNextCardConfluent) {
     el.btnNextCardConfluent.addEventListener('click', () => {
       if (state.roomCode && state.isHost) {
+        el.btnNextCardConfluent.disabled = true;
+        setTimeout(() => { if (el.btnNextCardConfluent) el.btnNextCardConfluent.disabled = false; }, 1000);
         socket.emit('next_card');
       } else if (state.isSoloMode && !state.roomCode) {
         if (state.soloTimeoutId) {
@@ -2679,6 +2681,8 @@ function showPurchaseModal() {
         }
         advanceSoloGame();
       } else if (state.isHost) {
+        el.btnNextCardConfluent.disabled = true;
+        setTimeout(() => { if (el.btnNextCardConfluent) el.btnNextCardConfluent.disabled = false; }, 1000);
         socket.emit('next_card');
       }
     });
@@ -3762,7 +3766,7 @@ function setupSocketListeners() {
   });
 
   // 6. Nuova Carta Inviata dal Server (con validazione anti-corruzione e buffer Base64)
-  socket.on('new_card', ({ prompt, text, image, ownerId, description, cardIndex, totalCards, roundId, timerDurationMs }) => {
+  socket.on('new_card', ({ prompt, text, image, ownerId, description, cardIndex, totalCards, roundId, roundToken, timerDurationMs }) => {
     clearWatchdog();
 
     state.isSoloMode = false;
@@ -3784,7 +3788,8 @@ function setupSocketListeners() {
     state.currentCardOwnerId = ownerId || null;
     state.userHasVoted = false;
     state.roundEndActive = false;
-    state.currentRoundId = roundId || 0;
+    state.currentRoundId = roundId || roundToken || 0;
+    state.currentRoundVotes = [];
 
     // Aggiorna la durata timer se il server la specifica (supporto cambio timer mid-game)
     if (timerDurationMs) {
@@ -4726,27 +4731,18 @@ function gameLoop() {
   
   if (elapsed >= state.timerDurationMs) {
     updateTimerUI(0);
-    el.btnUnderrated.classList.add('disabled');
-    el.btnOverrated.classList.add('disabled');
+    if (el.btnUnderrated) el.btnUnderrated.classList.add('disabled');
+    if (el.btnOverrated) el.btnOverrated.classList.add('disabled');
+    stopTimerLoop();
     
-    // In multigiocatore, suona il gong localmente a 0.0s esatti e attiva il Watchdog
-    if (!state.isSoloMode && !state.roundEndActive) {
-      state.roundEndActive = true;
-      AudioSynth.playGong();
-      stopTimerLoop();
-    }
-
-    if (!state.isSoloMode) {
-      checkAndArmWatchdog('time_up');
-    }
-    
-    // In solo mode, auto-advance su timeout (ferma prima il timer corrente così non cancella il nuovo loop della carta successiva)
+    // In solo mode, auto-advance su timeout
     if (state.isSoloMode && !state.userHasVoted) {
-      stopTimerLoop();
       state.userHasVoted = true;
       AudioSynth.playTimeout();
       handleSoloVote('timeout');
     }
+    // NOTA MULTIPLAYER: L'autorità sul timeout del round è al 100% del server.
+    // Il client si limita a bloccare la barra a 0 e attende l'evento autoritativo 'time_up'.
     return;
   }
   

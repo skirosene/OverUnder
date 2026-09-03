@@ -1318,10 +1318,29 @@ app.post('/api/images/import-url', async (req, res) => {
 // ==========================================================================
 const rooms = {}; // roomCode => Room Object (local mirror in-memory cache)
 
+/**
+ * Pulizia preventiva e rigorosa di tutti i timer attivi di una stanza (votingTimer, roundTimeout, verdictTimer)
+ */
+function clearAllRoomTimers(room) {
+  if (!room) return;
+  if (room.votingTimer) {
+    clearTimeout(room.votingTimer);
+    room.votingTimer = null;
+  }
+  if (room.roundTimeout) {
+    clearTimeout(room.roundTimeout);
+    room.roundTimeout = null;
+  }
+  if (room.verdictTimer) {
+    clearTimeout(room.verdictTimer);
+    room.verdictTimer = null;
+  }
+}
+
 function serializeRoomForRedis(room) {
   if (!room) return null;
   // Esclude timer / timeout handles non serializzabili
-  const { roundTimeout, hostDisconnectTimeout, ...serializable } = room;
+  const { roundTimeout, votingTimer, verdictTimer, hostDisconnectTimeout, ...serializable } = room;
   return JSON.stringify(serializable);
 }
 
@@ -1330,6 +1349,8 @@ function deserializeRoomFromRedis(rawJson) {
   try {
     const parsed = JSON.parse(rawJson);
     parsed.roundTimeout = null;
+    parsed.votingTimer = null;
+    parsed.verdictTimer = null;
     parsed.hostDisconnectTimeout = null;
     return parsed;
   } catch (err) {
@@ -1510,7 +1531,7 @@ io.on('connection', (socket) => {
     Object.keys(rooms).forEach(rCode => {
       const r = rooms[rCode];
       if (!r || !r.players || r.players.length === 0 || (r.createdAt && (now - r.createdAt > 7200000))) {
-        if (r && r.roundTimeout) clearTimeout(r.roundTimeout);
+        clearAllRoomTimers(r);
         if (r) {
           cleanupRoomAssets(r);
           cleanupRoomFiles(r);
@@ -1539,7 +1560,7 @@ io.on('connection', (socket) => {
       }
 
       // Se lo stesso Host ricrea la stanza, o se è in fase lobby o vuota, ricreala pulita
-      if (existingRoom.roundTimeout) clearTimeout(existingRoom.roundTimeout);
+      clearAllRoomTimers(existingRoom);
       cleanupRoomAssets(existingRoom);
       cleanupRoomFiles(existingRoom);
       delete rooms[code];
@@ -1589,7 +1610,11 @@ io.on('connection', (socket) => {
       currentCardIndex: 0,
       votes: {},       // socketId => voteType
       playerResponses: [], // storico dei voti delle risposte per i premi
+      votingTimer: null,
+      verdictTimer: null,
       roundTimeout: null,
+      currentRoundToken: null,
+      lastNextCardTimestamp: 0,
       isPremium: finalIsPremium,
       customCards: [],
       reportedFiles: [],
@@ -2175,18 +2200,57 @@ io.on('connection', (socket) => {
     const room = rooms[currentRoomCode];
     if (!room || (room.state !== 'results' && room.state !== 'playing')) return;
 
+    // Debounce rapido anti double-click (600ms)
+    const now = Date.now();
+    if (room.lastNextCardTimestamp && (now - room.lastNextCardTimestamp < 600)) {
+      return;
+    }
+    room.lastNextCardTimestamp = now;
+
     const isHost = room.hostId === socket.id;
     const activePlayers = room.players.filter(p => p.isBot || (p.connected !== false && p.isOnline !== false));
     const allVoted = activePlayers.length > 0 && activePlayers.every(p => room.votes && room.votes[p.id]);
-    const isStuckOrReady = room.state === 'results' || allVoted || room.timeIsUp;
 
-    // Solo host può forzare l'avanzamento durante la fase attiva; se il round è già terminato o bloccato (tutti votati / time up), il watchdog sblocca
+    // BLOCCO AUTORITATIVO SUI TIMEOUT: Se la stanza è ancora in 'playing'
+    // NESSUN client (neppure l'Host) può forzare la fine della carta se il tempo non è scaduto sul server e non tutti hanno votato
+    if (room.state === 'playing') {
+      if (!room.timeIsUp && !allVoted) {
+        console.warn(`[NEXT CARD BLOCKED] Stanza ${currentRoomCode}: round ${room.currentCardIndex} ancora attivo in votazione. Avanzamento ignorato.`);
+        return;
+      }
+
+      // Se il tempo era scaduto (time_up), registra le risposte prima dell'avanzamento
+      room.players.forEach(p => {
+        if (!room.votes[p.id]) {
+          room.votes[p.id] = 'timeout';
+        }
+      });
+      const card = (room.deck && room.deck.cards && room.deck.cards[room.currentCardIndex]) ? room.deck.cards[room.currentCardIndex] : {};
+      const roundVotes = room.players.map(p => ({
+        player: p.name,
+        vote: room.votes[p.id]
+      }));
+      const safePrompt = card.prompt || card.text || '';
+      const safeText = card.text || card.prompt || safePrompt;
+      const safeImage = (typeof card.image === 'string' && card.image.trim().length > 5) ? card.image.trim() : null;
+      const safeOwnerId = card.ownerId || null;
+
+      room.playerResponses.push({
+        prompt: safePrompt,
+        text: safeText,
+        image: safeImage,
+        ownerId: safeOwnerId,
+        votes: roundVotes,
+        stats: card.global_stats || null
+      });
+    }
+
+    // Solo l'host può comandare l'avanzamento, a meno che non sia scattato lo sblocco per stanza bloccata
+    const isStuckOrReady = room.state === 'results' || allVoted || room.timeIsUp;
     if (!isHost && !isStuckOrReady) return;
 
-    if (room.state === 'playing' && !allVoted && !room.timeIsUp) {
-      freezeRound(room, isHost ? "Avanzamento Host" : "Avanzamento Forzato");
-      return;
-    }
+    // Pulizia rigorosa e preventiva di tutti i timer
+    clearAllRoomTimers(room);
 
     room.currentCardIndex++;
     if (room.deck && room.deck.cards && room.currentCardIndex < room.deck.cards.length) {
@@ -2243,10 +2307,7 @@ io.on('connection', (socket) => {
     }
 
     // Cancella e distrugge qualsiasi timer del round pendente
-    if (room.roundTimeout) {
-      clearTimeout(room.roundTimeout);
-      room.roundTimeout = null;
-    }
+    clearAllRoomTimers(room);
 
     // 1. I Capisaldi del Reset (Uguali per tutte le modalità)
     // PULIZIA TOTALE dello Stato di Round
@@ -2725,7 +2786,7 @@ function reassignHost(room, oldHostName = 'L\'Host') {
     broadcastRoomState(room);
     console.log(`[HOST REASSIGNMENT] Stanza ${room.roomCode}: Nessun altro partecipante online. Chiusura stanza.`);
     io.to(room.roomCode).emit('room_closed', `L'Host (${oldHostName}) si è disconnesso e non ci sono altri partecipanti in stanza. Partita terminata.`);
-    if (room.roundTimeout) clearTimeout(room.roundTimeout);
+    clearAllRoomTimers(room);
     cleanupRoomFiles(room);
     cleanupRoomAssets(room);
     delete rooms[room.roomCode];
@@ -2832,9 +2893,14 @@ function sendStateSync(socket, room, player) {
 // FUNZIONI SUPPORTO LOGICA ROUND
 // ==========================================================================
 function startNewRound(room) {
+  // 1. Pulizia preventiva e rigorosa di qualsiasi timer precedente
+  clearAllRoomTimers(room);
+
+  // 2. Reset atomico dello stato del round PRIMA dell'invio ai client
   room.state = 'playing';
   room.votes = {}; // Resetta i voti
   room.timeIsUp = false; // Reset stato fine tempo
+  room.freezeMessage = '';
   room.roundStartTime = Date.now();
 
   const timerMs = room.timerDurationMs || 10000;
@@ -2850,6 +2916,11 @@ function startNewRound(room) {
     endGame(room);
     return;
   }
+
+  // 3. Assegna identificativo univoco (Round Token) a questa specifica fase di votazione
+  const currentToken = `round_${room.currentCardIndex}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  room.currentRoundToken = currentToken;
+  room.roundId = currentToken;
 
   // Verifica e riparazione di sicurezza per dati corrotti o indefiniti
   const safeImage = (typeof card.image === 'string' && card.image.trim().length > 5) ? card.image.trim() : null;
@@ -2868,11 +2939,7 @@ function startNewRound(room) {
   card.ownerId = safeOwnerId;
   card.description = safeDescription;
 
-  if (room.roundTimeout) {
-    clearTimeout(room.roundTimeout);
-  }
-
-  // Notifica tutti i client della nuova carta con dati intatti e validati
+  // 4. Notifica tutti i client della nuova carta con token di round univoco
   io.to(room.roomCode).emit('new_card', {
     prompt: safePrompt,
     text: safeText,
@@ -2882,25 +2949,28 @@ function startNewRound(room) {
     cardIndex: room.currentCardIndex,
     totalCards: room.gameLength || room.deck.cards.length,
     timerDurationMs: timerMs,
-    roundId: Date.now()
+    roundId: currentToken,
+    roundToken: currentToken
   });
 
   // Sincronizza stato volatile su Redis
   syncRoomToRedis(room.roomCode, room);
 
-  // Programmazione del voto dei Bot con ritardi casuali scalati sulla durata
+  // 5. Programmazione del voto dei Bot con verifica rigorosa del token di round
   const botPlayers = room.players.filter(p => p.isBot);
   const scheduledCardIndex = room.currentCardIndex;
+  const scheduledToken = currentToken;
   const botMaxDelay = timerMs * 1.2; // Bot possono votare fino al 120% del timer
 
   botPlayers.forEach(bot => {
     const delay = (timerMs * 0.2) + Math.random() * botMaxDelay;
     
     setTimeout(() => {
-      // Verifica che la stanza sia ancora nello stesso round ed in uno stato valido
-      if (room.currentCardIndex !== scheduledCardIndex) return;
-      if (room.state !== 'playing') return;
-      if (room.votes[bot.id]) return; // Già votato
+      // Verifica che la stanza sia ancora nello stesso identico round ed in stato valido
+      if (!room || room.currentRoundToken !== scheduledToken || room.currentCardIndex !== scheduledCardIndex || room.state !== 'playing') {
+        return;
+      }
+      if (room.votes && room.votes[bot.id]) return; // Già votato
 
       // Genera voto casuale
       const voteType = Math.random() < 0.5 ? 'underrated' : 'overrated';
@@ -2910,7 +2980,7 @@ function startNewRound(room) {
 
       // Notifica i client dello stato del voto
       const votedNames = room.players
-        .filter(p => room.votes[p.id])
+        .filter(p => room.votes && room.votes[p.id])
         .map(p => p.name);
       io.to(room.roomCode).emit('player_voted_update', { votedPlayers: votedNames });
 
@@ -2918,40 +2988,51 @@ function startNewRound(room) {
       if (room.timeIsUp) {
         const roundVotes = room.players.map(p => ({
           player: p.name,
-          vote: room.votes[p.id] || 'thinking'
+          vote: (room.votes && room.votes[p.id]) || 'thinking'
         }));
         io.to(room.roomCode).emit('verdict_update', { votes: roundVotes });
       }
 
       // Se tutti hanno votato, congela il round
-      const allVoted = room.players.every(p => room.votes[p.id]);
+      const allVoted = room.players.every(p => room.votes && room.votes[p.id]);
       if (allVoted) {
         freezeRound(room, "TUTTI I VOTI REGISTRATI!");
       }
     }, delay);
   });
 
-  // Avvia timer master di sicurezza sul server (timerMs + 500ms di latenza di rete)
-  room.roundTimeout = setTimeout(() => {
+  // 6. Avvia timer master di votazione ESCLUSIVO sul server (timerMs + 500ms di latenza di rete)
+  const timerRoundToken = currentToken;
+  const timerCardIndex = room.currentCardIndex;
+
+  room.votingTimer = setTimeout(() => {
+    // VERIFICA RIGOROSA ROUND TOKEN & STATO: scarta se il token o indice carta non corrispondono o lo stato non è più playing
+    if (!room || room.currentRoundToken !== timerRoundToken || room.currentCardIndex !== timerCardIndex || room.state !== 'playing') {
+      return;
+    }
+    room.votingTimer = null;
+    room.roundTimeout = null;
     room.timeIsUp = true;
-    // Invia segnale di tempo scaduto con i voti correnti
+
+    // Invia segnale autoritativo di tempo scaduto con i voti correnti
     const roundVotes = room.players.map(p => ({
       player: p.name,
-      vote: room.votes[p.id] || 'thinking'
+      vote: (room.votes && room.votes[p.id]) || 'thinking'
     }));
-    io.to(room.roomCode).emit('time_up', { votes: roundVotes });
+    io.to(room.roomCode).emit('time_up', { votes: roundVotes, roundToken: timerRoundToken });
   }, timerMs + 500);
+
+  room.roundTimeout = room.votingTimer;
 }
 
 function freezeRound(room, message) {
-  if (room.state !== 'playing') return;
+  if (!room || room.state !== 'playing') return;
+
+  // Pulizia preventiva rigorosa di tutti i timer del round
+  clearAllRoomTimers(room);
+
   room.state = 'results';
   room.freezeMessage = message;
-
-  if (room.roundTimeout) {
-    clearTimeout(room.roundTimeout);
-    room.roundTimeout = null;
-  }
 
   // Identifica i ritardatari ed assegna 'timeout'
   room.players.forEach(p => {
@@ -3006,7 +3087,8 @@ function freezeRound(room, message) {
     image: safeImage,
     ownerId: safeOwnerId,
     cardIndex: room.currentCardIndex,
-    totalCards: room.gameLength || (room.deck ? room.deck.cards.length : 0)
+    totalCards: room.gameLength || (room.deck ? room.deck.cards.length : 0),
+    roundToken: room.currentRoundToken
   });
 
   // Sincronizza stato volatile su Redis
@@ -3014,6 +3096,8 @@ function freezeRound(room, message) {
 }
 
 function endGame(room) {
+  if (!room) return;
+  clearAllRoomTimers(room);
   room.state = 'summary';
 
   // Calcola i premi speciali
