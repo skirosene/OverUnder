@@ -724,8 +724,6 @@ const state = {
   totalCards: 0,
   userHasVoted: false,
   roundEndActive: false,
-  hasReportedCurrentCard: false,
-  currentCardBlurred: false,
   
   timerStartTime: null,
   timerRequestId: null,
@@ -983,15 +981,6 @@ const el = {
   summaryPlayerWaiting: document.getElementById('summary-player-waiting'),
   btnRestart: document.getElementById('btn-restart'),
   btnReportCard: document.getElementById('btn-report-card'),
-  btnToggleBlur: document.getElementById('btn-toggle-blur'),
-  cardVoidedOverlay: document.getElementById('card-voided-overlay'),
-  btnVoidedNextCard: document.getElementById('btn-voided-next-card'),
-  voidedPlayerWait: document.getElementById('voided-player-wait'),
-  promptCard: document.getElementById('prompt-card'),
-  reportAlertModal: document.getElementById('report-alert-modal'),
-  reportAlertModalText: document.getElementById('report-alert-modal-text'),
-  btnReportAlertBlur: document.getElementById('btn-report-alert-blur'),
-  btnReportAlertIgnore: document.getElementById('btn-report-alert-ignore'),
   btnCardInfo: document.getElementById('btn-card-info'),
   cardInfoModal: document.getElementById('card-info-modal'),
   cardInfoModalTitle: document.getElementById('card-info-modal-title'),
@@ -1294,8 +1283,6 @@ function showScreen(targetScreen) {
 
   if (targetScreen !== el.screenGameplay) {
     closeCardInfoModal();
-    const voidedOverlay = el.cardVoidedOverlay || document.getElementById('card-voided-overlay');
-    if (voidedOverlay) voidedOverlay.style.display = 'none';
   }
   if (typeof closeCardImageZoom === 'function') closeCardImageZoom();
   if (typeof closeAvatarZoom === 'function') closeAvatarZoom();
@@ -1303,7 +1290,6 @@ function showScreen(targetScreen) {
   // Configura il timer counter cliccabile solo in gameplay per l'host
   if (targetScreen === el.screenGameplay) {
     setupTimerCounterClickable();
-    updateHostBlurButtonVisibility();
     if (state.isSoloMode) {
       el.screenGameplay.classList.add('is-solo-mode');
     } else {
@@ -2782,116 +2768,15 @@ function showPurchaseModal() {
     bindFastClick(btnSummaryCancelPlayer, handleExitToMainMenu);
   }
 
-// Funzione per applicare l'effetto censura/blur alla carta corrente
-function applyCardCensorship() {
-  const promptCard = el.promptCard || document.getElementById('prompt-card');
-  if (promptCard) {
-    promptCard.classList.add('card-censored');
-    if (!document.getElementById('card-censored-notice')) {
-      const notice = document.createElement('div');
-      notice.id = 'card-censored-notice';
-      notice.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.88); border: 1px solid rgba(245, 158, 11, 0.6); padding: 8px 16px; border-radius: 12px; color: #f59e0b; font-family: var(--font-title); font-size: 0.85rem; font-weight: 700; z-index: 5; text-align: center; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.6);';
-      notice.innerHTML = '⚠️ Contenuto oscurato';
-      promptCard.appendChild(notice);
-    }
-  }
-}
-
-// Funzione per applicare/rimuovere l'effetto blur istantaneo in tempo reale (Host WebSocket)
-function updateCardBlurUI(isBlurred) {
-  state.currentCardBlurred = !!isBlurred;
-  const promptText = el.currentPromptText || document.getElementById('current-prompt-text');
-  const imgContainer = el.gameplayPromptImageContainer || document.getElementById('gameplay-prompt-image-container');
-  const imgEl = el.gameplayPromptImage || document.getElementById('gameplay-prompt-image');
-  const btnBlur = el.btnToggleBlur || document.getElementById('btn-toggle-blur');
-
-  [promptText, imgContainer, imgEl].forEach(element => {
-    if (element) {
-      if (isBlurred) {
-        element.classList.add('card-censored-blur');
-      } else {
-        element.classList.remove('card-censored-blur');
-      }
-    }
-  });
-
-  if (btnBlur) {
-    if (isBlurred) {
-      btnBlur.classList.add('active');
-      btnBlur.style.color = '#ef4444';
-      btnBlur.setAttribute('title', 'Rimuovi oscuramento carta');
-    } else {
-      btnBlur.classList.remove('active');
-      btnBlur.style.color = 'rgba(255, 255, 255, 0.25)';
-      btnBlur.setAttribute('title', 'Oscura carta a tutti i giocatori');
-    }
-  }
-}
-
-function updateHostBlurButtonVisibility() {
-  const btnBlur = el.btnToggleBlur || document.getElementById('btn-toggle-blur');
-  if (!btnBlur) return;
-  if (state.isHost && !state.isSoloMode) {
-    btnBlur.style.display = 'inline-flex';
-  } else {
-    btnBlur.style.display = 'none';
-  }
-}
-
-  // Tasto Blur Host (Oscuramento carta in tempo reale per tutti i partecipanti)
-  if (el.btnToggleBlur) {
-    el.btnToggleBlur.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!state.isHost) return;
-      if (typeof socket !== 'undefined' && socket && socket.connected) {
-        socket.emit('toggle_card_blur');
-      }
-    });
-  }
-
-  // Tasto Avanzamento da Schermata Carta Rimossa (Solo Host)
-  if (el.btnVoidedNextCard) {
-    el.btnVoidedNextCard.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!state.isHost) return;
-      el.btnVoidedNextCard.disabled = true;
-      if (typeof socket !== 'undefined' && socket && socket.connected) {
-        socket.emit('next_card');
-      }
-    });
-  }
-
-  // Tasto Segnala (Bandierina Silente con soglia dinamica)
+  // Tasto Segnala (Bandierina Silente)
   if (el.btnReportCard) {
     el.btnReportCard.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (state.hasReportedCurrentCard) return;
-      state.hasReportedCurrentCard = true;
-      el.btnReportCard.disabled = true;
-      el.btnReportCard.style.pointerEvents = 'none';
-      if (typeof socket !== 'undefined' && socket && socket.connected) {
-        socket.emit('report_card');
-      }
-    });
-  }
-
-  // Gestione pulsanti Modale Allerta Segnalazione (Solo Host)
-  if (el.btnReportAlertBlur) {
-    el.btnReportAlertBlur.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (el.reportAlertModal) el.reportAlertModal.style.display = 'none';
-      applyCardCensorship();
-      if (typeof socket !== 'undefined' && socket && socket.connected) {
-        socket.emit('censor_current_card');
-      }
-      showToast("Carta oscurata dal moderatore 🙈", 3000);
-    });
-  }
-
-  if (el.btnReportAlertIgnore) {
-    el.btnReportAlertIgnore.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (el.reportAlertModal) el.reportAlertModal.style.display = 'none';
+      el.btnReportCard.style.color = '#F59E0B'; // feedback visivo arancione
+      setTimeout(() => {
+        el.btnReportCard.style.color = 'rgba(255, 255, 255, 0.15)';
+      }, 1000);
+      socket.emit('report_current_card');
     });
   }
 
@@ -3941,26 +3826,6 @@ function setupSocketListeners() {
       updateTimerPickerSelection();
     }
 
-    // Reset stato bandierina segnalazione e censura del round precedente
-    state.hasReportedCurrentCard = false;
-    updateCardBlurUI(false);
-    updateHostBlurButtonVisibility();
-    if (el.btnReportCard) {
-      el.btnReportCard.disabled = false;
-      el.btnReportCard.style.pointerEvents = '';
-      el.btnReportCard.style.color = 'rgba(255, 255, 255, 0.15)';
-      el.btnReportCard.classList.remove('reported');
-      el.btnReportCard.setAttribute('title', 'Segnala contenuto inappropriato');
-    }
-    const reportAlertModal = el.reportAlertModal || document.getElementById('report-alert-modal');
-    if (reportAlertModal) reportAlertModal.style.display = 'none';
-    const voidedOverlay = el.cardVoidedOverlay || document.getElementById('card-voided-overlay');
-    if (voidedOverlay) voidedOverlay.style.display = 'none';
-    const promptCard = el.promptCard || document.getElementById('prompt-card');
-    if (promptCard) promptCard.classList.remove('card-censored');
-    const censorNotice = document.getElementById('card-censored-notice');
-    if (censorNotice) censorNotice.remove();
-
     // Reset overlay
     if (el.roundEndOverlay) el.roundEndOverlay.classList.remove('active');
     if (el.roundEndOverlayVoteActions) el.roundEndOverlayVoteActions.style.display = 'none';
@@ -4162,7 +4027,6 @@ function setupSocketListeners() {
   socket.on('host_assigned', ({ isHost }) => {
     state.isHost = !!isHost;
     safeSessionStorage.setItem('overunder_isHost', isHost ? 'true' : 'false');
-    updateHostBlurButtonVisibility();
     showToast("👑 Ora sei tu il nuovo Host della stanza!", 5000);
     if (!state.gameplayStarted) {
       setupLobbyUI();
@@ -4194,78 +4058,6 @@ function setupSocketListeners() {
   socket.on('room_lock_update', ({ isLocked }) => {
     state.roomIsLocked = !!isLocked;
     updateLockIcon();
-  });
-
-  // 13. Segnalazione Carta e Feedback Visivo Bandierina
-  socket.on('report_confirmed', () => {
-    if (el.btnReportCard) {
-      el.btnReportCard.style.color = '#F59E0B';
-      el.btnReportCard.classList.add('reported');
-      el.btnReportCard.setAttribute('title', 'Carta segnalata');
-    }
-    showToast("Segnalazione inviata al moderatore ⚠️", 2500);
-  });
-
-  // 14. Pop-up di Allerta Gravità Segnalazioni (Esclusivo per l'Host)
-  socket.on('card_report_alert', ({ reportCount, totalPlayers, threshold }) => {
-    if (!state.isHost) return;
-    const modal = el.reportAlertModal || document.getElementById('report-alert-modal');
-    const textEl = el.reportAlertModalText || document.getElementById('report-alert-modal-text');
-    if (textEl) {
-      textEl.textContent = `Questa carta ha superato la soglia critica del 33% delle segnalazioni (${reportCount} su ${totalPlayers} giocatori). Come moderatore della stanza, valuta se oscurarla o procedere.`;
-    }
-    if (modal) {
-      modal.style.display = 'flex';
-      try { AudioSynth.playConfirm(false); } catch (e) {}
-    }
-  });
-
-  // 15. Carta oscurata/censurata dall'Host per l'intera stanza
-  socket.on('card_censored', () => {
-    applyCardCensorship();
-  });
-
-  // 16. Controllo Blur Carta in Tempo Reale (Broadcast a tutti i giocatori)
-  socket.on('card_blur_state_changed', ({ isBlurred }) => {
-    updateCardBlurUI(isBlurred);
-  });
-
-  // 17. Schermata Dedicata "Carta Rimossa" (>50% Segnalazioni)
-  socket.on('card_voided_screen', ({ reason, totalPlayers, reportCount, threshold }) => {
-    console.log(`[CARD VOIDED] Carta annullata dal gruppo (${reportCount}/${totalPlayers})`);
-
-    // 1. Ferma subito i timer locali del client
-    stopTimerLoop();
-    closeTimerPicker();
-
-    // 2. Chiudi eventuali modali aperte (alert host, card info, zoom)
-    const alertModal = el.reportAlertModal || document.getElementById('report-alert-modal');
-    if (alertModal) alertModal.style.display = 'none';
-    closeCardInfoModal();
-    if (typeof closeCardImageZoom === 'function') closeCardImageZoom();
-
-    // 3. Mostra la schermata "Carta Rimossa"
-    const voidedOverlay = el.cardVoidedOverlay || document.getElementById('card-voided-overlay');
-    const btnVoidedNext = el.btnVoidedNextCard || document.getElementById('btn-voided-next-card');
-    const voidedWait = el.voidedPlayerWait || document.getElementById('voided-player-wait');
-
-    if (voidedOverlay) {
-      voidedOverlay.style.display = 'flex';
-    }
-
-    if (state.isHost) {
-      if (btnVoidedNext) {
-        btnVoidedNext.style.display = 'block';
-        btnVoidedNext.disabled = false;
-      }
-      if (voidedWait) voidedWait.style.display = 'none';
-    } else {
-      if (btnVoidedNext) btnVoidedNext.style.display = 'none';
-      if (voidedWait) voidedWait.style.display = 'flex';
-    }
-
-    // Segnale acustico
-    try { AudioSynth.playTimeout(); } catch (e) {}
   });
 
   socket.on('global_toast', ({ message }) => {
