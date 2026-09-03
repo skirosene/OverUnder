@@ -1337,10 +1337,6 @@ function clearAllRoomTimers(room) {
   }
 }
 
-function clearRoomTimers(room) {
-  clearAllRoomTimers(room);
-}
-
 function serializeRoomForRedis(room) {
   if (!room) return null;
   // Esclude timer / timeout handles non serializzabili
@@ -2440,52 +2436,65 @@ io.on('connection', (socket) => {
     console.log(`[ROOM MODE] Stanza ${room.roomCode} cambiata a ${room.isPremium ? 'Judgement Day' : 'Standard'} dall'Host`);
   });
 
-  // Evento 7b: Segnalazione Carta Corrente (Moderazione O(1) con soglie 33.3% e >50%)
+  // Evento 7b: Segnalazione Carta Corrente (Moderazione con soglia 33.3% e alert all'Host)
   const handleReportCard = () => {
     const room = rooms[currentRoomCode];
-    if (!room || (room.state !== 'playing' && room.state !== 'VOTING') || !room.deck || !room.deck.cards) return;
+    if (!room || room.state !== 'playing' || !room.deck || !room.deck.cards) return;
 
-    if (!room.currentCardReports || !(room.currentCardReports instanceof Set)) {
-      room.currentCardReports = new Set();
+    const card = room.deck.cards[room.currentCardIndex];
+    if (!card) return;
+
+    if (!card.reports || !(card.reports instanceof Set)) {
+      card.reports = new Set(Array.isArray(card.reports) ? card.reports : []);
     }
 
-    const userId = socket.userId || socket.sessionId || socket.id;
+    // Salva l'ID univoco del giocatore nel Set
+    const reporterId = socket.userId || socket.sessionId || socket.id;
+    card.reports.add(reporterId);
 
-    // Controllo duplicati O(1)
-    if (room.currentCardReports.has(userId)) return;
+    // Rispondi al singolo client con l'evento report_confirmed
+    socket.emit('report_confirmed', { cardIndex: room.currentCardIndex });
 
-    // Registra l'utente
-    room.currentCardReports.add(userId);
-
-    // Conferma al singolo socket (payload vuoto per bandierina gialla)
-    socket.emit('report_confirmed');
-
-    // Calcolo Soglie sui giocatori connessi:
+    // Calcola il quorum dinamico per eccesso (abbondanza) rispetto ai giocatori attualmente connessi alla stanza:
     const activePlayers = (room.players || []).filter(p => p.isBot || (p.connected !== false && p.isOnline !== false));
-    const total = Math.max(1, activePlayers.length || (room.players ? room.players.length : 1));
-    const alertThreshold = Math.ceil(total / 3); // 33.3% per eccesso
-    const majorityThreshold = Math.floor(total / 2) + 1; // >50% maggioranza assoluta
+    const totalPlayers = Math.max(1, activePlayers.length || (room.players ? room.players.length : 1));
+    const alertThreshold = Math.ceil(totalPlayers / 3); // 33.3% calcolato per eccesso
+    const majorityThreshold = Math.floor(totalPlayers / 2) + 1; // >50% maggioranza assoluta
 
-    console.log(`[REPORT CARD] Stanza ${room.roomCode} - Carta #${room.currentCardIndex}: ${room.currentCardReports.size}/${total} segnalazioni (Soglia 33%: ${alertThreshold}, Maggioranza >50%: ${majorityThreshold})`);
+    console.log(`[REPORT CARD] Stanza ${room.roomCode} - Carta #${room.currentCardIndex}: ${card.reports.size}/${totalPlayers} segnalazioni (Soglia 33%: ${alertThreshold}, Maggioranza >50%: ${majorityThreshold})`);
 
-    // Logica Annullamento (>50%):
-    if (room.currentCardReports.size >= majorityThreshold && (room.state === 'playing' || room.state === 'VOTING')) {
-      console.log(`[CARD VOIDED] Stanza ${room.roomCode}: Carta #${room.currentCardIndex} annullata (>50% segnalazioni: ${room.currentCardReports.size}/${total}).`);
+    // VERIFICA SOGLIA MAGGIORANZA ASSOLUTA >50% (ANNULLAMENTO CARTA)
+    if (card.reports.size >= majorityThreshold && (room.state === 'playing' || room.state === 'VOTING')) {
+      console.log(`[CARD VOIDED] Stanza ${room.roomCode}: Carta #${room.currentCardIndex} annullata (>50% segnalazioni: ${card.reports.size}/${totalPlayers}).`);
 
-      clearRoomTimers(room);
-      room.roundToken = Date.now();
-      room.currentRoundToken = `void_${room.currentCardIndex}_${room.roundToken}`;
+      // 1. Arresta immediatamente il timer di votazione e tutti i timer del round
+      clearAllRoomTimers(room);
+      if (room.votingTimer) { clearTimeout(room.votingTimer); room.votingTimer = null; }
+      if (room.roundTimeout) { clearTimeout(room.roundTimeout); room.roundTimeout = null; }
+
+      // 2. Invalida il token del round per prevenire race condition o callback residui
+      const voidToken = `void_${room.currentCardIndex}_${Date.now()}`;
+      room.currentRoundToken = voidToken;
+      room.roundId = voidToken;
+
+      // 3. Imposta lo stato della stanza su CARD_VOIDED
       room.state = 'CARD_VOIDED';
+
+      // 4. Annulla i voti del turno senza calcolare punteggi
       room.votes = {};
       room.timeIsUp = true;
       room.currentCardBlurred = false;
 
-      // Broadcast a TUTTI i client della stanza (Host incluso)
-      io.to(room.roomCode).emit('card_voided_screen');
+      // 5. Emetti l'evento socket a TUTTI i client connessi (Host compreso)
+      io.to(room.roomCode).emit('card_voided_screen', {
+        reason: 'majority_reported',
+        reportCount: card.reports.size,
+        totalPlayers: totalPlayers,
+        threshold: majorityThreshold
+      });
 
       // Se la carta contiene un file caricato, registralo per la rimozione
-      const card = room.deck.cards[room.currentCardIndex];
-      if (card && card.image && card.image.startsWith('/uploads/')) {
+      if (card.image && card.image.startsWith('/uploads/')) {
         if (!room.reportedFiles) room.reportedFiles = [];
         if (!room.reportedFiles.includes(card.image)) {
           room.reportedFiles.push(card.image);
@@ -2494,24 +2503,26 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Logica Alert Host (33.3%):
-    if (room.currentCardReports.size >= alertThreshold && !room.hostNotified) {
-      room.hostNotified = true;
+    // Se currentCard.reports.size >= alertThreshold e l'alert non è ancora stato inviato per questa carta (!currentCard.hostNotified)
+    if (card.reports.size >= alertThreshold && !card.hostNotified) {
+      card.hostNotified = true;
       if (room.hostId) {
         io.to(room.hostId).emit('card_report_alert', {
-          count: room.currentCardReports.size,
-          total: total
+          reportCount: card.reports.size,
+          totalPlayers: totalPlayers,
+          threshold: alertThreshold,
+          cardIndex: room.currentCardIndex
         });
-        console.log(`[REPORT THRESHOLD HIT] Stanza ${room.roomCode}: Alert 33% inviato all'Host ${room.hostId}`);
+        console.log(`[REPORT THRESHOLD HIT] Stanza ${room.roomCode}: Alert inviato all'host ${room.hostId}`);
       }
     }
 
-    // Tracking file upload per pulizia post-partita
-    const card = room.deck.cards[room.currentCardIndex];
-    if (card && card.image && card.image.startsWith('/uploads/')) {
+    // Moderazione e tracking dei file caricati
+    if (card.image && card.image.startsWith('/uploads/')) {
       if (!room.reportedFiles) room.reportedFiles = [];
       if (!room.reportedFiles.includes(card.image)) {
         room.reportedFiles.push(card.image);
+        console.log(`[MODERATION] File registrato per la rimozione a fine sessione: ${card.image}`);
       }
     }
   };
@@ -2522,10 +2533,9 @@ io.on('connection', (socket) => {
   // Evento censura/oscuramento da parte dell'Host (moderatore)
   socket.on('censor_current_card', () => {
     const room = rooms[currentRoomCode];
-    if (!room || room.hostId !== socket.id || (room.state !== 'playing' && room.state !== 'VOTING')) return;
+    if (!room || room.hostId !== socket.id || room.state !== 'playing') return;
     room.currentCardBlurred = true;
     io.to(room.roomCode).emit('card_censored', { cardIndex: room.currentCardIndex });
-    io.to(room.roomCode).emit('card_blur', true);
     io.to(room.roomCode).emit('card_blur_state_changed', { isBlurred: true });
     console.log(`[MODERATION] Carta #${room.currentCardIndex} oscurata (blur) dall'Host nella stanza ${room.roomCode}`);
   });
@@ -2533,10 +2543,9 @@ io.on('connection', (socket) => {
   // Evento: Toggle Blur Carta in Tempo Reale (Solo Host)
   socket.on('toggle_card_blur', () => {
     const room = rooms[currentRoomCode];
-    if (!room || room.hostId !== socket.id || (room.state !== 'playing' && room.state !== 'VOTING')) return;
+    if (!room || room.hostId !== socket.id || room.state !== 'playing') return;
 
     room.currentCardBlurred = !room.currentCardBlurred;
-    io.to(room.roomCode).emit('card_blur', room.currentCardBlurred);
     io.to(room.roomCode).emit('card_blur_state_changed', { isBlurred: !!room.currentCardBlurred });
     console.log(`[CARD BLUR] Stanza ${room.roomCode}: blur ${room.currentCardBlurred ? 'ATTIVATO' : 'DISATTIVATO'} dall'Host ${socket.id}`);
   });
@@ -3001,16 +3010,13 @@ function startNewRound(room) {
     return;
   }
 
-  // Tracciamento segnalazioni uniche e flag notifica Host per questa specifica carta (Lookup O(1))
-  room.currentCardReports = new Set();
-  room.currentCardBlurred = false;
-  room.hostNotified = false;
-  card.reports = room.currentCardReports;
+  // Tracciamento segnalazioni uniche e flag notifica Host per questa specifica carta
+  card.reports = new Set();
   card.hostNotified = false;
+  room.currentCardBlurred = false;
 
   // 3. Assegna identificativo univoco (Round Token) a questa specifica fase di votazione
-  room.roundToken = Date.now();
-  const currentToken = `round_${room.currentCardIndex}_${room.roundToken}_${Math.random().toString(36).substring(2, 7)}`;
+  const currentToken = `round_${room.currentCardIndex}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   room.currentRoundToken = currentToken;
   room.roundId = currentToken;
 

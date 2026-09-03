@@ -6713,26 +6713,9 @@ input[type="submit"] {
 .card-censored-blur {
   filter: blur(16px) !important;
   -webkit-filter: blur(16px) !important;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  will-change: filter;
   transition: filter 0.15s ease-in-out;
-  pointer-events: none;
   user-select: none;
-  -webkit-user-select: none;
-}
-
-.prompt-card.card-censored-blur #gameplay-prompt-image-container,
-.prompt-card.card-censored-blur #gameplay-prompt-image,
-.prompt-card.card-censored-blur #current-prompt-text {
-  filter: blur(16px) !important;
-  -webkit-filter: blur(16px) !important;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  will-change: filter;
   pointer-events: none;
-  user-select: none;
-  -webkit-user-select: none;
 }
 
 .btn-toggle-blur {
