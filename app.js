@@ -4759,11 +4759,7 @@ function updateGameplayCardMedia(prompt, image) {
         mb.title = 'Regole di moderazione';
         mb.setAttribute('aria-label', 'Informazioni moderazione');
         mb.innerHTML = `
-          <svg viewBox="0 0 24 24" style="width: 1.15rem; height: 1.15rem;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
+          <span style="font-size: 1.25rem; font-weight: 900; line-height: 1; font-family: var(--font-title, sans-serif); color: inherit; display: flex; align-items: center; justify-content: center;">!</span>
         `;
         mb.onclick = (e) => {
           e.stopPropagation();

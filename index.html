@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=19200">
+  <link rel="stylesheet" href="/style.css?v=19400">
 </head>
 
 <body>
@@ -365,12 +365,7 @@
         <div id="lobby-header" class="lobby-header glass-panel" style="position: relative;">
           <!-- Tasto Info Moderazione "!" (Solo Judgement Day, Simmetrico al QR Code in alto a sinistra) -->
           <button id="btn-lobby-moderation" class="btn-lobby-moderation" title="Regole di moderazione" aria-label="Informazioni moderazione" style="display: none;">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
+            <span style="font-size: 1.25rem; font-weight: 900; line-height: 1; font-family: var(--font-title, sans-serif); color: #ffffff; display: flex; align-items: center; justify-content: center;">!</span>
           </button>
 
           <!-- Tasto Suggerisci Carta 🖋️ (Solo Modalità Standard, Simmetrico al QR Code in alto a sinistra) -->
@@ -617,11 +612,7 @@
             </button>
             <!-- Pulsante Info Moderazione (!) (Solo Non-Host, Judgement Day - Lato opposto alla bandierina) -->
             <button id="btn-moderation-info" class="btn-moderation-info" title="Regole di moderazione" aria-label="Informazioni moderazione" style="display: none;">
-              <svg viewBox="0 0 24 24" style="width: 1.15rem; height: 1.15rem;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
+              <span style="font-size: 1.25rem; font-weight: 900; line-height: 1; font-family: var(--font-title, sans-serif); color: inherit; display: flex; align-items: center; justify-content: center;">!</span>
             </button>
             <!-- Pulsante Blur Host (Solo Host, Judgement Day - Lato opposto alla bandierina) -->
             <button id="host-blur-btn" title="Oscura/Mostra carta" aria-label="Toggle blur carta" style="display: none;">
@@ -1195,15 +1186,15 @@
         </svg>
       </button>
 
-      <!-- Icona Moderazione in Testa -->
-      <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); display: flex; align-items: center; justify-content: center; color: #F59E0B; font-size: 1.3rem;">
-        ℹ️
+      <!-- Icona Moderazione in Testa (Badge Circolare Dorato con "!" Bold Centrato) -->
+      <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); display: flex; align-items: center; justify-content: center; color: #F59E0B; font-size: 1.6rem; font-weight: 900; font-family: var(--font-title, sans-serif); line-height: 1;">
+        !
       </div>
 
       <!-- Intestazione -->
       <div style="width: 100%;">
         <h3 style="font-family: var(--font-title); font-weight: 800; font-size: 1.15rem; color: #ffffff; margin: 0; line-height: 1.3;">
-          ℹ️ Moderazione & Segnalazioni
+          Moderazione & Segnalazioni
         </h3>
       </div>
 
@@ -1880,7 +1871,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=19200"></script>
+  <script src="/app.js?v=19400"></script>
 </body>
 
 </html>
