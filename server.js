@@ -2493,8 +2493,20 @@ io.on('connection', (socket) => {
   socket.on('censor_current_card', () => {
     const room = rooms[currentRoomCode];
     if (!room || room.hostId !== socket.id || room.state !== 'playing') return;
+    room.currentCardBlurred = true;
     io.to(room.roomCode).emit('card_censored', { cardIndex: room.currentCardIndex });
+    io.to(room.roomCode).emit('card_blur_state_changed', { isBlurred: true });
     console.log(`[MODERATION] Carta #${room.currentCardIndex} oscurata (blur) dall'Host nella stanza ${room.roomCode}`);
+  });
+
+  // Evento: Toggle Blur Carta in Tempo Reale (Solo Host)
+  socket.on('toggle_card_blur', () => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id || room.state !== 'playing') return;
+
+    room.currentCardBlurred = !room.currentCardBlurred;
+    io.to(room.roomCode).emit('card_blur_state_changed', { isBlurred: !!room.currentCardBlurred });
+    console.log(`[CARD BLUR] Stanza ${room.roomCode}: blur ${room.currentCardBlurred ? 'ATTIVATO' : 'DISATTIVATO'} dall'Host ${socket.id}`);
   });
 
   // ==========================================================================
@@ -2960,6 +2972,7 @@ function startNewRound(room) {
   // Tracciamento segnalazioni uniche e flag notifica Host per questa specifica carta
   card.reports = new Set();
   card.hostNotified = false;
+  room.currentCardBlurred = false;
 
   // 3. Assegna identificativo univoco (Round Token) a questa specifica fase di votazione
   const currentToken = `round_${room.currentCardIndex}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;

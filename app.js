@@ -725,6 +725,7 @@ const state = {
   userHasVoted: false,
   roundEndActive: false,
   hasReportedCurrentCard: false,
+  currentCardBlurred: false,
   
   timerStartTime: null,
   timerRequestId: null,
@@ -982,6 +983,7 @@ const el = {
   summaryPlayerWaiting: document.getElementById('summary-player-waiting'),
   btnRestart: document.getElementById('btn-restart'),
   btnReportCard: document.getElementById('btn-report-card'),
+  btnToggleBlur: document.getElementById('btn-toggle-blur'),
   promptCard: document.getElementById('prompt-card'),
   reportAlertModal: document.getElementById('report-alert-modal'),
   reportAlertModalText: document.getElementById('report-alert-modal-text'),
@@ -1296,6 +1298,7 @@ function showScreen(targetScreen) {
   // Configura il timer counter cliccabile solo in gameplay per l'host
   if (targetScreen === el.screenGameplay) {
     setupTimerCounterClickable();
+    updateHostBlurButtonVisibility();
     if (state.isSoloMode) {
       el.screenGameplay.classList.add('is-solo-mode');
     } else {
@@ -2789,6 +2792,58 @@ function applyCardCensorship() {
   }
 }
 
+// Funzione per applicare/rimuovere l'effetto blur istantaneo in tempo reale (Host WebSocket)
+function updateCardBlurUI(isBlurred) {
+  state.currentCardBlurred = !!isBlurred;
+  const promptText = el.currentPromptText || document.getElementById('current-prompt-text');
+  const imgContainer = el.gameplayPromptImageContainer || document.getElementById('gameplay-prompt-image-container');
+  const imgEl = el.gameplayPromptImage || document.getElementById('gameplay-prompt-image');
+  const btnBlur = el.btnToggleBlur || document.getElementById('btn-toggle-blur');
+
+  [promptText, imgContainer, imgEl].forEach(element => {
+    if (element) {
+      if (isBlurred) {
+        element.classList.add('card-censored-blur');
+      } else {
+        element.classList.remove('card-censored-blur');
+      }
+    }
+  });
+
+  if (btnBlur) {
+    if (isBlurred) {
+      btnBlur.classList.add('active');
+      btnBlur.style.color = '#ef4444';
+      btnBlur.setAttribute('title', 'Rimuovi oscuramento carta');
+    } else {
+      btnBlur.classList.remove('active');
+      btnBlur.style.color = 'rgba(255, 255, 255, 0.25)';
+      btnBlur.setAttribute('title', 'Oscura carta a tutti i giocatori');
+    }
+  }
+}
+
+function updateHostBlurButtonVisibility() {
+  const btnBlur = el.btnToggleBlur || document.getElementById('btn-toggle-blur');
+  if (!btnBlur) return;
+  if (state.isHost && !state.isSoloMode) {
+    btnBlur.style.display = 'inline-flex';
+  } else {
+    btnBlur.style.display = 'none';
+  }
+}
+
+  // Tasto Blur Host (Oscuramento carta in tempo reale per tutti i partecipanti)
+  if (el.btnToggleBlur) {
+    el.btnToggleBlur.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!state.isHost) return;
+      if (typeof socket !== 'undefined' && socket && socket.connected) {
+        socket.emit('toggle_card_blur');
+      }
+    });
+  }
+
   // Tasto Segnala (Bandierina Silente con soglia dinamica)
   if (el.btnReportCard) {
     el.btnReportCard.addEventListener('click', (e) => {
@@ -3871,6 +3926,8 @@ function setupSocketListeners() {
 
     // Reset stato bandierina segnalazione e censura del round precedente
     state.hasReportedCurrentCard = false;
+    updateCardBlurUI(false);
+    updateHostBlurButtonVisibility();
     if (el.btnReportCard) {
       el.btnReportCard.disabled = false;
       el.btnReportCard.style.pointerEvents = '';
@@ -4086,6 +4143,7 @@ function setupSocketListeners() {
   socket.on('host_assigned', ({ isHost }) => {
     state.isHost = !!isHost;
     safeSessionStorage.setItem('overunder_isHost', isHost ? 'true' : 'false');
+    updateHostBlurButtonVisibility();
     showToast("👑 Ora sei tu il nuovo Host della stanza!", 5000);
     if (!state.gameplayStarted) {
       setupLobbyUI();
@@ -4146,6 +4204,11 @@ function setupSocketListeners() {
   // 15. Carta oscurata/censurata dall'Host per l'intera stanza
   socket.on('card_censored', () => {
     applyCardCensorship();
+  });
+
+  // 16. Controllo Blur Carta in Tempo Reale (Broadcast a tutti i giocatori)
+  socket.on('card_blur_state_changed', ({ isBlurred }) => {
+    updateCardBlurUI(isBlurred);
   });
 
   socket.on('global_toast', ({ message }) => {

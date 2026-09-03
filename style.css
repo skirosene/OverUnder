@@ -6707,4 +6707,32 @@ input[type="submit"] {
   transition: transform 0.2s ease, color 0.2s ease;
 }
 
+/* ==========================================================================
+   CONTROLLO BLUR IN TEMPO REALE SULLE CARTE (HOST WEBSOCKET)
+   ========================================================================== */
+.card-censored-blur {
+  filter: blur(16px) !important;
+  -webkit-filter: blur(16px) !important;
+  transition: filter 0.15s ease-in-out;
+  user-select: none;
+  pointer-events: none;
+}
+
+.btn-toggle-blur {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.btn-toggle-blur:hover {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.btn-toggle-blur.active {
+  color: #ef4444 !important;
+  filter: drop-shadow(0 0 7px rgba(239, 68, 68, 0.75));
+  transform: scale(1.12);
+}
+
+
 
