@@ -1634,7 +1634,8 @@ io.on('connection', (socket) => {
       roundId: 0,
       blacklist: [],
       isLocked: false,
-      timerDurationMs: 10000 // Durata timer round (5000 o 10000)
+      timerDurationMs: 10000, // Durata timer round (5000 o 10000)
+      cardBlurred: false // Stato blur carta (controllato dall'Host)
     };
 
     // Sincronizza stato iniziale su Redis con TTL 2 ore
@@ -2468,6 +2469,15 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Evento 7c: Toggle Blur Carta (Solo Host, Judgement Day)
+  socket.on('toggle_card_blur', () => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id) return; // Solo l'Host può controllare il blur
+    room.cardBlurred = !room.cardBlurred;
+    io.to(currentRoomCode).emit('sync_card_blur', room.cardBlurred);
+    console.log(`[BLUR] Carta ${room.cardBlurred ? 'OSCURATA' : 'VISIBILE'} nella stanza ${currentRoomCode} dall'Host`);
+  });
+
   // ==========================================================================
   // 2. RE-BINDING DELLA CONNESSIONE & 3. STATE RECOVERY (Server-Side)
   // ==========================================================================
@@ -2835,6 +2845,7 @@ function sendStateSync(socket, room, player) {
     timerDurationMs: room.timerDurationMs || 10000,
     freezeMessage: room.freezeMessage || '',
     customCardsSubmitted: !!player.premiumReady,
+    cardBlurred: !!room.cardBlurred,
     roundId: room.roundId || 0
   };
 
@@ -2912,6 +2923,7 @@ function startNewRound(room) {
   room.votes = {}; // Resetta i voti
   room.timeIsUp = false; // Reset stato fine tempo
   room.freezeMessage = '';
+  room.cardBlurred = false; // Reset blur carta ad ogni nuova carta
   room.roundStartTime = Date.now();
 
   const timerMs = room.timerDurationMs || 10000;
@@ -2961,7 +2973,8 @@ function startNewRound(room) {
     totalCards: room.gameLength || room.deck.cards.length,
     timerDurationMs: timerMs,
     roundId: currentToken,
-    roundToken: currentToken
+    roundToken: currentToken,
+    cardBlurred: false
   });
 
   // Sincronizza stato volatile su Redis

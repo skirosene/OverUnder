@@ -1019,6 +1019,8 @@ const el = {
   summaryPlayerWaiting: document.getElementById('summary-player-waiting'),
   btnRestart: document.getElementById('btn-restart'),
   btnReportCard: document.getElementById('btn-report-card'),
+  hostBlurBtn: document.getElementById('host-blur-btn'),
+  cardBlurOverlay: document.getElementById('card-blur-overlay'),
   btnCardInfo: document.getElementById('btn-card-info'),
   cardInfoModal: document.getElementById('card-info-modal'),
   cardInfoModalTitle: document.getElementById('card-info-modal-title'),
@@ -2818,6 +2820,22 @@ function showPurchaseModal() {
     });
   }
 
+  // Tasto Blur Carta (Controllo esclusivo Host - Judgement Day)
+  const promptCardForBlur = el.promptCard || document.getElementById('prompt-card');
+  if (promptCardForBlur) {
+    promptCardForBlur.addEventListener('click', (e) => {
+      const btn = e.target.closest('#host-blur-btn');
+      if (btn) {
+        e.stopPropagation();
+        e.preventDefault();
+        if (!state.isHost) return;
+        if (socket && socket.connected) {
+          socket.emit('toggle_card_blur');
+        }
+      }
+    });
+  }
+
   // Tasto Info Carta (i) - Solo Single Player e Stanza Standard
   if (el.btnCardInfo) {
     el.btnCardInfo.addEventListener('click', (e) => {
@@ -3449,6 +3467,9 @@ function setupSocketListeners() {
         state.userHasVoted = !!gameData.userHasVoted;
       }
 
+      if (gameData.cardBlurred !== undefined) {
+        window.currentCardBlurred = !!gameData.cardBlurred;
+      }
       if (el.currentDeckName) el.currentDeckName.textContent = state.currentDeckName;
       updateGameplayCardMedia(gameData.prompt, gameData.image);
       
@@ -3872,6 +3893,10 @@ function setupSocketListeners() {
     if (el.btnUnderrated) el.btnUnderrated.classList.remove('disabled', 'pulse-active');
     if (el.btnOverrated) el.btnOverrated.classList.remove('disabled', 'pulse-active');
     
+    // Reset automatico blur carta ad ogni nuova carta
+    window.currentCardBlurred = false;
+    updateBlurUI(false);
+
     // Reset interfaccia gameplay
     if (el.currentDeckName) el.currentDeckName.textContent = state.currentDeckName;
     updateGameplayCardMedia(safePrompt, image);
@@ -3927,6 +3952,13 @@ function setupSocketListeners() {
     state.timerDurationMs = durationMs;
     updateTimerPickerSelection();
     showToast(`Timer: ${durationMs / 1000}s dalla prossima carta ⏱`);
+  });
+
+  // 7d. Sincronizzazione Blur Carta in Tempo Reale (Host overlay - Judgement Day)
+  socket.off('sync_card_blur'); // Evita duplicazioni
+  socket.on('sync_card_blur', (isBlurred) => {
+    window.currentCardBlurred = !!isBlurred;
+    updateBlurUI(window.currentCardBlurred);
   });
 
   // 7b. Ricezione Fine Tempo (Compare l'Overlay "PROSSIMA CARTA...")
@@ -4223,6 +4255,25 @@ function requestCardRecoveryFromServer() {
   socket.emit('request_current_card');
 }
 
+// ==========================================================================
+// CONTROLLO BLUR IN TEMPO REALE (HOST OVERLAY - JUDGEMENT DAY)
+// ==========================================================================
+function updateBlurUI(isBlurred) {
+  const overlay = document.getElementById('card-blur-overlay');
+  if (overlay) overlay.classList.toggle('active', !!isBlurred);
+  const hostBtn = document.getElementById('host-blur-btn');
+  if (hostBtn) hostBtn.classList.toggle('active', !!isBlurred);
+}
+
+// RenderCard alias per compatibilità e garanzia di persistenza blur
+window.renderCard = function(prompt, image) {
+  if (prompt !== undefined || image !== undefined) {
+    updateGameplayCardMedia(prompt, image);
+  } else {
+    updateBlurUI(window.currentCardBlurred || false);
+  }
+};
+
 /**
  * Gestione dinamica dei media delle carte (Premium & Standard).
  * PULIZIA TOTALE PREVENTIVA DEL DOM + LOGICA STRICT:
@@ -4417,6 +4468,40 @@ function updateGameplayCardMedia(prompt, image) {
     const isJudgementDay = !!state.roomIsPremium;
     btnCardInfo.style.display = isJudgementDay ? 'none' : 'inline-flex';
   }
+
+  // Gestione visibilità Tasto Blur Carta: SOLO HOST (se non è Host, rimosso dal DOM)
+  const existingHostBtn = document.getElementById('host-blur-btn');
+  if (!state.isHost) {
+    if (existingHostBtn) {
+      existingHostBtn.remove();
+    }
+  } else {
+    let hostBtn = existingHostBtn;
+    if (!hostBtn && promptCard) {
+      hostBtn = document.createElement('button');
+      hostBtn.id = 'host-blur-btn';
+      hostBtn.title = 'Oscura/Mostra carta';
+      hostBtn.setAttribute('aria-label', 'Toggle blur carta');
+      hostBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" style="width: 1.2rem; height: 1.2rem;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+        </svg>
+      `;
+      const overlay = document.getElementById('card-blur-overlay');
+      if (overlay && overlay.parentNode === promptCard) {
+        promptCard.insertBefore(hostBtn, overlay);
+      } else {
+        promptCard.appendChild(hostBtn);
+      }
+    }
+    if (hostBtn) {
+      hostBtn.style.display = 'inline-flex';
+    }
+  }
+
+  // Sincronizza stato grafico Blur dopo ogni aggiornamento del DOM
+  updateBlurUI(window.currentCardBlurred || false);
 }
 
 // ==========================================================================

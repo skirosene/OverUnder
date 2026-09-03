@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=18000">
+  <link rel="stylesheet" href="/style.css?v=18100">
 </head>
 
 <body>
@@ -594,6 +594,15 @@
                 <path d="M12.36 6l.4 2H18v6h-3.36l-.4-2H7V6h5.36M14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6L14 4z" />
               </svg>
             </button>
+            <!-- Pulsante Blur Host (Solo Host, Judgement Day - Lato opposto alla bandierina) -->
+            <button id="host-blur-btn" title="Oscura/Mostra carta" aria-label="Toggle blur carta" style="display: none;">
+              <svg viewBox="0 0 24 24" style="width: 1.2rem; height: 1.2rem;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+            <!-- Overlay Blur (Controllato dall'Host via WebSocket) -->
+            <div id="card-blur-overlay" class="card-blur-overlay"></div>
             <span class="prompt-category" id="current-deck-name">MAZZO</span>
             <!-- Contenitore Immagine Gameplay Premium -->
             <div id="gameplay-prompt-image-container"
@@ -1645,7 +1654,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=18000"></script>
+  <script src="/app.js?v=18100"></script>
 </body>
 
 </html>

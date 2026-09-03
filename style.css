@@ -6687,3 +6687,58 @@ input[type="submit"] {
   padding-right: 4px;
 }
 
+/* ==========================================================================
+   CONTROLLO BLUR IN TEMPO REALE (HOST OVERLAY - JUDGEMENT DAY)
+   ========================================================================== */
+.card-blur-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
+}
+
+.card-blur-overlay.active {
+  opacity: 1;
+}
+
+/* Pulsante Blur Host (Simmetrico opposto alla bandierina di segnalazione) */
+#host-blur-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  transition: color 0.2s ease, transform 0.2s ease, filter 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+#host-blur-btn:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+#host-blur-btn.active {
+  color: #00f0ff;
+  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.8));
+  transform: scale(1.12);
+}
+
+/* Eleva la bandierina di segnalazione e info sopra l'overlay */
+#btn-report-card,
+.btn-card-info {
+  z-index: 20 !important;
+}
