@@ -1192,7 +1192,7 @@ app.post('/api/iap/verify', (req, res) => {
 });
 
 // Endpoint per caricamento immagini (Foto Profilo & Carte Premium)
-app.post('/upload', upload.single('file'), (req, res) => {
+app.post(['/upload', '/api/upload'], upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Nessun file caricato' });
   }

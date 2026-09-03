@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=16200">
+  <link rel="stylesheet" href="/style.css?v=16300">
 </head>
 
 <body>
@@ -996,7 +996,7 @@
       <h3 class="custom-modal-title" style="font-size: 1.05rem; text-transform: uppercase;">Ritaglia Immagine (1:1)</h3>
       <div class="cropper-container"
         style="width: 100%; height: 260px; background: #000; border-radius: 12px; overflow: hidden; position: relative;">
-        <img id="cropper-image-target" style="max-width: 100%; display: block;">
+        <img id="cropper-image-target" crossorigin="anonymous" style="max-width: 100%; display: block;">
       </div>
       <!-- Controlli Zoom Visivi -->
       <div class="cropper-zoom-toolbar">
@@ -1645,7 +1645,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=16200"></script>
+  <script src="/app.js?v=16300"></script>
 </body>
 
 </html>

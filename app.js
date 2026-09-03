@@ -830,6 +830,10 @@ function initCropper(imageElement) {
     activeCropper = null;
   }
 
+  if (imageElement) {
+    imageElement.crossOrigin = "anonymous";
+  }
+
   activeCropper = new Cropper(imageElement, {
     aspectRatio: 1,
     viewMode: 1, // Vincolo di copertura: l'immagine non può mai diventare più piccola del riquadro 1:1 (nessun bordo vuoto o nero)
@@ -845,10 +849,35 @@ function initCropper(imageElement) {
     zoomable: true,
     zoomOnTouch: true,
     zoomOnWheel: true,
-    wheelZoomRatio: 0.1
+    wheelZoomRatio: 0.1,
+    checkCrossOrigin: true
   });
 
   return activeCropper;
+}
+
+function openCropperWithImageUrl(imageUrl, target = 'card', source = 'web') {
+  if (!imageUrl || !el.cropperModal || !el.cropperImageTarget) return;
+
+  state.cropperTarget = target;
+  state.cropperSource = source;
+  const cardCount = (state.localPremiumCards ? state.localPremiumCards.length : 0) + 1;
+  state.currentUploadedFilename = `web_${Date.now()}_${cardCount}.webp`;
+
+  if (activeCropper) {
+    try { activeCropper.destroy(); } catch (e) {}
+    activeCropper = null;
+  }
+
+  // Imposta crossOrigin anonymous sull'elemento img prima del caricamento src per evitare tainted canvas
+  el.cropperImageTarget.crossOrigin = "anonymous";
+  el.cropperImageTarget.src = imageUrl;
+
+  el.cropperModal.style.display = 'flex';
+  el.cropperModal.offsetHeight; // trigger reflow
+  el.cropperModal.classList.add('active');
+
+  initCropper(el.cropperImageTarget);
 }
 
 // Elementi DOM
@@ -7467,32 +7496,49 @@ function setupPremiumCreatorEvents() {
         const oldText = confirmBtn.textContent;
         confirmBtn.textContent = 'Caricamento...';
 
-        // WebP HD al 92% di qualità (nitidezza visiva eccellente)
+        // WebP HD al 92% per avatar, 88% per carte
         const quality = isAvatar ? 0.92 : 0.88;
-        let mimeType = 'image/webp';
-        let dataUrl = canvas.toDataURL(mimeType, quality);
-        if (!dataUrl.startsWith('data:image/webp')) {
-          mimeType = 'image/jpeg';
-          dataUrl = canvas.toDataURL(mimeType, quality);
-        }
+        const mimeType = 'image/webp';
+        const filename = state.currentUploadedFilename || `img_${Date.now()}.webp`;
 
-        const ext = mimeType === 'image/webp' ? '.webp' : '.jpg';
-        const filename = state.currentUploadedFilename || 'img_' + Date.now() + ext;
-        
         try {
-          const uploadUrl = await uploadImage(dataUrl, filename);
+          // Estrai il blob ritagliato dal canvas (canvas.toBlob)
+          const blob = await new Promise((resolve, reject) => {
+            try {
+              canvas.toBlob((b) => {
+                if (b) {
+                  resolve(b);
+                } else {
+                  // Fallback su toDataURL se toBlob restituisce null (alcuni webview)
+                  try {
+                    const dUrl = canvas.toDataURL(mimeType, quality);
+                    resolve(dataURLtoBlob(dUrl));
+                  } catch (e) {
+                    reject(e);
+                  }
+                }
+              }, mimeType, quality);
+            } catch (canvasErr) {
+              reject(canvasErr);
+            }
+          });
+
+          const uploadUrl = await uploadImage(blob, filename);
           if (uploadUrl) {
             if (state.cropperTarget === 'avatar') {
               // Imposta l'avatar dell'utente
               state.playerAvatarUrl = uploadUrl;
               localStorage.setItem('overunder_avatarUrl', uploadUrl);
               
-              el.avatarDefaultSvg.style.display = 'none';
-              el.avatarPreviewImg.src = uploadUrl;
-              el.avatarPreviewImg.style.display = 'block';
-              el.avatarPreviewBox.classList.add('has-image');
+              if (el.avatarDefaultSvg) el.avatarDefaultSvg.style.display = 'none';
+              if (el.avatarPreviewImg) {
+                el.avatarPreviewImg.src = uploadUrl;
+                el.avatarPreviewImg.style.display = 'block';
+              }
+              if (el.avatarPreviewBox) el.avatarPreviewBox.classList.add('has-image');
+              showToast("Avatar aggiornato con successo! 👤", 3000);
             } else {
-              if (state.editingPremiumCardIndex !== null && state.editingPremiumCardIndex !== undefined) {
+              if (state.editingPremiumCardIndex !== null && state.editingPremiumCardIndex !== undefined && state.localPremiumCards && state.localPremiumCards[state.editingPremiumCardIndex]) {
                 // Modifica in-place della carta esistente
                 state.localPremiumCards[state.editingPremiumCardIndex].image = uploadUrl;
                 renderCapsules();
@@ -7500,6 +7546,7 @@ function setupPremiumCreatorEvents() {
                   socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
                 }
                 state.editingPremiumCardIndex = null;
+                showToast("Immagine aggiornata con successo! 🖼️", 3000);
               } else {
                 // Caricamento nuova immagine (Sola foto, no didascalia)
                 state.currentCroppedImage = uploadUrl;
@@ -7518,12 +7565,14 @@ function setupPremiumCreatorEvents() {
                 if (el.premiumPhotoPopover) {
                   el.premiumPhotoPopover.style.display = 'none';
                 }
+                showToast("Foto pronta! Premi '+' per aggiungerla 📸", 3000);
               }
             }
+            try { AudioSynth.playConfirm(true); } catch (e) {}
           }
         } catch (err) {
-          console.error("Errore durante l'upload:", err);
-          showToast(err.message || "Impossibile caricare l'immagine.");
+          console.error("Errore durante l'upload dell'immagine ritagliata:", err);
+          showToast(err.message || "Impossibile caricare l'immagine ritagliata.");
         } finally {
           confirmBtn.disabled = false;
           confirmBtn.textContent = oldText;
@@ -7540,6 +7589,8 @@ function setupPremiumCreatorEvents() {
       if (el.inputPremiumCamera) el.inputPremiumCamera.value = '';
       if (el.inputAvatarGallery) el.inputAvatarGallery.value = '';
       if (el.inputAvatarCamera) el.inputAvatarCamera.value = '';
+      state.cropperTarget = null;
+      state.cropperSource = null;
     });
   }
 
@@ -7602,25 +7653,41 @@ function dataURLtoBlob(dataurl) {
 }
 
 // Upload dell'immagine croppata all'endpoint HTTP REST
-async function uploadImage(dataUrl, filename) {
-  const blob = dataURLtoBlob(dataUrl);
+async function uploadImage(fileOrBlobOrDataUrl, filename) {
+  let blob;
+  if (fileOrBlobOrDataUrl instanceof Blob) {
+    blob = fileOrBlobOrDataUrl;
+  } else if (typeof fileOrBlobOrDataUrl === 'string' && fileOrBlobOrDataUrl.startsWith('data:')) {
+    blob = dataURLtoBlob(fileOrBlobOrDataUrl);
+  } else {
+    throw new Error("Formato immagine non valido.");
+  }
+
   const formData = new FormData();
   formData.append('file', blob, filename);
-  formData.append('roomCode', state.roomCode);
-  formData.append('sessionId', sessionId);
+  formData.append('roomCode', state.roomCode || '');
+  formData.append('sessionId', sessionId || '');
   formData.append('target', state.cropperTarget || 'card');
 
-  const response = await fetch('/upload', {
-    method: 'POST',
-    body: formData
-  });
+  let response;
+  try {
+    response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    });
+  } catch (e) {
+    response = await fetch('/upload', {
+      method: 'POST',
+      body: formData
+    });
+  }
 
   if (!response.ok) {
-    const errData = await response.json();
+    const errData = await response.json().catch(() => ({}));
     throw new Error(errData.error || 'Errore durante il caricamento');
   }
 
-  const data = await response.json();
+  const data = await response.json().catch(() => ({}));
   return data.url;
 }
 
@@ -8432,50 +8499,12 @@ function setupWebImageSearch() {
             ${rawTitle ? `<div style="position: absolute; bottom: 0; left: 0; width: 100%; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,0.85)); font-size: 0.68rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600;">${rawTitle}</div>` : ''}
           `;
 
-          card.addEventListener('click', async () => {
-            if (importing) importing.style.display = 'flex';
-            try {
-              const importRes = await fetch('/api/images/import-url', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  imageUrl: fullSrc,
-                  roomCode: state.roomCode || null
-                })
-              });
-              const importData = await importRes.json().catch(() => ({}));
-              if (!importRes.ok) {
-                throw new Error(importData.error || "Impossibile scaricare l'immagine.");
-              }
+          card.addEventListener('click', () => {
+            // 1. Chiudi immediatamente la modale di ricerca "Cerca nel Web"
+            closeWebImageSearchModal();
 
-              const savedUrl = importData.url;
-
-              if (state.editingPremiumCardIndex !== null && state.editingPremiumCardIndex !== undefined && state.localPremiumCards[state.editingPremiumCardIndex]) {
-                state.localPremiumCards[state.editingPremiumCardIndex].image = savedUrl;
-                state.editingPremiumCardIndex = null;
-                renderCapsules();
-                if (state.hasSubmittedPremiumCards) {
-                  socket.emit('submit_premium_cards', { cards: state.localPremiumCards });
-                }
-                showToast("Immagine aggiornata con successo! 🖼️", 3000);
-              } else {
-                state.currentCroppedImage = savedUrl;
-                if (el.premiumImagePreview) el.premiumImagePreview.src = savedUrl;
-                if (el.premiumImagePreviewContainer) el.premiumImagePreviewContainer.style.display = 'flex';
-                if (el.premiumCardInput) el.premiumCardInput.style.display = 'none';
-                if (el.btnTriggerPremiumPhoto) el.btnTriggerPremiumPhoto.style.display = 'none';
-                showToast("Foto pronta! Premi '+' per aggiungerla 📸", 3000);
-              }
-
-              closeWebImageSearchModal();
-              try { AudioSynth.playConfirm(true); } catch (e) {}
-
-            } catch (err) {
-              console.error("[IMPORT ERROR]", err);
-              showToast(err.message || "Errore importazione immagine");
-            } finally {
-              if (importing) importing.style.display = 'none';
-            }
+            // 2. Apri la modale di ritaglio (Cropper) con l'URL ad alta risoluzione (fullUrl)
+            openCropperWithImageUrl(fullSrc, 'card', 'web');
           });
 
           grid.appendChild(card);
