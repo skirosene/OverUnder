@@ -5255,8 +5255,45 @@ input[type="submit"] {
 }
 
 /* ==========================================================================
-   QR CODE LOBBY BUTTON & FULLSCREEN OVERLAY MODAL (#qr-modal)
+   QR CODE LOBBY BUTTON & TASTO INFO MODERAZIONE LOBBY (#qr-modal & Judgement Day)
    ========================================================================== */
+.btn-lobby-moderation {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  outline: none;
+  z-index: 10;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-lobby-moderation:hover,
+.btn-lobby-moderation:active {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.btn-lobby-moderation svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+}
+
 .btn-lobby-qr {
   position: absolute;
   top: 15px;

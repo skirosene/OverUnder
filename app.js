@@ -966,6 +966,7 @@ const el = {
   // Lobby
   lobbyRoomCode: document.getElementById('lobby-room-code'),
   btnLobbyInvite: document.getElementById('btn-lobby-invite'),
+  btnLobbyModeration: document.getElementById('btn-lobby-moderation'),
   btnLobbyQr: document.getElementById('btn-lobby-qr'),
   qrModal: document.getElementById('qr-modal'),
   btnQrModalClose: document.getElementById('btn-qr-modal-close'),
@@ -2595,8 +2596,9 @@ function showPurchaseModal() {
     });
   });
 
-  // === QR CODE MODAL LOBBY ===
+  // === QR CODE MODAL LOBBY & INFO MODERAZIONE LOBBY ===
   const btnLobbyQr = el.btnLobbyQr || document.getElementById('btn-lobby-qr');
+  const btnLobbyModeration = el.btnLobbyModeration || document.getElementById('btn-lobby-moderation');
   const qrModal = el.qrModal || document.getElementById('qr-modal');
   const btnQrModalClose = el.btnQrModalClose || document.getElementById('btn-qr-modal-close');
   const qrCodeImg = el.qrCodeImg || document.getElementById('qr-code-img');
@@ -2630,6 +2632,14 @@ function showPurchaseModal() {
   if (btnLobbyQr) {
     btnLobbyQr.addEventListener('click', openQrModal);
   }
+  if (btnLobbyModeration) {
+    btnLobbyModeration.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      try { AudioSynth.playConfirm(false); } catch (err) {}
+      openModerationInfoModal();
+    });
+  }
   if (btnQrModalClose) {
     btnQrModalClose.addEventListener('click', closeQrModal);
   }
@@ -2641,8 +2651,14 @@ function showPurchaseModal() {
     });
   }
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && qrModal && (qrModal.style.display === 'flex' || !qrModal.classList.contains('hidden'))) {
-      closeQrModal();
+    if (e.key === 'Escape') {
+      if (qrModal && (qrModal.style.display === 'flex' || !qrModal.classList.contains('hidden'))) {
+        closeQrModal();
+      }
+      const modModal = el.moderationInfoModal || document.getElementById('moderation-info-modal');
+      if (modModal && modModal.style.display === 'flex') {
+        closeModerationInfoModal();
+      }
     }
   });
 
@@ -4666,6 +4682,12 @@ function updateGameplayCardMedia(prompt, image) {
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
           </svg>
         `;
+        mb.onclick = (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          try { AudioSynth.playConfirm(false); } catch (err) {}
+          openModerationInfoModal();
+        };
         const overlay = document.getElementById('card-blur-overlay');
         if (overlay && overlay.parentNode === promptCard) {
           promptCard.insertBefore(mb, overlay);
@@ -4831,6 +4853,13 @@ function setupLobbyUI() {
   if (el.lobbyPlayersPanel) el.lobbyPlayersPanel.style.display = 'block';
   if (el.btnAddBots) el.btnAddBots.style.display = 'block';
   if (el.roundsSelectorGrid) el.roundsSelectorGrid.classList.remove('rounds-vertical');
+  
+  // Tasto Info Moderazione "!" nella lobby (visibile SOLO in Judgement Day)
+  const isJudgementDay = !!(state.roomIsPremium || state.roomMode === 'judgement' || state.gameMode === 'judgement');
+  const btnLobbyMod = el.btnLobbyModeration || document.getElementById('btn-lobby-moderation');
+  if (btnLobbyMod) {
+    btnLobbyMod.style.display = isJudgementDay ? 'flex' : 'none';
+  }
   
   if (state.isHost) {
     if (el.lobbyHostControls) el.lobbyHostControls.style.display = 'block';
@@ -5463,6 +5492,8 @@ function setupSoloLobbyUI() {
   
   // Nascondi elementi lobby in Solo e imposta layout round verticale
   el.lobbyHeader.style.display = 'none';
+  const btnLobbyModSolo = el.btnLobbyModeration || document.getElementById('btn-lobby-moderation');
+  if (btnLobbyModSolo) btnLobbyModSolo.style.display = 'none';
   el.lobbyPlayersPanel.style.display = 'none';
   el.btnAddBots.style.display = 'none';
   el.roundsSelectorGrid.classList.add('rounds-vertical');
