@@ -1026,6 +1026,10 @@ const el = {
   cardInfoModalTitle: document.getElementById('card-info-modal-title'),
   cardInfoModalText: document.getElementById('card-info-modal-text'),
   btnCardInfoClose: document.getElementById('btn-card-info-close'),
+  btnModerationInfo: document.getElementById('btn-moderation-info'),
+  moderationInfoModal: document.getElementById('moderation-info-modal'),
+  btnModerationInfoClose: document.getElementById('btn-moderation-info-close'),
+  btnModerationInfoX: document.getElementById('btn-moderation-info-x'),
   
   // Orologio barra di stato
   statusClock: document.getElementById('status-clock'),
@@ -2822,7 +2826,7 @@ function showPurchaseModal() {
     });
   }
 
-  // Tasto Blur Carta (Controllo esclusivo Host - Judgement Day)
+  // Tasto Blur Carta (Solo Host) & Tasto Info Moderazione (Solo Non-Host)
   const promptCardForBlur = el.promptCard || document.getElementById('prompt-card');
   if (promptCardForBlur) {
     promptCardForBlur.addEventListener('click', (e) => {
@@ -2834,6 +2838,43 @@ function showPurchaseModal() {
         if (socket && socket.connected) {
           socket.emit('toggle_card_blur');
         }
+        return;
+      }
+      const modBtn = e.target.closest('#btn-moderation-info');
+      if (modBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        try { AudioSynth.playConfirm(false); } catch (err) {}
+        openModerationInfoModal();
+        return;
+      }
+    });
+  }
+
+  // Modale Regole di Moderazione (!) - Chiusura
+  const btnModInfoClose = document.getElementById('btn-moderation-info-close');
+  if (btnModInfoClose) {
+    btnModInfoClose.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      closeModerationInfoModal();
+    });
+  }
+
+  const btnModInfoX = document.getElementById('btn-moderation-info-x');
+  if (btnModInfoX) {
+    btnModInfoX.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      closeModerationInfoModal();
+    });
+  }
+
+  const modInfoModal = document.getElementById('moderation-info-modal');
+  if (modInfoModal) {
+    modInfoModal.addEventListener('click', (e) => {
+      if (e.target === modInfoModal) {
+        closeModerationInfoModal();
       }
     });
   }
@@ -4476,42 +4517,75 @@ function updateGameplayCardMedia(prompt, image) {
     }
   }
 
-  // Gestione visibilità Tasto Info (i): ESCLUSO in Judgement Day, VISIBILE in Solo e Stanza Standard
+  const isJudgementDay = !!state.roomIsPremium;
+
+  // 1. Tasto Info Carta (i): ESCLUSO in Judgement Day, VISIBILE in Solo e Stanza Standard
   const btnCardInfo = el.btnCardInfo || document.getElementById('btn-card-info');
   if (btnCardInfo) {
-    const isJudgementDay = !!state.roomIsPremium;
     btnCardInfo.style.display = isJudgementDay ? 'none' : 'inline-flex';
   }
 
-  // Gestione visibilità Tasto Blur Carta: SOLO HOST (se non è Host, rimosso dal DOM)
-  const existingHostBtn = document.getElementById('host-blur-btn');
-  if (!state.isHost) {
-    if (existingHostBtn) {
-      existingHostBtn.remove();
+  // 2. Controllo Condizionale Slot in Alto a Sinistra (Blur per Host vs "!" per Non-Host)
+  const hostBtn = document.getElementById('host-blur-btn');
+  const modInfoBtn = document.getElementById('btn-moderation-info');
+
+  if (isJudgementDay) {
+    if (state.isHost) {
+      // SE HOST: Mostra Blur, nascondi "!"
+      if (modInfoBtn) modInfoBtn.style.display = 'none';
+      let hb = hostBtn;
+      if (!hb && promptCard) {
+        hb = document.createElement('button');
+        hb.id = 'host-blur-btn';
+        hb.title = 'Oscura/Mostra carta';
+        hb.setAttribute('aria-label', 'Toggle blur carta');
+        hb.innerHTML = `
+          <svg viewBox="0 0 24 24" style="width: 1.2rem; height: 1.2rem;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          </svg>
+        `;
+        const overlay = document.getElementById('card-blur-overlay');
+        if (overlay && overlay.parentNode === promptCard) {
+          promptCard.insertBefore(hb, overlay);
+        } else {
+          promptCard.appendChild(hb);
+        }
+      }
+      if (hb) hb.style.display = 'inline-flex';
+    } else {
+      // SE NON-HOST: Mostra "!" informativo, rimuovi/nascondi Blur
+      if (hostBtn) {
+        hostBtn.style.display = 'none';
+        hostBtn.remove();
+      }
+      let mb = modInfoBtn;
+      if (!mb && promptCard) {
+        mb = document.createElement('button');
+        mb.id = 'btn-moderation-info';
+        mb.className = 'btn-moderation-info';
+        mb.title = 'Regole di moderazione';
+        mb.setAttribute('aria-label', 'Informazioni moderazione');
+        mb.innerHTML = `
+          <svg viewBox="0 0 24 24" style="width: 1.15rem; height: 1.15rem;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        `;
+        const overlay = document.getElementById('card-blur-overlay');
+        if (overlay && overlay.parentNode === promptCard) {
+          promptCard.insertBefore(mb, overlay);
+        } else {
+          promptCard.appendChild(mb);
+        }
+      }
+      if (mb) mb.style.display = 'inline-flex';
     }
   } else {
-    let hostBtn = existingHostBtn;
-    if (!hostBtn && promptCard) {
-      hostBtn = document.createElement('button');
-      hostBtn.id = 'host-blur-btn';
-      hostBtn.title = 'Oscura/Mostra carta';
-      hostBtn.setAttribute('aria-label', 'Toggle blur carta');
-      hostBtn.innerHTML = `
-        <svg viewBox="0 0 24 24" style="width: 1.2rem; height: 1.2rem;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-          <line x1="1" y1="1" x2="23" y2="23"></line>
-        </svg>
-      `;
-      const overlay = document.getElementById('card-blur-overlay');
-      if (overlay && overlay.parentNode === promptCard) {
-        promptCard.insertBefore(hostBtn, overlay);
-      } else {
-        promptCard.appendChild(hostBtn);
-      }
-    }
-    if (hostBtn) {
-      hostBtn.style.display = 'inline-flex';
-    }
+    // Non è Judgement Day: nascondi entrambi
+    if (hostBtn) hostBtn.style.display = 'none';
+    if (modInfoBtn) modInfoBtn.style.display = 'none';
   }
 
   // Sincronizza stato grafico Blur dopo ogni aggiornamento del DOM
@@ -4557,6 +4631,26 @@ function openCardInfoModal(cardTitle, cardDesc) {
 
 function closeCardInfoModal() {
   const modal = el.cardInfoModal || document.getElementById('card-info-modal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+}
+
+// ==========================================================================
+// MODALE INFORMATIVO MODERAZIONE (SOLO NON-HOST IN JUDGEMENT DAY)
+// ==========================================================================
+function openModerationInfoModal() {
+  const modal = el.moderationInfoModal || document.getElementById('moderation-info-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.offsetHeight; // trigger reflow per transizione fluida
+    modal.classList.add('active');
+  }
+}
+
+function closeModerationInfoModal() {
+  const modal = el.moderationInfoModal || document.getElementById('moderation-info-modal');
   if (modal) {
     modal.classList.remove('active');
     modal.style.display = 'none';

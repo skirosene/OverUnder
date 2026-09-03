@@ -6758,3 +6758,35 @@ input[type="submit"] {
   fill: #F97316 !important;
   color: #F97316 !important;
 }
+
+/* Tasto Informativo Moderazione (!) - Solo Non-Host in Judgement Day */
+.btn-moderation-info,
+#btn-moderation-info {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20 !important;
+  transition: color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.btn-moderation-info:hover,
+#btn-moderation-info:hover {
+  color: rgba(255, 255, 255, 0.95);
+  transform: scale(1.08);
+}
+
+.btn-moderation-info:active,
+#btn-moderation-info:active {
+  transform: scale(0.95);
+}
