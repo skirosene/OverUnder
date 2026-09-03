@@ -724,6 +724,7 @@ const state = {
   totalCards: 0,
   userHasVoted: false,
   roundEndActive: false,
+  _currentCropperBlobUrl: null,
   
   timerStartTime: null,
   timerRequestId: null,
@@ -826,32 +827,65 @@ let openInAppCamera = null;
 
 function initCropper(imageElement) {
   if (activeCropper) {
-    activeCropper.destroy();
+    try { activeCropper.destroy(); } catch (e) {}
     activeCropper = null;
   }
 
-  if (imageElement) {
+  if (!imageElement) return null;
+
+  const isRemote = typeof imageElement.src === 'string' && imageElement.src.startsWith('http');
+  if (isRemote) {
     imageElement.crossOrigin = "anonymous";
+  } else {
+    imageElement.removeAttribute('crossorigin');
   }
 
-  activeCropper = new Cropper(imageElement, {
-    aspectRatio: 1,
-    viewMode: 1, // Vincolo di copertura: l'immagine non può mai diventare più piccola del riquadro 1:1 (nessun bordo vuoto o nero)
-    dragMode: 'move', // Trascina per centrare e riposizionare l'immagine
-    autoCropArea: 1,
-    restore: false,
-    guides: true,
-    center: true,
-    highlight: false,
-    cropBoxMovable: false,
-    cropBoxResizable: false,
-    toggleDragModeOnDblclick: false,
-    zoomable: true,
-    zoomOnTouch: true,
-    zoomOnWheel: true,
-    wheelZoomRatio: 0.1,
-    checkCrossOrigin: true
-  });
+  const startCropper = () => {
+    if (activeCropper) {
+      try { activeCropper.destroy(); } catch (e) {}
+      activeCropper = null;
+    }
+    try {
+      activeCropper = new Cropper(imageElement, {
+        aspectRatio: 1,
+        viewMode: 1, // Vincolo di copertura 1:1
+        dragMode: 'move',
+        autoCropArea: 1,
+        restore: false,
+        guides: true,
+        center: true,
+        highlight: false,
+        cropBoxMovable: false,
+        cropBoxResizable: false,
+        toggleDragModeOnDblclick: false,
+        zoomable: true,
+        zoomOnTouch: true,
+        zoomOnWheel: true,
+        wheelZoomRatio: 0.1,
+        checkCrossOrigin: isRemote
+      });
+    } catch (err) {
+      console.error("[CROPPER INIT ERROR]", err);
+    }
+  };
+
+  // Se l'immagine ha già completato il caricamento e ha dimensioni note nel DOM, avvia subito
+  if (imageElement.complete && imageElement.naturalWidth > 0) {
+    startCropper();
+  } else {
+    // Altrimenti attende l'evento onload per evitare che naturalWidth sia 0 (causa principale di errore da galleria)
+    imageElement.onload = () => {
+      startCropper();
+    };
+    imageElement.onerror = () => {
+      console.error("[CROPPER LOAD ERROR] Impossibile decodificare l'immagine.");
+      showToast("Impossibile caricare la foto selezionata.", 3500);
+      if (el.cropperModal) {
+        el.cropperModal.classList.remove('active');
+        el.cropperModal.style.display = 'none';
+      }
+    };
+  }
 
   return activeCropper;
 }
@@ -862,21 +896,25 @@ function openCropperWithImageUrl(imageUrl, target = 'card', source = 'web') {
   state.cropperTarget = target;
   state.cropperSource = source;
   const cardCount = (state.localPremiumCards ? state.localPremiumCards.length : 0) + 1;
-  state.currentUploadedFilename = `web_${Date.now()}_${cardCount}.webp`;
+  state.currentUploadedFilename = `${source}_${Date.now()}_${cardCount}.webp`;
 
   if (activeCropper) {
     try { activeCropper.destroy(); } catch (e) {}
     activeCropper = null;
   }
 
-  // Imposta crossOrigin anonymous sull'elemento img prima del caricamento src per evitare tainted canvas
-  el.cropperImageTarget.crossOrigin = "anonymous";
-  el.cropperImageTarget.src = imageUrl;
+  const isRemote = typeof imageUrl === 'string' && imageUrl.startsWith('http');
+  if (isRemote) {
+    el.cropperImageTarget.crossOrigin = "anonymous";
+  } else {
+    el.cropperImageTarget.removeAttribute('crossorigin');
+  }
 
   el.cropperModal.style.display = 'flex';
   el.cropperModal.offsetHeight; // trigger reflow
   el.cropperModal.classList.add('active');
 
+  el.cropperImageTarget.src = imageUrl;
   initCropper(el.cropperImageTarget);
 }
 
@@ -7394,21 +7432,49 @@ function setupPremiumCreatorEvents() {
   const handleCardFile = (file) => {
     if (!file) return;
 
+    if (file.type && !file.type.startsWith('image/')) {
+      showToast("Seleziona un'immagine valida (JPG, PNG, WebP).", 3000);
+      return;
+    }
+
     state.cropperTarget = 'card';
     state.cropperSource = 'upload';
     const cardCount = (state.localPremiumCards ? state.localPremiumCards.length : 0) + 1;
     state.currentUploadedFilename = `image_${Date.now()}_${cardCount}.webp`;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      el.cropperImageTarget.src = event.target.result;
+    if (activeCropper) {
+      try { activeCropper.destroy(); } catch (e) {}
+      activeCropper = null;
+    }
+
+    // Revoca eventuale blob precedente per evitare accumulo di memoria
+    if (state._currentCropperBlobUrl) {
+      try { URL.revokeObjectURL(state._currentCropperBlobUrl); } catch (e) {}
+      state._currentCropperBlobUrl = null;
+    }
+
+    const openWithSrc = (srcUrl) => {
+      el.cropperImageTarget.removeAttribute('crossorigin');
       el.cropperModal.style.display = 'flex';
       el.cropperModal.offsetHeight; // trigger reflow
       el.cropperModal.classList.add('active');
-
+      el.cropperImageTarget.src = srcUrl;
       initCropper(el.cropperImageTarget);
     };
-    reader.readAsDataURL(file);
+
+    // Metodo primario rapido e privo di consumo memoria per foto grandi di fotocamera
+    try {
+      const blobUrl = URL.createObjectURL(file);
+      state._currentCropperBlobUrl = blobUrl;
+      openWithSrc(blobUrl);
+    } catch (e) {
+      // Fallback su FileReader
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        openWithSrc(event.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Image upload and Cropper events con reset immediato dell'input value per abilitare ricaricamento
@@ -7483,47 +7549,72 @@ function setupPremiumCreatorEvents() {
       // Compressione HD Client-Side: 1200px per carte, 512px per avatar HD
       const isAvatar = state.cropperTarget === 'avatar';
       const maxSize = isAvatar ? 512 : 1200;
-      const canvas = activeCropper.getCroppedCanvas({
-        width: maxSize,
-        height: maxSize,
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high'
-      });
+      let canvas;
+      try {
+        canvas = activeCropper.getCroppedCanvas({
+          width: maxSize,
+          height: maxSize,
+          imageSmoothingEnabled: true,
+          imageSmoothingQuality: 'high'
+        });
+      } catch (canvasErr) {
+        console.error("[CROPPER CANVAS EXPORT ERROR]", canvasErr);
+      }
 
-      if (canvas) {
-        const confirmBtn = el.btnCropperConfirm;
-        confirmBtn.disabled = true;
-        const oldText = confirmBtn.textContent;
-        confirmBtn.textContent = 'Caricamento...';
+      if (!canvas) {
+        showToast("Impossibile generare il ritaglio. Riprova con un'altra foto.", 3500);
+        return;
+      }
 
-        // WebP HD al 92% per avatar, 88% per carte
-        const quality = isAvatar ? 0.92 : 0.88;
-        const mimeType = 'image/webp';
-        const filename = state.currentUploadedFilename || `img_${Date.now()}.webp`;
+      const confirmBtn = el.btnCropperConfirm;
+      confirmBtn.disabled = true;
+      const oldText = confirmBtn.textContent;
+      confirmBtn.textContent = 'Caricamento...';
 
-        try {
-          // Estrai il blob ritagliato dal canvas (canvas.toBlob)
-          const blob = await new Promise((resolve, reject) => {
-            try {
-              canvas.toBlob((b) => {
-                if (b) {
-                  resolve(b);
-                } else {
-                  // Fallback su toDataURL se toBlob restituisce null (alcuni webview)
-                  try {
-                    const dUrl = canvas.toDataURL(mimeType, quality);
-                    resolve(dataURLtoBlob(dUrl));
-                  } catch (e) {
-                    reject(e);
-                  }
+      // WebP HD al 92% per avatar, 88% per carte
+      const quality = isAvatar ? 0.92 : 0.88;
+      let filename = state.currentUploadedFilename || `img_${Date.now()}.webp`;
+
+      try {
+        // Estrai il blob ritagliato dal canvas con fallback progressivo (WebP -> JPEG -> DataURL)
+        const blob = await new Promise((resolve, reject) => {
+          try {
+            canvas.toBlob((b) => {
+              if (b && b.size > 0) {
+                resolve(b);
+              } else {
+                // Fallback 1: JPEG (compatibilità universale su tutti i dispositivi/Safari)
+                try {
+                  canvas.toBlob((jpegBlob) => {
+                    if (jpegBlob && jpegBlob.size > 0) {
+                      filename = filename.replace(/\.webp$/i, '.jpg');
+                      resolve(jpegBlob);
+                    } else {
+                      // Fallback 2: JPEG toDataURL
+                      const dUrl = canvas.toDataURL('image/jpeg', 0.88);
+                      filename = filename.replace(/\.webp$/i, '.jpg');
+                      resolve(dataURLtoBlob(dUrl));
+                    }
+                  }, 'image/jpeg', 0.88);
+                } catch (e) {
+                  const dUrl = canvas.toDataURL('image/jpeg', 0.88);
+                  filename = filename.replace(/\.webp$/i, '.jpg');
+                  resolve(dataURLtoBlob(dUrl));
                 }
-              }, mimeType, quality);
-            } catch (canvasErr) {
+              }
+            }, 'image/webp', quality);
+          } catch (canvasErr) {
+            try {
+              const dUrl = canvas.toDataURL('image/jpeg', 0.88);
+              filename = filename.replace(/\.webp$/i, '.jpg');
+              resolve(dataURLtoBlob(dUrl));
+            } catch (e) {
               reject(canvasErr);
             }
-          });
+          }
+        });
 
-          const uploadUrl = await uploadImage(blob, filename);
+        const uploadUrl = await uploadImage(blob, filename);
           if (uploadUrl) {
             if (state.cropperTarget === 'avatar') {
               // Imposta l'avatar dell'utente
@@ -7577,13 +7668,16 @@ function setupPremiumCreatorEvents() {
           confirmBtn.disabled = false;
           confirmBtn.textContent = oldText;
         }
-      }
 
       el.cropperModal.classList.remove('active');
       el.cropperModal.style.display = 'none';
       if (activeCropper) {
         activeCropper.destroy();
         activeCropper = null;
+      }
+      if (state._currentCropperBlobUrl) {
+        try { URL.revokeObjectURL(state._currentCropperBlobUrl); } catch (e) {}
+        state._currentCropperBlobUrl = null;
       }
       if (el.premiumImageUpload) el.premiumImageUpload.value = '';
       if (el.inputPremiumCamera) el.inputPremiumCamera.value = '';
@@ -7601,6 +7695,10 @@ function setupPremiumCreatorEvents() {
       if (activeCropper) {
         activeCropper.destroy();
         activeCropper = null;
+      }
+      if (state._currentCropperBlobUrl) {
+        try { URL.revokeObjectURL(state._currentCropperBlobUrl); } catch (e) {}
+        state._currentCropperBlobUrl = null;
       }
       if (el.premiumImageUpload) el.premiumImageUpload.value = '';
       if (el.inputPremiumCamera) el.inputPremiumCamera.value = '';
@@ -8069,28 +8167,62 @@ function setupAvatarEvents() {
 
   const handleAvatarFile = (file) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      state.cropperTarget = 'avatar';
-      state.cropperSource = 'upload';
-      el.cropperImageTarget.src = event.target.result;
+
+    if (file.type && !file.type.startsWith('image/')) {
+      showToast("Seleziona un'immagine valida (JPG, PNG, WebP).", 3000);
+      return;
+    }
+
+    state.cropperTarget = 'avatar';
+    state.cropperSource = 'upload';
+    state.currentUploadedFilename = `avatar_${Date.now()}.webp`;
+
+    if (activeCropper) {
+      try { activeCropper.destroy(); } catch (e) {}
+      activeCropper = null;
+    }
+
+    if (state._currentCropperBlobUrl) {
+      try { URL.revokeObjectURL(state._currentCropperBlobUrl); } catch (e) {}
+      state._currentCropperBlobUrl = null;
+    }
+
+    const openWithSrc = (srcUrl) => {
+      el.cropperImageTarget.removeAttribute('crossorigin');
       el.cropperModal.style.display = 'flex';
       el.cropperModal.offsetHeight; // trigger reflow
       el.cropperModal.classList.add('active');
-
+      el.cropperImageTarget.src = srcUrl;
       initCropper(el.cropperImageTarget);
     };
-    reader.readAsDataURL(file);
+
+    try {
+      const blobUrl = URL.createObjectURL(file);
+      state._currentCropperBlobUrl = blobUrl;
+      openWithSrc(blobUrl);
+    } catch (e) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        openWithSrc(event.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   if (el.inputAvatarGallery) {
     el.inputAvatarGallery.addEventListener('change', (e) => {
-      handleAvatarFile(e.target.files[0]);
+      if (e.target.files && e.target.files[0]) {
+        handleAvatarFile(e.target.files[0]);
+      }
+      e.target.value = '';
     });
   }
   if (el.inputAvatarCamera) {
     el.inputAvatarCamera.addEventListener('change', (e) => {
-      handleAvatarFile(e.target.files[0]);
+      if (e.target.files && e.target.files[0]) {
+        handleAvatarFile(e.target.files[0]);
+      }
+      e.target.value = '';
     });
   }
 

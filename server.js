@@ -387,7 +387,7 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
 
-// Configurazione Multer per caricamento file fino a 2MB
+// Configurazione Multer per caricamento file fino a 25MB (supporto foto galleria ad alta risoluzione)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
@@ -399,7 +399,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 2 * 1024 * 1024 } // Limite 2MB
+  limits: { fileSize: 25 * 1024 * 1024 } // Limite 25MB
 });
 
 // ==========================================================================
@@ -1191,28 +1191,39 @@ app.post('/api/iap/verify', (req, res) => {
   }
 });
 
-// Endpoint per caricamento immagini (Foto Profilo & Carte Premium)
-app.post(['/upload', '/api/upload'], upload.single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'Nessun file caricato' });
-  }
-  const fileUrl = '/uploads/' + req.file.filename;
-
-  const roomCode = (req.body.roomCode || '').trim().toUpperCase();
-  const target = (req.body.target || '').trim();
-  
-  if (roomCode && rooms[roomCode] && target === 'card') {
-    const room = rooms[roomCode];
-    if (!room.assets) {
-      room.assets = [];
+// Endpoint per caricamento immagini (Foto Profilo & Carte Premium) con gestione errori robusta
+app.post(['/upload', '/api/upload'], (req, res) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('[UPLOAD ERROR]', err.message);
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: 'Il file selezionato supera il limite consentito (max 25MB).' });
+      }
+      return res.status(400).json({ error: err.message || 'Errore durante il caricamento del file.' });
     }
-    if (!room.assets.includes(fileUrl)) {
-      room.assets.push(fileUrl);
-    }
-    console.log(`[ASSET] Registrata immagine carta per la stanza ${roomCode}: ${fileUrl}`);
-  }
 
-  res.json({ url: fileUrl });
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nessun file ricevuto dal server.' });
+    }
+
+    const fileUrl = '/uploads/' + req.file.filename;
+
+    const roomCode = (req.body.roomCode || '').trim().toUpperCase();
+    const target = (req.body.target || '').trim();
+    
+    if (roomCode && rooms[roomCode] && target === 'card') {
+      const room = rooms[roomCode];
+      if (!room.assets) {
+        room.assets = [];
+      }
+      if (!room.assets.includes(fileUrl)) {
+        room.assets.push(fileUrl);
+      }
+      console.log(`[ASSET] Registrata immagine carta per la stanza ${roomCode}: ${fileUrl}`);
+    }
+
+    res.json({ url: fileUrl });
+  });
 });
 
 // Endpoint Ricerca Immagini & GIF Web (Integrazione Ufficiale Giphy API)
