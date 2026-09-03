@@ -6811,3 +6811,74 @@ input[type="submit"] {
 #btn-moderation-info:active {
   transform: scale(0.95);
 }
+
+/* Censura Blur Permanente per Risultati del Round */
+.results-prompt-card.censored-blur {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.results-prompt-card.censored-blur #results-prompt-image,
+.results-prompt-card.censored-blur #results-prompt-subject {
+  filter: blur(18px) brightness(0.5) !important;
+  -webkit-filter: blur(18px) brightness(0.5) !important;
+  user-select: none !important;
+  pointer-events: none !important;
+}
+
+.results-prompt-card.censored-blur::after {
+  content: '⚠️ CONTENUTO OSCURATO';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.6);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 1px;
+  z-index: 10;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+
+/* Censura Blur Permanente per Recap Finale Verdetti */
+.summary-item.censored-card {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.summary-item.censored-card .summary-card-image,
+.summary-item.censored-card .summary-item-prompt {
+  filter: blur(14px) brightness(0.5) !important;
+  -webkit-filter: blur(14px) brightness(0.5) !important;
+  user-select: none !important;
+  pointer-events: none !important;
+}
+
+.summary-item.censored-card .summary-card-img-container {
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+.summary-item.censored-card::after {
+  content: '⚠️ CONTENUTO OSCURATO';
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 0.65rem;
+  letter-spacing: 0.5px;
+  z-index: 5;
+  pointer-events: none;
+}

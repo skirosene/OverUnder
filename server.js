@@ -1637,6 +1637,7 @@ io.on('connection', (socket) => {
       isLocked: false,
       timerDurationMs: 10000, // Durata timer round (5000 o 10000)
       cardBlurred: false, // Stato blur carta (controllato dall'Host)
+      isBlurLocked: false, // Blocco permanente del blur fino a fine round
       currentCardReports: new Set() // Tracciamento univoco segnalazioni per carta corrente
     };
 
@@ -2255,7 +2256,8 @@ io.on('connection', (socket) => {
         image: safeImage,
         ownerId: safeOwnerId,
         votes: roundVotes,
-        stats: card.global_stats || null
+        stats: card.global_stats || null,
+        isPermanentlyBlurred: !!card.isPermanentlyBlurred
       });
     }
 
@@ -2478,6 +2480,26 @@ io.on('connection', (socket) => {
         console.log(`[MODERATION] File registrato per la rimozione a fine sessione: ${card.image}`);
       }
     }
+
+    // Trigger Soglia 33.3% Segnalazioni -> Alert Popup all'Host
+    const totalPlayers = (room.players && room.players.length > 0) ? room.players.length : 1;
+    const reportQuorum = Math.ceil(totalPlayers / 3);
+
+    if (room.currentCardReports.size >= reportQuorum) {
+      if (!card.alertSent) {
+        card.alertSent = true;
+        if (room.currentCard) room.currentCard.alertSent = true;
+        const targetHostSocketId = room.hostId || room.hostSocketId;
+        if (targetHostSocketId) {
+          io.to(targetHostSocketId).emit('host_moderation_alert', {
+            cardIndex: room.currentCardIndex,
+            reportsCount: room.currentCardReports.size,
+            quorum: reportQuorum
+          });
+          console.log(`[MODERATION ALERT 33%] Quorum raggiunto (${room.currentCardReports.size}/${totalPlayers}), inviato host_moderation_alert all'Host ${targetHostSocketId}`);
+        }
+      }
+    }
   };
 
   socket.on('report_card', handleCardReport);
@@ -2487,9 +2509,35 @@ io.on('connection', (socket) => {
   socket.on('toggle_card_blur', () => {
     const room = rooms[currentRoomCode];
     if (!room || room.hostId !== socket.id) return; // Solo l'Host può controllare il blur
+
+    const card = room.deck && room.deck.cards && room.deck.cards[room.currentCardIndex];
+    if (room.isBlurLocked || (card && card.isPermanentlyBlurred)) {
+      // Blocco permanente attivo: impedisce de-blur fino alla carta successiva
+      return;
+    }
+
     room.cardBlurred = !room.cardBlurred;
-    io.to(currentRoomCode).emit('sync_card_blur', room.cardBlurred);
+    io.to(currentRoomCode).emit('sync_card_blur', { isBlurred: room.cardBlurred, isLocked: false });
     console.log(`[BLUR] Carta ${room.cardBlurred ? 'OSCURATA' : 'VISIBILE'} nella stanza ${currentRoomCode} dall'Host`);
+  });
+
+  // Evento 7d: Blocco Permanente Blur da Host (a seguito di modale 33.3%)
+  socket.on('host_lock_blur', () => {
+    const room = rooms[currentRoomCode];
+    if (!room || room.hostId !== socket.id) return; // Solo l'Host
+
+    const card = room.deck && room.deck.cards && room.deck.cards[room.currentCardIndex];
+    if (card) {
+      card.isPermanentlyBlurred = true;
+    }
+    if (room.currentCard) {
+      room.currentCard.isPermanentlyBlurred = true;
+    }
+    room.cardBlurred = true;
+    room.isBlurLocked = true;
+
+    io.to(currentRoomCode).emit('sync_card_blur', { isBlurred: true, isLocked: true });
+    console.log(`[MODERATION LOCK] Blur bloccato permanentemente dall'Host nella stanza ${currentRoomCode} per la carta ${room.currentCardIndex}`);
   });
 
   // ==========================================================================
@@ -2860,6 +2908,8 @@ function sendStateSync(socket, room, player) {
     freezeMessage: room.freezeMessage || '',
     customCardsSubmitted: !!player.premiumReady,
     cardBlurred: !!room.cardBlurred,
+    isBlurLocked: !!room.isBlurLocked,
+    isPermanentlyBlurred: !!(currentCard && currentCard.isPermanentlyBlurred),
     roundId: room.roundId || 0
   };
 
@@ -2888,7 +2938,8 @@ function sendStateSync(socket, room, player) {
       image: safeImage,
       ownerId: currentCard ? (currentCard.ownerId || null) : null,
       cardIndex: room.currentCardIndex,
-      totalCards: room.gameLength || (room.deck ? room.deck.cards.length : 0)
+      totalCards: room.gameLength || (room.deck ? room.deck.cards.length : 0),
+      isPermanentlyBlurred: !!(currentCard && currentCard.isPermanentlyBlurred)
     };
   } else if (room.state === 'summary') {
     gameData.summary = {
@@ -2938,6 +2989,7 @@ function startNewRound(room) {
   room.timeIsUp = false; // Reset stato fine tempo
   room.freezeMessage = '';
   room.cardBlurred = false; // Reset blur carta ad ogni nuova carta
+  room.isBlurLocked = false; // Reset blocco permanente blur
   room.currentCardReports = new Set(); // Reset idempotente segnalazioni carta
   room.roundStartTime = Date.now();
 
@@ -2954,6 +3006,10 @@ function startNewRound(room) {
     endGame(room);
     return;
   }
+
+  room.currentCard = card;
+  card.alertSent = false;
+  card.isPermanentlyBlurred = card.isPermanentlyBlurred || false;
 
   // 3. Assegna identificativo univoco (Round Token) a questa specifica fase di votazione
   const currentToken = `round_${room.currentCardIndex}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -3098,7 +3154,8 @@ function freezeRound(room, message) {
     image: safeImage,
     ownerId: safeOwnerId,
     votes: roundVotes,
-    stats: card.global_stats || null
+    stats: card.global_stats || null,
+    isPermanentlyBlurred: !!card.isPermanentlyBlurred
   });
 
   // Calcola percentuali del gruppo
@@ -3127,7 +3184,8 @@ function freezeRound(room, message) {
     ownerId: safeOwnerId,
     cardIndex: room.currentCardIndex,
     totalCards: room.gameLength || (room.deck ? room.deck.cards.length : 0),
-    roundToken: room.currentRoundToken
+    roundToken: room.currentRoundToken,
+    isPermanentlyBlurred: !!card.isPermanentlyBlurred
   });
 
   // Sincronizza stato volatile su Redis

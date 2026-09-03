@@ -1021,6 +1021,9 @@ const el = {
   btnReportCard: document.getElementById('btn-report-card'),
   hostBlurBtn: document.getElementById('host-blur-btn'),
   cardBlurOverlay: document.getElementById('card-blur-overlay'),
+  hostModerationAlertModal: document.getElementById('host-moderation-alert-modal'),
+  btnHostAlertIgnore: document.getElementById('btn-host-alert-ignore'),
+  btnHostAlertBlur: document.getElementById('btn-host-alert-blur'),
   btnCardInfo: document.getElementById('btn-card-info'),
   cardInfoModal: document.getElementById('card-info-modal'),
   cardInfoModalTitle: document.getElementById('card-info-modal-title'),
@@ -2880,6 +2883,29 @@ function showPurchaseModal() {
     });
   }
 
+  // Modale Allerta Moderazione Host (Soglia 33.3% Segnalazioni)
+  const btnAlertIgnore = el.btnHostAlertIgnore || document.getElementById('btn-host-alert-ignore');
+  if (btnAlertIgnore) {
+    btnAlertIgnore.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      closeHostModerationAlertModal();
+    });
+  }
+
+  const btnAlertBlur = el.btnHostAlertBlur || document.getElementById('btn-host-alert-blur');
+  if (btnAlertBlur) {
+    btnAlertBlur.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (!state.isHost) return;
+      if (socket && socket.connected) {
+        socket.emit('host_lock_blur');
+      }
+      closeHostModerationAlertModal();
+    });
+  }
+
   // Tasto Info Carta (i) - Solo Single Player e Stanza Standard
   if (el.btnCardInfo) {
     el.btnCardInfo.addEventListener('click', (e) => {
@@ -3514,6 +3540,9 @@ function setupSocketListeners() {
       if (gameData.cardBlurred !== undefined) {
         window.currentCardBlurred = !!gameData.cardBlurred;
       }
+      if (gameData.isBlurLocked !== undefined) {
+        window.isBlurLocked = !!gameData.isBlurLocked;
+      }
       resetReportFlagUI();
       if (el.currentDeckName) el.currentDeckName.textContent = state.currentDeckName;
       updateGameplayCardMedia(gameData.prompt, gameData.image);
@@ -3940,7 +3969,9 @@ function setupSocketListeners() {
     
     // Reset automatico blur carta ad ogni nuova carta
     window.currentCardBlurred = false;
-    updateBlurUI(false);
+    window.isBlurLocked = false;
+    closeHostModerationAlertModal();
+    updateBlurUI(false, false);
     resetReportFlagUI();
 
     // Reset interfaccia gameplay
@@ -4002,9 +4033,24 @@ function setupSocketListeners() {
 
   // 7d. Sincronizzazione Blur Carta in Tempo Reale (Host overlay - Judgement Day)
   socket.off('sync_card_blur'); // Evita duplicazioni
-  socket.on('sync_card_blur', (isBlurred) => {
-    window.currentCardBlurred = !!isBlurred;
-    updateBlurUI(window.currentCardBlurred);
+  socket.on('sync_card_blur', (payload) => {
+    const isBlurred = (typeof payload === 'object' && payload !== null) ? !!payload.isBlurred : !!payload;
+    const isLocked = (typeof payload === 'object' && payload !== null) ? !!payload.isLocked : false;
+    window.currentCardBlurred = isBlurred;
+    if (isLocked) {
+      window.isBlurLocked = true;
+    }
+    updateBlurUI(window.currentCardBlurred, window.isBlurLocked);
+  });
+
+  // 7e. Allerta Moderazione Host (Soglia 33.3% Segnalazioni)
+  socket.off('host_moderation_alert');
+  socket.on('host_moderation_alert', () => {
+    if (!state.isHost) return;
+    openHostModerationAlertModal();
+    try {
+      AudioSynth.playGong();
+    } catch (e) {}
   });
 
   // 7b. Ricezione Fine Tempo (Compare l'Overlay "PROSSIMA CARTA...")
@@ -4304,11 +4350,23 @@ function requestCardRecoveryFromServer() {
 // ==========================================================================
 // CONTROLLO BLUR IN TEMPO REALE (HOST OVERLAY - JUDGEMENT DAY)
 // ==========================================================================
-function updateBlurUI(isBlurred) {
+function updateBlurUI(isBlurred, isLocked) {
   const overlay = document.getElementById('card-blur-overlay');
   if (overlay) overlay.classList.toggle('active', !!isBlurred);
   const hostBtn = document.getElementById('host-blur-btn');
-  if (hostBtn) hostBtn.classList.toggle('active', !!isBlurred);
+  const locked = (isLocked !== undefined) ? !!isLocked : !!window.isBlurLocked;
+  if (hostBtn) {
+    hostBtn.classList.toggle('active', !!isBlurred);
+    if (locked) {
+      hostBtn.style.pointerEvents = 'none';
+      hostBtn.style.opacity = '0.5';
+      hostBtn.title = 'Blur bloccato dalla moderazione';
+    } else {
+      hostBtn.style.pointerEvents = 'auto';
+      hostBtn.style.opacity = '1';
+      hostBtn.title = 'Oscura/Mostra carta';
+    }
+  }
 }
 
 // Reset visivo locale bandierina di segnalazione
@@ -4590,7 +4648,7 @@ function updateGameplayCardMedia(prompt, image) {
   }
 
   // Sincronizza stato grafico Blur dopo ogni aggiornamento del DOM
-  updateBlurUI(window.currentCardBlurred || false);
+  updateBlurUI(window.currentCardBlurred || false, window.isBlurLocked || false);
 
   // Ripristina stato neutro della bandierina di segnalazione per la nuova carta
   resetReportFlagUI();
@@ -4652,6 +4710,26 @@ function openModerationInfoModal() {
 
 function closeModerationInfoModal() {
   const modal = el.moderationInfoModal || document.getElementById('moderation-info-modal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+}
+
+// ==========================================================================
+// MODALE ALLERTA MODERAZIONE HOST (SOGLIA 33.3% SEGNALAZIONI)
+// ==========================================================================
+function openHostModerationAlertModal() {
+  const modal = el.hostModerationAlertModal || document.getElementById('host-moderation-alert-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.offsetHeight; // trigger reflow per transizione fluida
+    modal.classList.add('active');
+  }
+}
+
+function closeHostModerationAlertModal() {
+  const modal = el.hostModerationAlertModal || document.getElementById('host-moderation-alert-modal');
   if (modal) {
     modal.classList.remove('active');
     modal.style.display = 'none';
@@ -6173,7 +6251,7 @@ function advanceSoloGame() {
   }
 }
 
-function renderRoundResults({ votes, groupStats, globalStats, prompt, image, cardIndex, totalCards } = {}) {
+function renderRoundResults({ votes, groupStats, globalStats, prompt, image, cardIndex, totalCards, isPermanentlyBlurred } = {}) {
   clearWatchdog();
   stopTimerLoop();
   state.roundEndActive = true;
@@ -6225,6 +6303,12 @@ function renderRoundResults({ votes, groupStats, globalStats, prompt, image, car
       el.resultsPromptSubject.textContent = '';
       el.resultsPromptSubject.style.display = 'none';
     }
+  }
+
+  // Applica censura blur permanente se la carta è stata oscurata in-game dall'Host
+  const resultsCard = document.querySelector('.results-prompt-card');
+  if (resultsCard) {
+    resultsCard.classList.toggle('censored-blur', !!isPermanentlyBlurred || !!window.isBlurLocked);
   }
 
   const gStats = groupStats || { underrated: 50, overrated: 50 };
@@ -6384,9 +6468,12 @@ function renderGameOver({ awards, summary } = {}) {
   if (el.summaryCardsList) {
     el.summaryCardsList.innerHTML = '';
     const summaryList = Array.isArray(summary) ? summary : [];
-    summaryList.forEach(res => {
+    summaryList.forEach((res, idx) => {
       const item = document.createElement('div');
       item.className = 'summary-item glass-panel';
+      if (res.isPermanentlyBlurred) {
+        item.classList.add('censored-card');
+      }
       
       let playerVotesHtml = '';
       const votesList = Array.isArray(res.votes) ? res.votes : [];
@@ -6467,7 +6554,7 @@ function renderGameOver({ awards, summary } = {}) {
         ${statsHtml}
       `;
 
-      if (hasImage) {
+      if (hasImage && !res.isPermanentlyBlurred) {
         const imgContainer = item.querySelector('.summary-card-img-container');
         if (imgContainer) {
           bindFastClick(imgContainer, (e) => {
@@ -6480,9 +6567,9 @@ function renderGameOver({ awards, summary } = {}) {
         }
       }
 
-      // Permetti l'espansione al tap sulle didascalie del summary
+      // Permetti l'espansione al tap sulle didascalie del summary (se non censurata)
       const promptDiv = item.querySelector('.summary-item-prompt');
-      if (promptDiv) {
+      if (promptDiv && !res.isPermanentlyBlurred) {
         bindFastClick(promptDiv, () => {
           promptDiv.classList.toggle('expanded');
         });
