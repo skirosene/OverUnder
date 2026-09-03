@@ -2800,12 +2800,13 @@ function applyCardCensorship() {
 // Funzione per applicare/rimuovere l'effetto blur istantaneo in tempo reale (Host WebSocket)
 function updateCardBlurUI(isBlurred) {
   state.currentCardBlurred = !!isBlurred;
+  const promptCard = el.promptCard || document.getElementById('prompt-card');
   const promptText = el.currentPromptText || document.getElementById('current-prompt-text');
   const imgContainer = el.gameplayPromptImageContainer || document.getElementById('gameplay-prompt-image-container');
   const imgEl = el.gameplayPromptImage || document.getElementById('gameplay-prompt-image');
   const btnBlur = el.btnToggleBlur || document.getElementById('btn-toggle-blur');
 
-  [promptText, imgContainer, imgEl].forEach(element => {
+  [promptCard, promptText, imgContainer, imgEl].forEach(element => {
     if (element) {
       if (isBlurred) {
         element.classList.add('card-censored-blur');
@@ -4207,12 +4208,14 @@ function setupSocketListeners() {
   });
 
   // 14. Pop-up di Allerta Gravità Segnalazioni (Esclusivo per l'Host)
-  socket.on('card_report_alert', ({ reportCount, totalPlayers, threshold }) => {
+  socket.on('card_report_alert', (data) => {
     if (!state.isHost) return;
+    const count = (data && (data.count || data.reportCount)) || 0;
+    const total = (data && (data.total || data.totalPlayers)) || 0;
     const modal = el.reportAlertModal || document.getElementById('report-alert-modal');
     const textEl = el.reportAlertModalText || document.getElementById('report-alert-modal-text');
     if (textEl) {
-      textEl.textContent = `Questa carta ha superato la soglia critica del 33% delle segnalazioni (${reportCount} su ${totalPlayers} giocatori). Come moderatore della stanza, valuta se oscurarla o procedere.`;
+      textEl.textContent = `La carta ha raggiunto il 33% delle segnalazioni (${count}/${total}). Come moderatore, valuta se oscurarla o procedere.`;
     }
     if (modal) {
       modal.style.display = 'flex';
@@ -4225,14 +4228,19 @@ function setupSocketListeners() {
     applyCardCensorship();
   });
 
-  // 16. Controllo Blur Carta in Tempo Reale (Broadcast a tutti i giocatori)
-  socket.on('card_blur_state_changed', ({ isBlurred }) => {
+  // 16. Controllo Blur Carta in Tempo Reale (Broadcast primitivo e con payload)
+  socket.on('card_blur', (isBlurred) => {
+    updateCardBlurUI(isBlurred);
+  });
+
+  socket.on('card_blur_state_changed', (data) => {
+    const isBlurred = typeof data === 'boolean' ? data : (data && data.isBlurred);
     updateCardBlurUI(isBlurred);
   });
 
   // 17. Schermata Dedicata "Carta Rimossa" (>50% Segnalazioni)
-  socket.on('card_voided_screen', ({ reason, totalPlayers, reportCount, threshold }) => {
-    console.log(`[CARD VOIDED] Carta annullata dal gruppo (${reportCount}/${totalPlayers})`);
+  socket.on('card_voided_screen', () => {
+    console.log(`[CARD VOIDED] Carta annullata dal gruppo (>50% segnalazioni)`);
 
     // 1. Ferma subito i timer locali del client
     stopTimerLoop();
