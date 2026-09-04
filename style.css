@@ -6813,19 +6813,51 @@ input[type="submit"] {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  /* Blur molto più marcato */
   backdrop-filter: blur(36px);
   -webkit-backdrop-filter: blur(36px);
-  /* Aumento opacità scura: cancella il contrasto del testo bianco */
-  background: rgba(10, 10, 10, 0.82);
+  background: rgba(10, 10, 10, 0.85);
   z-index: 10;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.2s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.25s ease-in-out;
 }
 
 .card-blur-overlay.active {
   opacity: 1;
+}
+
+.card-blur-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transform: scale(0.94);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease-in-out;
+}
+
+.card-blur-overlay.active .card-blur-content {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.blur-eye-icon {
+  color: #9CA3AF; /* Grigio medio chiaro, visibile ed elegante */
+  opacity: 0.85;
+}
+
+.blur-feedback-text {
+  color: #9CA3AF;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-align: center;
+  user-select: none;
 }
 
 /* Sfocatura supplementare diretta sul contenuto testuale quando oscurato */

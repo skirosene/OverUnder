@@ -4523,11 +4523,38 @@ function requestCardRecoveryFromServer() {
 // ==========================================================================
 // CONTROLLO BLUR IN TEMPO REALE (HOST OVERLAY - JUDGEMENT DAY)
 // ==========================================================================
-function updateBlurUI(isBlurred, isLocked) {
-  const overlay = document.getElementById('card-blur-overlay');
-  if (overlay) overlay.classList.toggle('active', !!isBlurred);
+function ensureCardBlurOverlayContent(overlay) {
+  if (!overlay) return;
+  if (!overlay.querySelector('.card-blur-content')) {
+    overlay.innerHTML = `
+      <div class="card-blur-content">
+        <svg class="blur-eye-icon" xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+          <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+          <line x1="2" y1="2" x2="22" y2="22"></line>
+        </svg>
+        <span class="blur-feedback-text">L'Host ha oscurato la carta</span>
+      </div>
+    `;
+  }
+}
 
+function updateBlurUI(isBlurred, isLocked) {
+  let overlay = document.getElementById('card-blur-overlay');
   const promptCard = el.promptCard || document.getElementById('prompt-card');
+  if (!overlay && promptCard) {
+    overlay = document.createElement('div');
+    overlay.id = 'card-blur-overlay';
+    overlay.className = 'card-blur-overlay';
+    promptCard.appendChild(overlay);
+  }
+
+  if (overlay) {
+    ensureCardBlurOverlayContent(overlay);
+    overlay.classList.toggle('active', !!isBlurred);
+  }
+
   if (promptCard) promptCard.classList.toggle('is-blurred', !!isBlurred);
 
   const cardContainer = document.querySelector('.card-container');
