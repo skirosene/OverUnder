@@ -284,6 +284,217 @@ async function authenticateGuest(roomCode, playerName) {
 }
 
 // ==========================================================================
+// CONTROLLER AUDIO SINGLETON PER COLONNA SONORA MENU / LOBBY
+// ==========================================================================
+let menuAudio = null;
+
+const MenuAudioManager = {
+  audio: null,
+  fadeInterval: null,
+  fadeDuration: 800,
+  targetVolume: 0.6,
+  isPlaying: false,
+  autoplayUnlocked: false,
+  _unlockHandler: null,
+
+  init() {
+    // Gestione Singleton: se esiste già un'istanza su window, recuperala ed evita duplicazioni
+    if (window.__menuAudioInstance) {
+      this.audio = window.__menuAudioInstance;
+    } else {
+      this.audio = new Audio('/audio/Coastline_Pursuit.mp3');
+      this.audio.loop = true;
+      this.audio.volume = 0;
+      this.audio.preload = 'auto';
+      window.__menuAudioInstance = this.audio;
+    }
+
+    menuAudio = this.audio;
+    window.menuAudio = menuAudio;
+
+    // Fallback trasparente: se /audio/ non dovesse risolvere su vecchi proxy, prova /public/audio/
+    this.audio.addEventListener('error', () => {
+      if (this.audio && this.audio.src && this.audio.src.indexOf('/public/audio/') === -1) {
+        console.warn('[MENU AUDIO] Errore caricamento /audio/, fallback su /public/audio/Coastline_Pursuit.mp3');
+        this.audio.src = '/public/audio/Coastline_Pursuit.mp3';
+        this.audio.load();
+      }
+    });
+
+    // Pulizia automatica su scaricamento della pagina
+    window.addEventListener('beforeunload', () => {
+      this.stopImmediately();
+    });
+
+    this.setupAutoplayBypass();
+  },
+
+  isInAllowedScreen() {
+    // Non riprodurre MAI se la partita è in corso
+    if (typeof state !== 'undefined' && state && state.gameplayStarted) return false;
+    
+    // Schermate attive di gioco dove l'audio deve rimanere spento
+    if (typeof el !== 'undefined' && el) {
+      if (el.screenGameplay && el.screenGameplay.classList.contains('active')) return false;
+      if (el.screenResults && el.screenResults.classList.contains('active')) return false;
+      if (el.screenSummary && el.screenSummary.classList.contains('active')) return false;
+      
+      // Schermate permesse
+      if (el.screenWelcome && el.screenWelcome.classList.contains('active')) return true;
+      if (el.screenOnboarding && el.screenOnboarding.classList.contains('active')) return true;
+      if (el.screenLobby && el.screenLobby.classList.contains('active')) return true;
+      if (el.screenSplash && el.screenSplash.classList.contains('active')) return true;
+    }
+
+    // Default consentito se non siamo in partita
+    return !state || !state.gameplayStarted;
+  },
+
+  setupAutoplayBypass() {
+    if (this._unlockHandler) {
+      window.removeEventListener('pointerdown', this._unlockHandler, true);
+      window.removeEventListener('click', this._unlockHandler, true);
+      this._unlockHandler = null;
+    }
+
+    const startPlaybackWithFade = () => {
+      if (!this.isInAllowedScreen()) return;
+      if (typeof AudioSynth !== 'undefined' && AudioSynth.isMuted) return;
+      this.playWithFadeIn();
+    };
+
+    // 1. Tenta la riproduzione al load
+    if (this.isInAllowedScreen() && (typeof AudioSynth === 'undefined' || !AudioSynth.isMuted)) {
+      this.audio.volume = 0;
+      const playPromise = this.audio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          this.isPlaying = true;
+          this.autoplayUnlocked = true;
+          this.fadeIn(this.fadeDuration, this.targetVolume);
+        }).catch((err) => {
+          // Autoplay bloccato dal browser -> aggancia listener su window
+          console.log('[MENU AUDIO] Autoplay bloccato (mobile policy). In attesa di interazione:', err.message);
+          this.attachUnlockListener(startPlaybackWithFade);
+        });
+      }
+    } else {
+      this.attachUnlockListener(startPlaybackWithFade);
+    }
+  },
+
+  attachUnlockListener(startPlaybackWithFade) {
+    if (this.autoplayUnlocked) return;
+
+    this._unlockHandler = () => {
+      this.autoplayUnlocked = true;
+      if (this._unlockHandler) {
+        window.removeEventListener('pointerdown', this._unlockHandler, true);
+        window.removeEventListener('click', this._unlockHandler, true);
+        this._unlockHandler = null;
+      }
+      startPlaybackWithFade();
+    };
+
+    window.addEventListener('pointerdown', this._unlockHandler, { once: true, capture: true });
+    window.addEventListener('click', this._unlockHandler, { once: true, capture: true });
+  },
+
+  fadeIn(duration = 800, maxVolume = 0.6) {
+    if (!this.audio) return;
+    if (typeof AudioSynth !== 'undefined' && AudioSynth.isMuted) {
+      this.audio.volume = 0;
+      return;
+    }
+
+    if (this.fadeInterval) {
+      clearInterval(this.fadeInterval);
+      this.fadeInterval = null;
+    }
+
+    const startTime = performance.now();
+    const startVolume = this.audio.volume;
+    const volumeDelta = maxVolume - startVolume;
+
+    this.fadeInterval = setInterval(() => {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(1, elapsed / duration);
+
+      if (this.audio) {
+        if (typeof AudioSynth !== 'undefined' && AudioSynth.isMuted) {
+          this.audio.volume = 0;
+          clearInterval(this.fadeInterval);
+          this.fadeInterval = null;
+          return;
+        }
+
+        const newVol = startVolume + (volumeDelta * progress);
+        this.audio.volume = Math.max(0, Math.min(1, Number(newVol.toFixed(3))));
+      }
+
+      if (progress >= 1) {
+        if (this.audio && (typeof AudioSynth === 'undefined' || !AudioSynth.isMuted)) {
+          this.audio.volume = maxVolume;
+        }
+        clearInterval(this.fadeInterval);
+        this.fadeInterval = null;
+      }
+    }, 20);
+  },
+
+  playWithFadeIn() {
+    if (!this.audio) return;
+    if (typeof AudioSynth !== 'undefined' && AudioSynth.isMuted) return;
+    if (!this.isInAllowedScreen()) return;
+
+    // Se sta già riproducendo al volume target, non interrompere e non resettare il volume
+    if (!this.audio.paused && this.audio.volume >= (this.targetVolume - 0.05)) {
+      this.isPlaying = true;
+      return;
+    }
+
+    this.audio.loop = true;
+
+    if (this.audio.paused) {
+      this.audio.volume = 0;
+      const playPromise = this.audio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          this.isPlaying = true;
+          this.fadeIn(this.fadeDuration, this.targetVolume);
+        }).catch((err) => {
+          console.warn('[MENU AUDIO] Errore play():', err.message);
+          // Se la promise fallisce a causa di mancate gesture, riagganciamo l'unlock
+          if (!this.autoplayUnlocked) {
+            this.attachUnlockListener(() => this.playWithFadeIn());
+          }
+        });
+      }
+    } else {
+      this.isPlaying = true;
+      this.fadeIn(this.fadeDuration, this.targetVolume);
+    }
+  },
+
+  stopImmediately() {
+    if (this.fadeInterval) {
+      clearInterval(this.fadeInterval);
+      this.fadeInterval = null;
+    }
+    if (this.audio) {
+      try {
+        this.audio.pause();
+        this.audio.volume = 0;
+        this.audio.currentTime = 0;
+      } catch (err) {
+        console.warn('[MENU AUDIO] Errore arresto traccia:', err);
+      }
+    }
+    this.isPlaying = false;
+  }
+};
+
+// ==========================================================================
 // SINTETIZZATORE AUDIO (Web Audio API)
 // ==========================================================================
 const AudioSynth = {
@@ -1242,6 +1453,7 @@ async function startApp() {
   try { setupOnboardingTabs(); } catch (e) { console.warn("setupOnboardingTabs error:", e); }
   try { setupEventListeners(); } catch (e) { console.warn("setupEventListeners error:", e); }
   try { AudioSynth.init(); } catch (e) { console.warn("AudioSynth init error:", e); }
+  try { MenuAudioManager.init(); } catch (e) { console.warn("MenuAudioManager init error:", e); }
   try { setupSocketListeners(); } catch (e) { console.warn("setupSocketListeners error:", e); }
   try { setupPremiumCreatorEvents(); } catch (e) { console.warn("setupPremiumCreatorEvents error:", e); }
   try { setupAvatarEvents(); } catch (e) { console.warn("setupAvatarEvents error:", e); }
@@ -1350,6 +1562,15 @@ function showScreen(targetScreen) {
     targetScreen.style.removeProperty('display');
     targetScreen.style.display = '';
     try { targetScreen.scrollTop = 0; } catch (e) {}
+  }
+
+  // Gestione Colonna Sonora Menu / Lobby vs In-Game
+  if (typeof MenuAudioManager !== 'undefined') {
+    if (targetScreen === el.screenGameplay || targetScreen === el.screenResults || targetScreen === el.screenSummary) {
+      MenuAudioManager.stopImmediately();
+    } else if (targetScreen === el.screenWelcome || targetScreen === el.screenOnboarding || targetScreen === el.screenLobby) {
+      MenuAudioManager.playWithFadeIn();
+    }
   }
 
   if (targetScreen !== el.screenGameplay) {
@@ -1485,6 +1706,13 @@ function initSettingsSidebar() {
           AudioSynth.init();
           AudioSynth.playConfirm(true);
         } catch (err) {}
+        if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.isInAllowedScreen()) {
+          MenuAudioManager.playWithFadeIn();
+        }
+      } else {
+        if (typeof MenuAudioManager !== 'undefined') {
+          MenuAudioManager.stopImmediately();
+        }
       }
     });
   }
@@ -3268,6 +3496,13 @@ function showPurchaseModal() {
       if (!AudioSynth.isMuted) {
         AudioSynth.init();
         AudioSynth.playConfirm(true);
+        if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.isInAllowedScreen()) {
+          MenuAudioManager.playWithFadeIn();
+        }
+      } else {
+        if (typeof MenuAudioManager !== 'undefined') {
+          MenuAudioManager.stopImmediately();
+        }
       }
     });
   }
@@ -3661,6 +3896,9 @@ function setupSocketListeners() {
     state.roomIsLocked = !!isLocked;
     state.currentRoundId = gameData.roundId || 0;
     state.gameplayStarted = (roomState === 'playing' || roomState === 'results' || roomState === 'summary');
+    if (state.gameplayStarted && typeof MenuAudioManager !== 'undefined') {
+      MenuAudioManager.stopImmediately();
+    }
     
     // Aggiorna sessione persistente nel localStorage
     saveRoomSession(roomCode, state.playerName, state.isHost, state.playerAvatarUrl);
@@ -4126,6 +4364,9 @@ function applyHostPrivilegeUpdate(isHost, newHostSocketId, newHostName) {
 
   // 5. Partita Avviata
   socket.on('game_started', ({ deckName, totalCards, imageUrls }) => {
+    if (typeof MenuAudioManager !== 'undefined') {
+      MenuAudioManager.stopImmediately();
+    }
     state.isSoloMode = false;
     state.gameMode = 'multiplayer';
     state.currentDeckName = deckName;
@@ -5993,6 +6234,9 @@ function setupSoloLobbyUI() {
 }
 
 function startSoloGame(length = 30) {
+  if (typeof MenuAudioManager !== 'undefined') {
+    MenuAudioManager.stopImmediately();
+  }
   try {
     // 1. Assicurati che l'array delle carte sia caricato COMPLETAMENTE prima del rendering
     if (!state.soloAvailableDecks || !Array.isArray(state.soloAvailableDecks) || state.soloAvailableDecks.length === 0) {
