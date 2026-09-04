@@ -4538,6 +4538,14 @@ function ensureCardBlurOverlayContent(overlay) {
       </div>
     `;
   }
+  const content = overlay.querySelector('.card-blur-content');
+  if (content) {
+    if (state.isHost) {
+      content.style.setProperty('display', 'none', 'important');
+    } else {
+      content.style.removeProperty('display');
+    }
+  }
 }
 
 function updateBlurUI(isBlurred, isLocked) {
@@ -4553,6 +4561,15 @@ function updateBlurUI(isBlurred, isLocked) {
   if (overlay) {
     ensureCardBlurOverlayContent(overlay);
     overlay.classList.toggle('active', !!isBlurred);
+    overlay.classList.toggle('host-view', !!state.isHost);
+    const content = overlay.querySelector('.card-blur-content');
+    if (content) {
+      if (state.isHost) {
+        content.style.setProperty('display', 'none', 'important');
+      } else {
+        content.style.removeProperty('display');
+      }
+    }
   }
 
   if (promptCard) promptCard.classList.toggle('is-blurred', !!isBlurred);

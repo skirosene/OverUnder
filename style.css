@@ -6845,6 +6845,11 @@ input[type="submit"] {
   opacity: 1;
 }
 
+/* L'Host vede solo lo sfondo scuro/sfocato senza testi o icone centrali */
+.card-blur-overlay.host-view .card-blur-content {
+  display: none !important;
+}
+
 .blur-eye-icon {
   color: #9CA3AF; /* Grigio medio chiaro, visibile ed elegante */
   opacity: 0.85;
