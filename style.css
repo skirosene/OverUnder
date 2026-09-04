@@ -6775,17 +6775,58 @@ input[type="submit"] {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  background: rgba(0, 0, 0, 0.4);
+  /* Blur molto più marcato */
+  backdrop-filter: blur(36px);
+  -webkit-backdrop-filter: blur(36px);
+  /* Aumento opacità scura: cancella il contrasto del testo bianco */
+  background: rgba(10, 10, 10, 0.82);
   z-index: 10;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.15s ease-in-out;
+  transition: opacity 0.2s ease-in-out;
 }
 
 .card-blur-overlay.active {
   opacity: 1;
+}
+
+/* Sfocatura supplementare diretta sul contenuto testuale quando oscurato */
+.card-container.is-blurred .card-text,
+.card-container.is-blurred .card-title,
+.card-container.is-blurred .card-body-text,
+.prompt-card.is-blurred #current-prompt-text,
+.prompt-card.is-blurred .prompt-text,
+.prompt-card.is-blurred .card-caption,
+.prompt-card.is-blurred .prompt-category,
+.prompt-card.is-blurred #current-deck-name,
+.prompt-card.is-blurred #gameplay-prompt-image-container,
+.prompt-card.is-blurred #gameplay-prompt-image,
+#prompt-card.is-blurred #current-prompt-text,
+#prompt-card.is-blurred .prompt-text,
+#prompt-card.is-blurred .card-caption,
+#prompt-card.is-blurred .prompt-category,
+#prompt-card.is-blurred #current-deck-name,
+#prompt-card.is-blurred #gameplay-prompt-image-container,
+#prompt-card.is-blurred #gameplay-prompt-image {
+  filter: blur(20px) !important;
+  opacity: 0.15 !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+/* Garanzia assoluta: i pulsanti di controllo restano nitidi, non sfocati e cliccabili */
+.prompt-card.is-blurred #host-blur-btn,
+.prompt-card.is-blurred #btn-report-card,
+.prompt-card.is-blurred #btn-moderation-info,
+.prompt-card.is-blurred .btn-moderation-info,
+#prompt-card.is-blurred #host-blur-btn,
+#prompt-card.is-blurred #btn-report-card,
+#prompt-card.is-blurred #btn-moderation-info {
+  filter: none !important;
+  opacity: 1 !important;
+  z-index: 25 !important;
+  pointer-events: auto !important;
 }
 
 /* Pulsante Blur Host (Simmetrico opposto alla bandierina di segnalazione) */
@@ -6801,7 +6842,7 @@ input[type="submit"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  z-index: 20;
+  z-index: 20 !important;
   transition: color 0.2s ease, transform 0.2s ease, filter 0.2s ease;
   user-select: none;
   -webkit-user-select: none;

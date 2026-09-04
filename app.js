@@ -4486,6 +4486,13 @@ function requestCardRecoveryFromServer() {
 function updateBlurUI(isBlurred, isLocked) {
   const overlay = document.getElementById('card-blur-overlay');
   if (overlay) overlay.classList.toggle('active', !!isBlurred);
+
+  const promptCard = el.promptCard || document.getElementById('prompt-card');
+  if (promptCard) promptCard.classList.toggle('is-blurred', !!isBlurred);
+
+  const cardContainer = document.querySelector('.card-container');
+  if (cardContainer) cardContainer.classList.toggle('is-blurred', !!isBlurred);
+
   const hostBtn = document.getElementById('host-blur-btn');
   const locked = (isLocked !== undefined) ? !!isLocked : !!window.isBlurLocked;
   if (hostBtn) {
