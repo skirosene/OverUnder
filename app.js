@@ -1046,6 +1046,14 @@ const el = {
   btnSuggestCardX: document.getElementById('btn-suggest-card-x'),
   btnSuggestAnother: document.getElementById('btn-suggest-another'),
   btnSuggestClose: document.getElementById('btn-suggest-close'),
+
+  // Modal Guida Poteri e Benefici Host
+  hostGuideModal: document.getElementById('host-guide-modal'),
+  btnHostGuideX: document.getElementById('btn-host-guide-x'),
+  btnHostGuideConfirm: document.getElementById('btn-host-guide-confirm'),
+  hostGuideTitle: document.getElementById('host-guide-title'),
+  hostGuideSubtitle: document.getElementById('host-guide-subtitle'),
+  hostGuideBenefits: document.getElementById('host-guide-benefits'),
   
   // Orologio barra di stato
   statusClock: document.getElementById('status-clock'),
@@ -2729,6 +2737,34 @@ function showPurchaseModal() {
     });
   }
 
+  // Modale Guida Poteri e Benefici Host
+  const btnHostGuideConfirm = el.btnHostGuideConfirm || document.getElementById('btn-host-guide-confirm');
+  if (btnHostGuideConfirm) {
+    btnHostGuideConfirm.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      closeHostGuideModal();
+    });
+  }
+
+  const btnHostGuideX = el.btnHostGuideX || document.getElementById('btn-host-guide-x');
+  if (btnHostGuideX) {
+    btnHostGuideX.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      closeHostGuideModal();
+    });
+  }
+
+  const hostGuideModal = el.hostGuideModal || document.getElementById('host-guide-modal');
+  if (hostGuideModal) {
+    hostGuideModal.addEventListener('click', (e) => {
+      if (e.target === hostGuideModal) {
+        closeHostGuideModal();
+      }
+    });
+  }
+
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (qrModal && (qrModal.style.display === 'flex' || !qrModal.classList.contains('hidden'))) {
@@ -2741,6 +2777,10 @@ function showPurchaseModal() {
       const sugModal = el.suggestCardModal || document.getElementById('suggest-card-modal');
       if (sugModal && sugModal.style.display === 'flex') {
         closeSuggestCardModal();
+      }
+      const hgModal = el.hostGuideModal || document.getElementById('host-guide-modal');
+      if (hgModal && hgModal.style.display === 'flex') {
+        closeHostGuideModal();
       }
     }
   });
@@ -4969,6 +5009,79 @@ function resetSuggestCardForm() {
 }
 
 // ==========================================================================
+// MODALE GUIDA POTERI & BENEFICI HOST (NORMALE & JUDGEMENT DAY)
+// ==========================================================================
+function populateHostGuideModal() {
+  const isJudgementDay = !!(state.roomIsPremium || state.roomMode === 'judgement' || state.gameMode === 'judgement');
+  const titleEl = document.getElementById('host-guide-title');
+  const subtitleEl = document.getElementById('host-guide-subtitle');
+  const benefitsEl = document.getElementById('host-guide-benefits');
+
+  if (isJudgementDay) {
+    if (titleEl) titleEl.textContent = "Host & Moderatore Ufficiale";
+    if (subtitleEl) subtitleEl.textContent = "In Judgement Day i contenuti sono creati dai giocatori: tu guidi e tuteli la stanza:";
+    if (benefitsEl) {
+      benefitsEl.innerHTML = `
+        <div>
+          <div style="font-weight: 700; color: #F59E0B; font-size: 0.85rem; margin-bottom: 2px;">🛡️ Potere di Blur Immediato</div>
+          <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.85); line-height: 1.45;">Hai il pulsante esclusivo sulla carta per censurare in tempo reale qualsiasi immagine o testo inappropriato.</div>
+        </div>
+        <div>
+          <div style="font-weight: 700; color: #EF4444; font-size: 0.85rem; margin-bottom: 2px;">⚠️ Gestione Allerte 33%</div>
+          <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.85); line-height: 1.45;">Se i partecipanti segnalano una carta critica, ricevi un avviso prioritario per scegliere se bloccare definitivamente il blur.</div>
+        </div>
+        <div>
+          <div style="font-weight: 700; color: #F97316; font-size: 0.85rem; margin-bottom: 2px;">🛑 Sblocco Carte Rimosse</div>
+          <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.85); line-height: 1.45;">Al 50% di segnalazioni la carta viene cancellata e solo tu puoi dare il comando per passare alla carta successiva.</div>
+        </div>
+        <div>
+          <div style="font-weight: 700; color: #10B981; font-size: 0.85rem; margin-bottom: 2px;">👑 Regia Completa</div>
+          <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.85); line-height: 1.45;">Gestisci la lobby, espelli utenti molesti e dai il via al round.</div>
+        </div>
+      `;
+    }
+  } else {
+    if (titleEl) titleEl.textContent = "Sei il Master della Stanza";
+    if (subtitleEl) subtitleEl.textContent = "In qualità di Host hai la gestione completa dell'esperienza di gioco:";
+    if (benefitsEl) {
+      benefitsEl.innerHTML = `
+        <div>
+          <div style="font-weight: 700; color: #F59E0B; font-size: 0.85rem; margin-bottom: 2px;">👑 Regia della Partita</div>
+          <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.85); line-height: 1.45;">Decidi quando avviare il gioco, imposti i parametri della stanza e scandisci i tempi.</div>
+        </div>
+        <div>
+          <div style="font-weight: 700; color: #EF4444; font-size: 0.85rem; margin-bottom: 2px;">🚪 Controllo Partecipanti</div>
+          <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.85); line-height: 1.45;">Monitori la lobby in tempo reale e puoi espellere chi disturba o è inattivo tramite la "✕" sul loro nome.</div>
+        </div>
+        <div>
+          <div style="font-weight: 700; color: #3B82F6; font-size: 0.85rem; margin-bottom: 2px;">⏩ Avanzamento Turni</div>
+          <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.85); line-height: 1.45;">Coordini il ritmo delle schermate fino alla premiazione finale.</div>
+        </div>
+      `;
+    }
+  }
+}
+
+function openHostGuideModal() {
+  populateHostGuideModal();
+  const modal = el.hostGuideModal || document.getElementById('host-guide-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.offsetHeight; // trigger reflow
+    modal.classList.add('active');
+    try { AudioSynth.playConfirm(true); } catch (e) {}
+  }
+}
+
+function closeHostGuideModal() {
+  const modal = el.hostGuideModal || document.getElementById('host-guide-modal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+}
+
+// ==========================================================================
 // MODALE ALLERTA MODERAZIONE HOST (SOGLIA 33.3% SEGNALAZIONI)
 // ==========================================================================
 function openHostModerationAlertModal() {
@@ -5049,6 +5162,24 @@ function setupLobbyUI() {
   if (el.lobbyPlayersPanel) el.lobbyPlayersPanel.style.display = 'block';
   if (el.btnAddBots) el.btnAddBots.style.display = 'block';
   if (el.roundsSelectorGrid) el.roundsSelectorGrid.classList.remove('rounds-vertical');
+  
+  // Auto-apertura del modale guida Host al primo ingresso della sessione
+  if (state.isHost && state.roomCode) {
+    const sessionKey = 'host_guide_seen_' + state.roomCode;
+    let hasSeen = false;
+    try {
+      hasSeen = sessionStorage.getItem(sessionKey) === 'true';
+    } catch (e) {}
+
+    if (!hasSeen) {
+      try {
+        sessionStorage.setItem(sessionKey, 'true');
+      } catch (e) {}
+      setTimeout(() => {
+        openHostGuideModal();
+      }, 400);
+    }
+  }
   
   // Controllo visibilità tasti nell'angolo in alto a sinistra della card lobby
   const isJudgementDay = !!(state.roomIsPremium || state.roomMode === 'judgement' || state.gameMode === 'judgement');
@@ -5142,6 +5273,12 @@ function renderLobbyPlayers() {
       ? `<button class="btn-kick-player-subtle" title="Espelli ${player.name}">✕</button>`
       : '';
 
+    // Tasto "i" per riaprire la guida Host (visibile solo all'Host sul proprio badge)
+    const isHostViewingSelf = state.isHost && player.isHost;
+    const hostGuideBtnHtml = isHostViewingSelf
+      ? `<button class="btn-host-guide-info" title="Guida poteri Host" aria-label="Guida poteri Host">i</button>`
+      : '';
+
     card.innerHTML = `
       <div style="position: relative; display: flex; align-items: center; flex-shrink: 0; margin-right: 0;">
         ${avatarHtml}
@@ -5150,6 +5287,7 @@ function renderLobbyPlayers() {
       <span class="lobby-player-name" style="margin-left: 0;">${player.name} ${player.id === socket.id ? '(Tu)' : ''} ${isOffline ? '(Offline)' : ''}</span>
       ${statusDotHtml}
       ${kickBtnHtml}
+      ${hostGuideBtnHtml}
     `;
 
     card.addEventListener('click', () => {
@@ -5162,6 +5300,16 @@ function renderLobbyPlayers() {
       kickBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         kickPlayerConfirm(player);
+      });
+    }
+
+    const hostGuideBtn = card.querySelector('.btn-host-guide-info');
+    if (hostGuideBtn) {
+      hostGuideBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        try { AudioSynth.playConfirm(false); } catch (err) {}
+        openHostGuideModal();
       });
     }
 
