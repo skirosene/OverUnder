@@ -4043,20 +4043,79 @@ function setupSocketListeners() {
     updateLockIcon();
   });
 
+// ==========================================================================
+// APPLICAZIONE DINAMICA PRIVILEGI HOST (LOBBY + IN-GAME)
+// ==========================================================================
+function applyHostPrivilegeUpdate(isHost, newHostSocketId, newHostName) {
+  window.isHost = !!isHost;
+  state.isHost = !!isHost;
+  safeSessionStorage.setItem('overunder_isHost', isHost ? 'true' : 'false');
+
+  if (Array.isArray(state.players)) {
+    state.players.forEach(p => {
+      if (newHostSocketId) {
+        p.isHost = (p.id === newHostSocketId || (newHostName && p.name && p.name.toLowerCase() === newHostName.toLowerCase()));
+      } else if (isHost && socket && p.id === socket.id) {
+        p.isHost = true;
+      }
+    });
+  }
+
+  // 1. Lobby: Tasto "i" sul proprio badge, "✕" kick sui partecipanti, abilitazione pulsante di avvio
+  if (el.screenLobby && el.screenLobby.classList.contains('active')) {
+    setupLobbyUI();
+  }
+  renderLobbyPlayers();
+
+  // 2. Carta gameplay (Judgement Day): Rimuovi "!", renderizza toggle Blur, nascondi avviso centrale blur
+  updateGameplayCardHostControls();
+
+  // 3. Schermata carta rimossa (50%): Mostra pulsante "PROSSIMA CARTA" solo all'host
+  updateCardVoidedScreenHostPrivileges();
+
+  // 4. Overlay Fine Round: controlli avanzamento host vs attesa
+  if (el.roundEndOverlay && (el.roundEndOverlay.classList.contains('active') || el.roundEndOverlay.style.display === 'flex')) {
+    if (state.isHost) {
+      if (el.btnNextOverlay) el.btnNextOverlay.style.display = 'block';
+      if (el.roundEndPlayerWait) el.roundEndPlayerWait.style.display = 'none';
+    } else {
+      if (el.btnNextOverlay) el.btnNextOverlay.style.display = 'none';
+      if (el.roundEndPlayerWait) el.roundEndPlayerWait.style.display = 'flex';
+    }
+  }
+
+  // 5. Schermata Risultati: pulsante avanzamento vs attesa
+  if (el.screenResults && el.screenResults.classList.contains('active')) {
+    if (state.isHost) {
+      if (el.btnNextCardConfluent) el.btnNextCardConfluent.style.display = 'flex';
+      if (el.resultsPlayerWaitingConfluent) el.resultsPlayerWaitingConfluent.style.display = 'none';
+    } else {
+      if (el.btnNextCardConfluent) el.btnNextCardConfluent.style.display = 'none';
+      if (el.resultsPlayerWaitingConfluent) el.resultsPlayerWaitingConfluent.style.display = 'flex';
+    }
+  }
+
+  // 6. Modal lista giocatori se aperto
+  if (state.isPlayerListOpen) {
+    renderPlayerListModalContent();
+  }
+}
+
   // 4b. Evento cambio Host
-  socket.on('host_changed', ({ newHostId, newHostName }) => {
-    console.log(`[HOST CHANGED] Nuovo Host nella stanza: ${newHostName} (${newHostId})`);
-    if (newHostId === socket.id || (state.playerName && state.playerName.toLowerCase() === (newHostName || '').toLowerCase())) {
-      state.isHost = true;
-      safeSessionStorage.setItem('overunder_isHost', 'true');
+  socket.on('host_changed', (data) => {
+    const newHostSocketId = data ? (data.newHostSocketId || data.newHostId) : null;
+    const newHostName = data ? data.newHostName : '';
+    console.log(`[HOST CHANGED] Nuovo Host nella stanza: ${newHostName} (${newHostSocketId})`);
+
+    const amIHost = !!(socket && socket.id && newHostSocketId && socket.id === newHostSocketId) ||
+                    !!(state.playerName && newHostName && state.playerName.toLowerCase() === newHostName.toLowerCase());
+
+    applyHostPrivilegeUpdate(amIHost, newHostSocketId, newHostName);
+
+    if (amIHost) {
       showToast("👑 Sei il nuovo Host della stanza!");
     } else {
-      state.isHost = false;
-      safeSessionStorage.setItem('overunder_isHost', 'false');
-      showToast(`👑 ${newHostName} è il nuovo Host della stanza.`);
-    }
-    if (el.screenLobby && el.screenLobby.classList.contains('active')) {
-      setupLobbyUI();
+      showToast(`👑 ${newHostName || 'Un partecipante'} è il nuovo Host della stanza.`);
     }
   });
 
@@ -4360,11 +4419,9 @@ function setupSocketListeners() {
 
   // 12. Host riassegnato o disconnesso
   socket.on('host_assigned', ({ isHost }) => {
-    state.isHost = !!isHost;
-    safeSessionStorage.setItem('overunder_isHost', isHost ? 'true' : 'false');
-    showToast("👑 Ora sei tu il nuovo Host della stanza!", 5000);
-    if (!state.gameplayStarted) {
-      setupLobbyUI();
+    applyHostPrivilegeUpdate(!!isHost, socket.id, state.playerName);
+    if (isHost) {
+      showToast("👑 Ora sei tu il nuovo Host della stanza!", 5000);
     }
   });
 
@@ -4593,6 +4650,84 @@ function updateBlurUI(isBlurred, isLocked) {
   }
 }
 
+// ==========================================================================
+// CONTROLLI DINAMICI CARTA GAMEPLAY (HOST TOGGLE BLUR VS NON-HOST INFO "!")
+// ==========================================================================
+function updateGameplayCardHostControls() {
+  const isJudgementDay = !!(state.roomIsPremium || state.roomMode === 'judgement' || state.gameMode === 'judgement');
+  const promptCard = el.promptCard || document.getElementById('prompt-card');
+  const hostBtn = document.getElementById('host-blur-btn');
+  const modInfoBtn = document.getElementById('btn-moderation-info');
+
+  // 1. Tasto Info Carta (i): ESCLUSO in Judgement Day, VISIBILE in Solo e Stanza Standard
+  const btnCardInfo = el.btnCardInfo || document.getElementById('btn-card-info');
+  if (btnCardInfo) {
+    btnCardInfo.style.display = isJudgementDay ? 'none' : 'inline-flex';
+  }
+
+  // 2. Controllo Condizionale Slot in Alto a Sinistra (Blur per Host vs "!" per Non-Host)
+  if (isJudgementDay) {
+    if (state.isHost) {
+      // SE HOST: Rimuovi/nascondi "!" informativo, renderizza/mostra Blur
+      if (modInfoBtn) {
+        modInfoBtn.style.display = 'none';
+        modInfoBtn.remove();
+      }
+      let hb = hostBtn || document.getElementById('host-blur-btn');
+      if (!hb && promptCard) {
+        hb = document.createElement('button');
+        hb.id = 'host-blur-btn';
+        hb.title = 'Oscura/Mostra carta';
+        hb.setAttribute('aria-label', 'Toggle blur carta');
+        hb.innerHTML = `
+          <svg viewBox="0 0 24 24" style="width: 1.2rem; height: 1.2rem;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          </svg>
+        `;
+        const overlay = document.getElementById('card-blur-overlay');
+        if (overlay && overlay.parentNode === promptCard) {
+          promptCard.insertBefore(hb, overlay);
+        } else {
+          promptCard.appendChild(hb);
+        }
+      }
+      if (hb) hb.style.display = 'inline-flex';
+    } else {
+      // SE NON-HOST: Mostra "!" informativo, rimuovi/nascondi Blur
+      if (hostBtn) {
+        hostBtn.style.display = 'none';
+        hostBtn.remove();
+      }
+      let mb = modInfoBtn || document.getElementById('btn-moderation-info');
+      if (!mb && promptCard) {
+        mb = document.createElement('button');
+        mb.id = 'btn-moderation-info';
+        mb.className = 'btn-moderation-info';
+        mb.title = 'Regole di moderazione';
+        mb.setAttribute('aria-label', 'Informazioni moderazione');
+        mb.innerHTML = `
+          <span style="font-size: 1.25rem; font-weight: 900; line-height: 1; font-family: var(--font-title, sans-serif); color: inherit; display: flex; align-items: center; justify-content: center;">!</span>
+        `;
+        const overlay = document.getElementById('card-blur-overlay');
+        if (overlay && overlay.parentNode === promptCard) {
+          promptCard.insertBefore(mb, overlay);
+        } else {
+          promptCard.appendChild(mb);
+        }
+      }
+      if (mb) mb.style.display = 'inline-flex';
+    }
+  } else {
+    // Non è Judgement Day: nascondi entrambi
+    if (hostBtn) hostBtn.style.display = 'none';
+    if (modInfoBtn) modInfoBtn.style.display = 'none';
+  }
+
+  // Sincronizza stato grafico Blur (nasconde .card-blur-content per l'Host, mostra per partecipanti)
+  updateBlurUI(window.currentCardBlurred || false, window.isBlurLocked || false);
+}
+
 // Reset visivo locale bandierina di segnalazione
 function resetReportFlagUI() {
   const btn = el.btnReportCard || document.getElementById('btn-report-card');
@@ -4800,81 +4935,8 @@ function updateGameplayCardMedia(prompt, image) {
     }
   }
 
-  const isJudgementDay = !!state.roomIsPremium;
-
-  // 1. Tasto Info Carta (i): ESCLUSO in Judgement Day, VISIBILE in Solo e Stanza Standard
-  const btnCardInfo = el.btnCardInfo || document.getElementById('btn-card-info');
-  if (btnCardInfo) {
-    btnCardInfo.style.display = isJudgementDay ? 'none' : 'inline-flex';
-  }
-
-  // 2. Controllo Condizionale Slot in Alto a Sinistra (Blur per Host vs "!" per Non-Host)
-  const hostBtn = document.getElementById('host-blur-btn');
-  const modInfoBtn = document.getElementById('btn-moderation-info');
-
-  if (isJudgementDay) {
-    if (state.isHost) {
-      // SE HOST: Mostra Blur, nascondi "!"
-      if (modInfoBtn) modInfoBtn.style.display = 'none';
-      let hb = hostBtn;
-      if (!hb && promptCard) {
-        hb = document.createElement('button');
-        hb.id = 'host-blur-btn';
-        hb.title = 'Oscura/Mostra carta';
-        hb.setAttribute('aria-label', 'Toggle blur carta');
-        hb.innerHTML = `
-          <svg viewBox="0 0 24 24" style="width: 1.2rem; height: 1.2rem;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-            <line x1="1" y1="1" x2="23" y2="23"></line>
-          </svg>
-        `;
-        const overlay = document.getElementById('card-blur-overlay');
-        if (overlay && overlay.parentNode === promptCard) {
-          promptCard.insertBefore(hb, overlay);
-        } else {
-          promptCard.appendChild(hb);
-        }
-      }
-      if (hb) hb.style.display = 'inline-flex';
-    } else {
-      // SE NON-HOST: Mostra "!" informativo, rimuovi/nascondi Blur
-      if (hostBtn) {
-        hostBtn.style.display = 'none';
-        hostBtn.remove();
-      }
-      let mb = modInfoBtn;
-      if (!mb && promptCard) {
-        mb = document.createElement('button');
-        mb.id = 'btn-moderation-info';
-        mb.className = 'btn-moderation-info';
-        mb.title = 'Regole di moderazione';
-        mb.setAttribute('aria-label', 'Informazioni moderazione');
-        mb.innerHTML = `
-          <span style="font-size: 1.25rem; font-weight: 900; line-height: 1; font-family: var(--font-title, sans-serif); color: inherit; display: flex; align-items: center; justify-content: center;">!</span>
-        `;
-        mb.onclick = (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          try { AudioSynth.playConfirm(false); } catch (err) {}
-          openModerationInfoModal();
-        };
-        const overlay = document.getElementById('card-blur-overlay');
-        if (overlay && overlay.parentNode === promptCard) {
-          promptCard.insertBefore(mb, overlay);
-        } else {
-          promptCard.appendChild(mb);
-        }
-      }
-      if (mb) mb.style.display = 'inline-flex';
-    }
-  } else {
-    // Non è Judgement Day: nascondi entrambi
-    if (hostBtn) hostBtn.style.display = 'none';
-    if (modInfoBtn) modInfoBtn.style.display = 'none';
-  }
-
-  // Sincronizza stato grafico Blur dopo ogni aggiornamento del DOM
-  updateBlurUI(window.currentCardBlurred || false, window.isBlurLocked || false);
+  // Controllo dinamico header carta (Blur per Host vs "!" per Non-Host, e info carta)
+  updateGameplayCardHostControls();
 
   // Ripristina stato neutro della bandierina di segnalazione per la nuova carta
   resetReportFlagUI();
@@ -5191,6 +5253,25 @@ function hideCardVoidedScreen() {
   if (btnNext) {
     btnNext.disabled = false;
     btnNext.style.pointerEvents = 'auto';
+  }
+}
+
+function updateCardVoidedScreenHostPrivileges() {
+  const overlay = el.cardVoidedOverlay || document.getElementById('card-voided-overlay');
+  if (overlay && (overlay.style.display === 'flex' || overlay.classList.contains('active'))) {
+    const btnNext = el.btnVoidedNext || document.getElementById('btn-voided-next');
+    const waitMsg = el.voidedPlayerWait || document.getElementById('voided-player-wait');
+    if (state.isHost) {
+      if (btnNext) {
+        btnNext.style.display = 'block';
+        btnNext.disabled = false;
+        btnNext.style.pointerEvents = 'auto';
+      }
+      if (waitMsg) waitMsg.style.display = 'none';
+    } else {
+      if (btnNext) btnNext.style.display = 'none';
+      if (waitMsg) waitMsg.style.display = 'flex';
+    }
   }
 }
 

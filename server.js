@@ -2828,6 +2828,7 @@ function broadcastRoomState(room) {
     state: room.state,
     players: room.players,
     hostId: room.hostId,
+    hostSocketId: room.hostSocketId || room.hostId,
     hostName: room.hostName,
     isLocked: room.isLocked,
     isPremium: room.isPremium
@@ -2866,6 +2867,7 @@ function sanitizeRoomHost(room) {
     if (idx === hostIdx) {
       p.isHost = true;
       room.hostId = p.id;
+      room.hostSocketId = p.id;
       if (p.name) room.hostName = p.name;
       if (p.sessionId) room.hostSessionId = p.sessionId;
     } else {
@@ -2892,6 +2894,7 @@ function reassignHost(room, oldHostName = 'L\'Host') {
   if (newHost) {
     newHost.isHost = true;
     room.hostId = newHost.id;
+    room.hostSocketId = newHost.id;
     room.hostName = newHost.name;
     if (newHost.sessionId) {
       room.hostSessionId = newHost.sessionId;
@@ -2899,11 +2902,15 @@ function reassignHost(room, oldHostName = 'L\'Host') {
 
     sanitizeRoomHost(room);
 
-    console.log(`[HOST REASSIGNMENT] Stanza ${room.roomCode}: Ruolo Host riassegnato a ${newHost.name}`);
+    console.log(`[HOST REASSIGNMENT] Stanza ${room.roomCode}: Ruolo Host riassegnato a ${newHost.name} (Socket ID: ${newHost.id})`);
 
     const toastMsg = `👑 ${oldHostName} è uscito. ${newHost.name} è il nuovo Host della stanza!`;
     io.to(room.roomCode).emit('global_toast', { message: toastMsg });
-    io.to(room.roomCode).emit('host_changed', { newHostId: newHost.id, newHostName: newHost.name });
+    io.to(room.roomCode).emit('host_changed', {
+      newHostSocketId: room.hostSocketId,
+      newHostId: room.hostSocketId,
+      newHostName: newHost.name
+    });
     broadcastRoomState(room);
 
     const newHostSocket = io.sockets.sockets.get(newHost.id);
