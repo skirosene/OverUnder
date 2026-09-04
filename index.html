@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=20300">
+  <link rel="stylesheet" href="/style.css?v=20400">
 </head>
 
 <body>
@@ -1837,20 +1837,44 @@
 
       <!-- Corpo del Pannello -->
       <div class="sidebar-body">
-        <!-- Sezione 1: Suoni di Sistema (Mute Audio) -->
-        <div class="sidebar-section glass-panel">
-          <div class="sidebar-section-header">
-            <span class="sidebar-section-icon">🔊</span>
-            <div class="sidebar-section-text">
-              <div class="sidebar-item-title">Suoni di Sistema</div>
-              <div class="sidebar-item-sub" id="sidebar-audio-status-text">Audio attivo</div>
+        <!-- Sezione 1: Impostazioni Audio (Suoni di Sistema + Slider Musica) -->
+        <div class="sidebar-section glass-panel sidebar-audio-box">
+          <!-- RIGA SUPERIORE (Suoni di Sistema) -->
+          <div class="sidebar-audio-row-top">
+            <div class="sidebar-audio-info">
+              <span class="sidebar-section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-svg-icon">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                </svg>
+              </span>
+              <div class="sidebar-section-text">
+                <div class="sidebar-item-title">Suoni di Sistema</div>
+                <div class="sidebar-item-sub" id="sidebar-audio-status-text">Audio attivo</div>
+              </div>
             </div>
-          </div>
-          <div style="display: flex; justify-content: flex-end; width: 100%; margin-top: 4px;">
-            <label class="toggle-switch">
+            <label class="toggle-switch" aria-label="Attiva o disattiva suoni di sistema">
               <input type="checkbox" id="sidebar-audio-toggle">
               <span class="toggle-slider"></span>
             </label>
+          </div>
+
+          <!-- DIVISORE SOTTILE -->
+          <div class="sidebar-audio-divider"></div>
+
+          <!-- RIGA INFERIORE (Slider Musica di Sottofondo) -->
+          <div class="sidebar-audio-row-bottom">
+            <span class="sidebar-music-icon" aria-label="Musica di sottofondo" title="Volume Musica">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-svg-music">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+              </svg>
+            </span>
+            <div class="sidebar-music-slider-container">
+              <input type="range" id="sidebar-music-volume-slider" min="0" max="1" step="0.01" value="0.6" aria-label="Volume Musica di Sottofondo">
+            </div>
           </div>
         </div>
 
@@ -1926,7 +1950,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=20300"></script>
+  <script src="/app.js?v=20400"></script>
 </body>
 
 </html>

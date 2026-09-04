@@ -297,7 +297,47 @@ const MenuAudioManager = {
   autoplayUnlocked: false,
   _unlockHandler: null,
 
+  getUserVolume() {
+    try {
+      const saved = localStorage.getItem('bg_music_volume');
+      if (saved !== null && saved !== undefined && saved !== '') {
+        const parsed = parseFloat(saved);
+        if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return 0.6;
+  },
+
+  setVolume(vol) {
+    const clamped = Math.max(0, Math.min(1, parseFloat(vol) || 0));
+    this.targetVolume = clamped;
+    try {
+      localStorage.setItem('bg_music_volume', clamped.toString());
+    } catch (e) {}
+
+    if (this.fadeInterval) {
+      clearInterval(this.fadeInterval);
+      this.fadeInterval = null;
+    }
+
+    if (this.audio) {
+      this.audio.volume = clamped;
+      // Se era a 0 ed era in pausa, e ci troviamo in una schermata consentita, avvia la traccia
+      if (clamped > 0 && this.audio.paused && this.isInAllowedScreen()) {
+        this.audio.play().then(() => {
+          this.isPlaying = true;
+        }).catch(() => {});
+      } else if (clamped === 0 && !this.audio.paused) {
+        this.audio.volume = 0;
+      }
+    }
+  },
+
   init() {
+    this.targetVolume = this.getUserVolume();
+
     // Gestione Singleton: se esiste già un'istanza su window, recuperala ed evita duplicazioni
     if (window.__menuAudioInstance) {
       this.audio = window.__menuAudioInstance;
@@ -359,12 +399,11 @@ const MenuAudioManager = {
 
     const startPlaybackWithFade = () => {
       if (!this.isInAllowedScreen()) return;
-      if (typeof AudioSynth !== 'undefined' && AudioSynth.isMuted) return;
       this.playWithFadeIn();
     };
 
-    // 1. Tenta la riproduzione al load
-    if (this.isInAllowedScreen() && (typeof AudioSynth === 'undefined' || !AudioSynth.isMuted)) {
+    // 1. Tenta la riproduzione al load se il volume configurato è > 0
+    if (this.isInAllowedScreen() && this.targetVolume > 0) {
       this.audio.volume = 0;
       const playPromise = this.audio.play();
       if (playPromise !== undefined) {
@@ -373,7 +412,6 @@ const MenuAudioManager = {
           this.autoplayUnlocked = true;
           this.fadeIn(this.fadeDuration, this.targetVolume);
         }).catch((err) => {
-          // Autoplay bloccato dal browser -> aggancia listener su window
           console.log('[MENU AUDIO] Autoplay bloccato (mobile policy). In attesa di interazione:', err.message);
           this.attachUnlockListener(startPlaybackWithFade);
         });
@@ -400,9 +438,10 @@ const MenuAudioManager = {
     window.addEventListener('click', this._unlockHandler, { once: true, capture: true });
   },
 
-  fadeIn(duration = 800, maxVolume = 0.6) {
+  fadeIn(duration = 800, maxVolume = null) {
     if (!this.audio) return;
-    if (typeof AudioSynth !== 'undefined' && AudioSynth.isMuted) {
+    const target = (maxVolume !== null && maxVolume !== undefined) ? maxVolume : this.targetVolume;
+    if (target <= 0) {
       this.audio.volume = 0;
       return;
     }
@@ -414,27 +453,20 @@ const MenuAudioManager = {
 
     const startTime = performance.now();
     const startVolume = this.audio.volume;
-    const volumeDelta = maxVolume - startVolume;
+    const volumeDelta = target - startVolume;
 
     this.fadeInterval = setInterval(() => {
       const elapsed = performance.now() - startTime;
       const progress = Math.min(1, elapsed / duration);
 
       if (this.audio) {
-        if (typeof AudioSynth !== 'undefined' && AudioSynth.isMuted) {
-          this.audio.volume = 0;
-          clearInterval(this.fadeInterval);
-          this.fadeInterval = null;
-          return;
-        }
-
         const newVol = startVolume + (volumeDelta * progress);
         this.audio.volume = Math.max(0, Math.min(1, Number(newVol.toFixed(3))));
       }
 
       if (progress >= 1) {
-        if (this.audio && (typeof AudioSynth === 'undefined' || !AudioSynth.isMuted)) {
-          this.audio.volume = maxVolume;
+        if (this.audio) {
+          this.audio.volume = target;
         }
         clearInterval(this.fadeInterval);
         this.fadeInterval = null;
@@ -444,11 +476,16 @@ const MenuAudioManager = {
 
   playWithFadeIn() {
     if (!this.audio) return;
-    if (typeof AudioSynth !== 'undefined' && AudioSynth.isMuted) return;
     if (!this.isInAllowedScreen()) return;
 
+    this.targetVolume = this.getUserVolume();
+    if (this.targetVolume <= 0) {
+      this.audio.volume = 0;
+      return;
+    }
+
     // Se sta già riproducendo al volume target, non interrompere e non resettare il volume
-    if (!this.audio.paused && this.audio.volume >= (this.targetVolume - 0.05)) {
+    if (!this.audio.paused && Math.abs(this.audio.volume - this.targetVolume) < 0.05) {
       this.isPlaying = true;
       return;
     }
@@ -464,7 +501,6 @@ const MenuAudioManager = {
           this.fadeIn(this.fadeDuration, this.targetVolume);
         }).catch((err) => {
           console.warn('[MENU AUDIO] Errore play():', err.message);
-          // Se la promise fallisce a causa di mancate gesture, riagganciamo l'unlock
           if (!this.autoplayUnlocked) {
             this.attachUnlockListener(() => this.playWithFadeIn());
           }
@@ -1685,12 +1721,40 @@ function initSettingsSidebar() {
     });
   }
 
+  const musicSlider = document.getElementById('sidebar-music-volume-slider');
+
+  function updateMusicSliderFill(slider, val) {
+    if (!slider) return;
+    const clamped = Math.max(0, Math.min(1, parseFloat(val) || 0));
+    const pct = Math.round(clamped * 100);
+    slider.style.background = `linear-gradient(to right, #38bdf8 0%, #38bdf8 ${pct}%, #2A2A38 ${pct}%, #2A2A38 100%)`;
+  }
+
   function syncAudioUI() {
     const isMuted = AudioSynth.isMuted;
     if (audioToggle) audioToggle.checked = !isMuted;
     if (audioStatusText) {
       audioStatusText.textContent = isMuted ? 'Audio disattivato' : 'Audio attivo';
     }
+    if (musicSlider) {
+      const vol = (typeof MenuAudioManager !== 'undefined') ? MenuAudioManager.getUserVolume() : 0.6;
+      musicSlider.value = vol;
+      updateMusicSliderFill(musicSlider, vol);
+    }
+  }
+
+  if (musicSlider) {
+    const initialVol = (typeof MenuAudioManager !== 'undefined') ? MenuAudioManager.getUserVolume() : 0.6;
+    musicSlider.value = initialVol;
+    updateMusicSliderFill(musicSlider, initialVol);
+
+    musicSlider.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      updateMusicSliderFill(musicSlider, val);
+      if (typeof MenuAudioManager !== 'undefined') {
+        MenuAudioManager.setVolume(val);
+      }
+    });
   }
 
   if (audioToggle) {
@@ -1706,13 +1770,6 @@ function initSettingsSidebar() {
           AudioSynth.init();
           AudioSynth.playConfirm(true);
         } catch (err) {}
-        if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.isInAllowedScreen()) {
-          MenuAudioManager.playWithFadeIn();
-        }
-      } else {
-        if (typeof MenuAudioManager !== 'undefined') {
-          MenuAudioManager.stopImmediately();
-        }
       }
     });
   }
@@ -3496,13 +3553,6 @@ function showPurchaseModal() {
       if (!AudioSynth.isMuted) {
         AudioSynth.init();
         AudioSynth.playConfirm(true);
-        if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.isInAllowedScreen()) {
-          MenuAudioManager.playWithFadeIn();
-        }
-      } else {
-        if (typeof MenuAudioManager !== 'undefined') {
-          MenuAudioManager.stopImmediately();
-        }
       }
     });
   }
