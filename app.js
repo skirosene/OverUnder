@@ -285,6 +285,7 @@ async function authenticateGuest(roomCode, playerName) {
 
 // ==========================================================================
 // CONTROLLER AUDIO SINGLETON PER COLONNA SONORA MENU / LOBBY
+// Routing tramite Web Audio API (GainNode) per pieno supporto volume su iOS
 // ==========================================================================
 let menuAudio = null;
 
@@ -293,6 +294,7 @@ const MenuAudioManager = {
   fadeInterval: null,
   fadeDuration: 800,
   targetVolume: 0.6,
+  lastMusicVolume: 0.5,
   isPlaying: false,
   autoplayUnlocked: false,
   _unlockHandler: null,
@@ -310,6 +312,60 @@ const MenuAudioManager = {
     return 0.6;
   },
 
+  ensureWebAudio() {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      if (!window.audioCtx) {
+        window.audioCtx = new AudioContextClass();
+      }
+      if (typeof AudioSynth !== 'undefined' && AudioSynth && !AudioSynth.ctx) {
+        AudioSynth.ctx = window.audioCtx;
+      }
+
+      if (window.audioCtx.state === 'suspended') {
+        window.audioCtx.resume().catch(() => {});
+      }
+
+      if (!window.musicGainNode && window.bgMusicElement) {
+        // Connessione MediaElement -> GainNode -> Speakers
+        const source = window.audioCtx.createMediaElementSource(window.bgMusicElement);
+        window.musicGainNode = window.audioCtx.createGain();
+        window.__musicSourceNode = source;
+
+        const initialVol = this.getUserVolume();
+        window.musicGainNode.gain.setValueAtTime(initialVol, window.audioCtx.currentTime);
+
+        source.connect(window.musicGainNode);
+        window.musicGainNode.connect(window.audioCtx.destination);
+      }
+    } catch (err) {
+      console.warn('[MENU AUDIO] Errore inizializzazione Web Audio GainNode:', err);
+    }
+  },
+
+  setGainVolume(vol) {
+    const clamped = Math.max(0, Math.min(1, parseFloat(vol) || 0));
+    if (window.musicGainNode && window.audioCtx) {
+      try {
+        window.musicGainNode.gain.setValueAtTime(clamped, window.audioCtx.currentTime);
+      } catch (e) {}
+      if (this.audio) {
+        this.audio.volume = clamped > 0 ? 1 : 0;
+      }
+    } else if (this.audio) {
+      this.audio.volume = clamped;
+    }
+  },
+
+  getCurrentGainVolume() {
+    if (window.musicGainNode && window.musicGainNode.gain) {
+      return window.musicGainNode.gain.value;
+    }
+    return this.audio ? this.audio.volume : 0;
+  },
+
   setVolume(vol) {
     const clamped = Math.max(0, Math.min(1, parseFloat(vol) || 0));
     this.targetVolume = clamped;
@@ -317,26 +373,31 @@ const MenuAudioManager = {
       localStorage.setItem('bg_music_volume', clamped.toString());
     } catch (e) {}
 
+    if (clamped > 0) {
+      this.lastMusicVolume = clamped;
+    }
+
     if (this.fadeInterval) {
       clearInterval(this.fadeInterval);
       this.fadeInterval = null;
     }
 
-    if (this.audio) {
-      this.audio.volume = clamped;
-      // Se era a 0 ed era in pausa, e ci troviamo in una schermata consentita, avvia la traccia
-      if (clamped > 0 && this.audio.paused && this.isInAllowedScreen()) {
-        this.audio.play().then(() => {
-          this.isPlaying = true;
-        }).catch(() => {});
-      } else if (clamped === 0 && !this.audio.paused) {
-        this.audio.volume = 0;
-      }
+    this.ensureWebAudio();
+    this.setGainVolume(clamped);
+
+    // Se era a 0 ed era in pausa, e ci troviamo in una schermata consentita, avvia la traccia
+    if (clamped > 0 && this.audio && this.audio.paused && this.isInAllowedScreen()) {
+      this.audio.play().then(() => {
+        this.isPlaying = true;
+      }).catch(() => {});
     }
   },
 
   init() {
     this.targetVolume = this.getUserVolume();
+    if (this.targetVolume > 0) {
+      this.lastMusicVolume = this.targetVolume;
+    }
 
     // Gestione Singleton: se esiste già un'istanza su window, recuperala ed evita duplicazioni
     if (window.__menuAudioInstance) {
@@ -344,13 +405,15 @@ const MenuAudioManager = {
     } else {
       this.audio = new Audio('/audio/Coastline_Pursuit.mp3');
       this.audio.loop = true;
-      this.audio.volume = 0;
       this.audio.preload = 'auto';
       window.__menuAudioInstance = this.audio;
     }
 
+    window.bgMusicElement = this.audio;
     menuAudio = this.audio;
     window.menuAudio = menuAudio;
+
+    this.ensureWebAudio();
 
     // Fallback trasparente: se /audio/ non dovesse risolvere su vecchi proxy, prova /public/audio/
     this.audio.addEventListener('error', () => {
@@ -393,18 +456,24 @@ const MenuAudioManager = {
   setupAutoplayBypass() {
     if (this._unlockHandler) {
       window.removeEventListener('pointerdown', this._unlockHandler, true);
+      window.removeEventListener('touchstart', this._unlockHandler, true);
       window.removeEventListener('click', this._unlockHandler, true);
       this._unlockHandler = null;
     }
 
     const startPlaybackWithFade = () => {
+      this.ensureWebAudio();
+      if (window.audioCtx && window.audioCtx.state === 'suspended') {
+        window.audioCtx.resume().catch(() => {});
+      }
       if (!this.isInAllowedScreen()) return;
       this.playWithFadeIn();
     };
 
     // 1. Tenta la riproduzione al load se il volume configurato è > 0
     if (this.isInAllowedScreen() && this.targetVolume > 0) {
-      this.audio.volume = 0;
+      this.ensureWebAudio();
+      this.setGainVolume(0);
       const playPromise = this.audio.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
@@ -428,13 +497,19 @@ const MenuAudioManager = {
       this.autoplayUnlocked = true;
       if (this._unlockHandler) {
         window.removeEventListener('pointerdown', this._unlockHandler, true);
+        window.removeEventListener('touchstart', this._unlockHandler, true);
         window.removeEventListener('click', this._unlockHandler, true);
         this._unlockHandler = null;
       }
-      startPlaybackWithFade();
+      if (window.audioCtx && window.audioCtx.state === 'suspended') {
+        window.audioCtx.resume().catch(() => {});
+      }
+      this.ensureWebAudio();
+      if (startPlaybackWithFade) startPlaybackWithFade();
     };
 
     window.addEventListener('pointerdown', this._unlockHandler, { once: true, capture: true });
+    window.addEventListener('touchstart', this._unlockHandler, { once: true, capture: true });
     window.addEventListener('click', this._unlockHandler, { once: true, capture: true });
   },
 
@@ -442,8 +517,13 @@ const MenuAudioManager = {
     if (!this.audio) return;
     const target = (maxVolume !== null && maxVolume !== undefined) ? maxVolume : this.targetVolume;
     if (target <= 0) {
-      this.audio.volume = 0;
+      this.setGainVolume(0);
       return;
+    }
+
+    this.ensureWebAudio();
+    if (window.audioCtx && window.audioCtx.state === 'suspended') {
+      window.audioCtx.resume().catch(() => {});
     }
 
     if (this.fadeInterval) {
@@ -452,22 +532,19 @@ const MenuAudioManager = {
     }
 
     const startTime = performance.now();
-    const startVolume = this.audio.volume;
+    const startVolume = this.getCurrentGainVolume();
     const volumeDelta = target - startVolume;
 
     this.fadeInterval = setInterval(() => {
       const elapsed = performance.now() - startTime;
       const progress = Math.min(1, elapsed / duration);
+      const newVol = startVolume + (volumeDelta * progress);
+      const clampedVol = Math.max(0, Math.min(1, Number(newVol.toFixed(3))));
 
-      if (this.audio) {
-        const newVol = startVolume + (volumeDelta * progress);
-        this.audio.volume = Math.max(0, Math.min(1, Number(newVol.toFixed(3))));
-      }
+      this.setGainVolume(clampedVol);
 
       if (progress >= 1) {
-        if (this.audio) {
-          this.audio.volume = target;
-        }
+        this.setGainVolume(target);
         clearInterval(this.fadeInterval);
         this.fadeInterval = null;
       }
@@ -480,12 +557,17 @@ const MenuAudioManager = {
 
     this.targetVolume = this.getUserVolume();
     if (this.targetVolume <= 0) {
-      this.audio.volume = 0;
+      this.setGainVolume(0);
       return;
     }
 
+    this.ensureWebAudio();
+    if (window.audioCtx && window.audioCtx.state === 'suspended') {
+      window.audioCtx.resume().catch(() => {});
+    }
+
     // Se sta già riproducendo al volume target, non interrompere e non resettare il volume
-    if (!this.audio.paused && Math.abs(this.audio.volume - this.targetVolume) < 0.05) {
+    if (!this.audio.paused && Math.abs(this.getCurrentGainVolume() - this.targetVolume) < 0.05) {
       this.isPlaying = true;
       return;
     }
@@ -493,7 +575,7 @@ const MenuAudioManager = {
     this.audio.loop = true;
 
     if (this.audio.paused) {
-      this.audio.volume = 0;
+      this.setGainVolume(0);
       const playPromise = this.audio.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
@@ -520,12 +602,12 @@ const MenuAudioManager = {
     if (this.audio) {
       try {
         this.audio.pause();
-        this.audio.volume = 0;
         this.audio.currentTime = 0;
       } catch (err) {
         console.warn('[MENU AUDIO] Errore arresto traccia:', err);
       }
     }
+    this.setGainVolume(0);
     this.isPlaying = false;
   }
 };
@@ -545,10 +627,13 @@ const AudioSynth = {
     // Questo garantisce che iOS/Safari non blocchi l'audio al primo tap.
     try {
       if (!this.ctx) {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtx) {
-          this.ctx = new AudioCtx();
+        if (!window.audioCtx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            window.audioCtx = new AudioCtx();
+          }
         }
+        this.ctx = window.audioCtx;
       }
       if (this.ctx) {
         if (this.ctx.state === 'suspended') {
@@ -1722,12 +1807,84 @@ function initSettingsSidebar() {
   }
 
   const musicSlider = document.getElementById('sidebar-music-volume-slider');
+  const musicIcon = document.querySelector('.sidebar-music-icon');
 
-  function updateMusicSliderFill(slider, val) {
-    if (!slider) return;
+  let lastMusicVolume = 0.5;
+  try {
+    const savedMusic = parseFloat(localStorage.getItem('bg_music_volume'));
+    if (!isNaN(savedMusic) && savedMusic > 0) {
+      lastMusicVolume = savedMusic;
+    }
+  } catch (e) {}
+
+  function updateSliderFill(val) {
+    if (!musicSlider) return;
     const clamped = Math.max(0, Math.min(1, parseFloat(val) || 0));
-    const pct = Math.round(clamped * 100);
-    slider.style.background = `linear-gradient(to right, #38bdf8 0%, #38bdf8 ${pct}%, #2A2A38 ${pct}%, #2A2A38 100%)`;
+    const percentage = Math.round(clamped * 100);
+    musicSlider.style.background = `linear-gradient(to right, #38BDF8 ${percentage}%, #2A2A38 ${percentage}%)`;
+  }
+
+  function updateMusicIconUI(val) {
+    if (!musicIcon) return;
+    const vol = Math.max(0, Math.min(1, parseFloat(val) || 0));
+    if (vol === 0) {
+      musicIcon.classList.add('is-muted');
+      musicIcon.setAttribute('title', 'Riattiva musica');
+      musicIcon.setAttribute('aria-label', 'Musica disattivata - Tocca per riattivare');
+    } else {
+      musicIcon.classList.remove('is-muted');
+      musicIcon.setAttribute('title', 'Disattiva musica');
+      musicIcon.setAttribute('aria-label', 'Musica attiva - Tocca per disattivare');
+    }
+  }
+
+  function setMusicVolume(vol) {
+    const clamped = Math.max(0, Math.min(1, parseFloat(vol) || 0));
+
+    if (window.musicGainNode && window.audioCtx) {
+      try {
+        window.musicGainNode.gain.setValueAtTime(clamped, window.audioCtx.currentTime);
+      } catch (e) {}
+    }
+
+    if (typeof MenuAudioManager !== 'undefined') {
+      MenuAudioManager.setVolume(clamped);
+    } else {
+      try { localStorage.setItem('bg_music_volume', clamped.toString()); } catch (e) {}
+    }
+
+    if (clamped > 0) {
+      lastMusicVolume = clamped;
+    }
+
+    if (musicSlider && parseFloat(musicSlider.value) !== clamped) {
+      musicSlider.value = clamped;
+    }
+
+    updateSliderFill(clamped);
+    updateMusicIconUI(clamped);
+  }
+  window.setMusicVolume = setMusicVolume;
+
+  function toggleMusicMute() {
+    const currentVol = (typeof MenuAudioManager !== 'undefined') 
+      ? MenuAudioManager.getUserVolume() 
+      : parseFloat(musicSlider?.value || 0.6);
+
+    if (currentVol > 0) {
+      lastMusicVolume = currentVol;
+      if (typeof MenuAudioManager !== 'undefined') {
+        MenuAudioManager.lastMusicVolume = currentVol;
+      }
+      setMusicVolume(0);
+    } else {
+      const restoreVol = (lastMusicVolume > 0) 
+        ? lastMusicVolume 
+        : ((typeof MenuAudioManager !== 'undefined' && MenuAudioManager.lastMusicVolume > 0) 
+            ? MenuAudioManager.lastMusicVolume 
+            : 0.5);
+      setMusicVolume(restoreVol);
+    }
   }
 
   function syncAudioUI() {
@@ -1736,23 +1893,35 @@ function initSettingsSidebar() {
     if (audioStatusText) {
       audioStatusText.textContent = isMuted ? 'Audio disattivato' : 'Audio attivo';
     }
-    if (musicSlider) {
-      const vol = (typeof MenuAudioManager !== 'undefined') ? MenuAudioManager.getUserVolume() : 0.6;
-      musicSlider.value = vol;
-      updateMusicSliderFill(musicSlider, vol);
-    }
+    updateAudioButtonUI();
+
+    const vol = (typeof MenuAudioManager !== 'undefined') ? MenuAudioManager.getUserVolume() : 0.6;
+    setMusicVolume(vol);
   }
 
   if (musicSlider) {
     const initialVol = (typeof MenuAudioManager !== 'undefined') ? MenuAudioManager.getUserVolume() : 0.6;
     musicSlider.value = initialVol;
-    updateMusicSliderFill(musicSlider, initialVol);
+    updateSliderFill(initialVol);
+    updateMusicIconUI(initialVol);
 
     musicSlider.addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value);
-      updateMusicSliderFill(musicSlider, val);
-      if (typeof MenuAudioManager !== 'undefined') {
-        MenuAudioManager.setVolume(val);
+      const vol = parseFloat(e.target.value);
+      setMusicVolume(vol);
+    });
+  }
+
+  if (musicIcon) {
+    musicIcon.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleMusicMute();
+    });
+
+    musicIcon.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleMusicMute();
       }
     });
   }

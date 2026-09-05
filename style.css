@@ -2610,6 +2610,12 @@ input[type="submit"] {
   transform: scale(0.92);
 }
 
+.nav-btn-audio.is-muted {
+  opacity: 0.6;
+  color: var(--color-text-muted, #8E8E9F);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 /* Timer Counter — Cliccabile dall'Host per aprire il picker */
 .timer-counter.host-clickable {
   cursor: pointer;
@@ -6690,8 +6696,34 @@ input[type="submit"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, opacity 0.2s ease, filter 0.2s ease, background 0.15s ease;
+}
+
+.sidebar-music-icon:hover {
+  transform: scale(1.12);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.sidebar-music-icon:active {
+  transform: scale(0.92);
+}
+
+.sidebar-music-icon.is-muted {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.sidebar-music-icon.is-muted .sidebar-svg-music {
+  stroke: #8E8E9F;
+  filter: none;
 }
 
 .sidebar-svg-music {
@@ -6699,6 +6731,7 @@ input[type="submit"] {
   height: 20px;
   stroke: #38bdf8;
   filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.35));
+  transition: stroke 0.2s ease, filter 0.2s ease;
 }
 
 .sidebar-music-slider-container {
@@ -6719,7 +6752,8 @@ input[type="submit"] {
   margin: 0;
   padding: 0;
   cursor: pointer;
-  transition: background 0.1s ease;
+  touch-action: none;
+  transition: background 0.05s linear;
 }
 
 #sidebar-music-volume-slider::-webkit-slider-runnable-track {
