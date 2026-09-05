@@ -29,10 +29,13 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <!-- Fogli di stile -->
-  <link rel="stylesheet" href="/style.css?v=20600">
+  <link rel="stylesheet" href="/style.css?v=20700">
 </head>
 
 <body>
+  <!-- Traccia audio di gioco con pre-buffering immediato -->
+  <audio id="bg-music-element" preload="auto" loop src="/audio/Coastline_Pursuit.mp3" style="display:none;"></audio>
+
   <!-- Sfondo con sfere colorate sfumate (glowing blobs) animate -->
   <div class="glowing-bg">
     <div class="blob blob-green"></div>
@@ -1950,7 +1953,7 @@
 
   <!-- Caricamento Socket.io Client e script applicativo -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=20600"></script>
+  <script src="/app.js?v=20700"></script>
 </body>
 
 </html>
