@@ -290,75 +290,47 @@ async function authenticateGuest(roomCode, playerName) {
 let menuAudio = null;
 let audioUnlocked = false;
 
-function unlockAudioEngine() {
-  if (audioUnlocked) return;
-
-  if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.ensureWebAudio) {
-    MenuAudioManager.ensureWebAudio();
-  }
-
-  // 1. Risveglio AudioContext
-  if (window.audioCtx && window.audioCtx.state === 'suspended') {
-    window.audioCtx.resume().catch(() => {});
-  }
-
-  // 2. Priming elemento audio (play + pause istantaneo con volume azzerato per abilitare l'hardware)
+function startMenuMusic() {
   if (!window.bgMusicElement) {
     const el = document.getElementById('bg-music-element');
     if (el) window.bgMusicElement = el;
-  }
-
-  if (window.bgMusicElement) {
-    const originalVol = window.bgMusicElement.volume;
-    window.bgMusicElement.volume = 0;
-    const primePromise = window.bgMusicElement.play();
-    if (primePromise !== undefined) {
-      primePromise
-        .then(() => {
-          window.bgMusicElement.pause();
-          window.bgMusicElement.currentTime = 0;
-          window.bgMusicElement.volume = originalVol;
-          audioUnlocked = true;
-        })
-        .catch(() => {
-          // Silenzia l'errore se non ancora pronto
-        });
+    else if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.init) {
+      MenuAudioManager.init();
     }
-  }
-
-  // Rimuovi i listener una volta sbloccato
-  document.removeEventListener('touchstart', unlockAudioEngine);
-  document.removeEventListener('click', unlockAudioEngine);
-  document.removeEventListener('pointerdown', unlockAudioEngine);
-}
-
-// Registra il warm-up sui primi eventi utente in lobby / schermate
-document.addEventListener('touchstart', unlockAudioEngine, { once: false, passive: true });
-document.addEventListener('click', unlockAudioEngine, { once: false });
-document.addEventListener('pointerdown', unlockAudioEngine, { once: false });
-
-function startInGameMusic() {
-  if (!window.bgMusicElement) {
-    const el = document.getElementById('bg-music-element');
-    if (el) window.bgMusicElement = el;
   }
   if (!window.bgMusicElement) return;
 
+  // Non riprodurre se siamo in partita
+  const isGameplay = (typeof state !== 'undefined' && state && state.gameplayStarted) ||
+                     (typeof el !== 'undefined' && el && el.screenGameplay && el.screenGameplay.classList.contains('active'));
+  if (isGameplay) return;
+
   if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.ensureWebAudio) {
     MenuAudioManager.ensureWebAudio();
   }
 
-  // Ripristina currentTime per garantire partenza dall'inizio esatto
-  window.bgMusicElement.currentTime = 0;
+  // Se sta già riproducendo, non interrompere e non resettare il tempo (loop fluido e continuo)
+  if (!window.bgMusicElement.paused) {
+    return;
+  }
+
   window.bgMusicElement.loop = true;
 
-  // Assicurati che l'AudioContext sia attivo prima del play
   if (window.audioCtx && window.audioCtx.state === 'suspended') {
     window.audioCtx.resume().catch(() => {});
   }
 
-  // Imposta il volume corretto dal GainNode o dal localStorage
-  const savedVol = parseFloat(localStorage.getItem('bg_music_volume') ?? 0.5);
+  const savedVol = (typeof MenuAudioManager !== 'undefined') 
+    ? MenuAudioManager.getUserVolume() 
+    : parseFloat(localStorage.getItem('bg_music_volume') ?? 0.6);
+
+  if (savedVol <= 0) {
+    if (window.musicGainNode && window.audioCtx) {
+      try { window.musicGainNode.gain.setValueAtTime(0, window.audioCtx.currentTime); } catch (e) {}
+    }
+    return;
+  }
+
   if (window.musicGainNode && window.audioCtx) {
     try {
       window.musicGainNode.gain.setValueAtTime(savedVol, window.audioCtx.currentTime);
@@ -375,26 +347,31 @@ function startInGameMusic() {
         MenuAudioManager.isPlaying = true;
       }
     }).catch((err) => {
-      console.warn("Autoplay bloccato temporaneamente, fallback al primo tocco:", err);
-      // Fallback: se un dispositivo rigido blocca ancora, avvia la musica al primo swipe/tap su una carta
-      const fallbackPlay = () => {
+      console.log('[MENU AUDIO] Autoplay bloccato in attesa di gesture:', err.message);
+      // Fallback: al primo tocco sullo schermo, avvia la musica se siamo nei menù
+      const unlockAndPlay = () => {
+        const stillGameplay = (typeof state !== 'undefined' && state && state.gameplayStarted) ||
+                              (typeof el !== 'undefined' && el && el.screenGameplay && el.screenGameplay.classList.contains('active'));
+        if (stillGameplay) return;
         if (window.audioCtx && window.audioCtx.state === 'suspended') window.audioCtx.resume().catch(() => {});
-        window.bgMusicElement.play().then(() => {
-          if (typeof MenuAudioManager !== 'undefined') MenuAudioManager.isPlaying = true;
-        }).catch(() => {});
-        document.removeEventListener('touchstart', fallbackPlay);
-        document.removeEventListener('click', fallbackPlay);
-        document.removeEventListener('pointerdown', fallbackPlay);
+        if (window.bgMusicElement && window.bgMusicElement.paused) {
+          window.bgMusicElement.play().then(() => {
+            if (typeof MenuAudioManager !== 'undefined') MenuAudioManager.isPlaying = true;
+          }).catch(() => {});
+        }
+        document.removeEventListener('touchstart', unlockAndPlay);
+        document.removeEventListener('click', unlockAndPlay);
+        document.removeEventListener('pointerdown', unlockAndPlay);
       };
-      document.addEventListener('touchstart', fallbackPlay, { once: true, passive: true });
-      document.addEventListener('click', fallbackPlay, { once: true });
-      document.addEventListener('pointerdown', fallbackPlay, { once: true });
+      document.addEventListener('touchstart', unlockAndPlay, { once: true, passive: true });
+      document.addEventListener('click', unlockAndPlay, { once: true });
+      document.addEventListener('pointerdown', unlockAndPlay, { once: true });
     });
   }
 }
-window.startInGameMusic = startInGameMusic;
+window.startMenuMusic = startMenuMusic;
 
-function stopInGameMusic() {
+function stopMenuMusic() {
   if (window.bgMusicElement) {
     try {
       window.bgMusicElement.pause();
@@ -403,9 +380,43 @@ function stopInGameMusic() {
   }
   if (typeof MenuAudioManager !== 'undefined') {
     MenuAudioManager.isPlaying = false;
+    if (MenuAudioManager.fadeInterval) {
+      clearInterval(MenuAudioManager.fadeInterval);
+      MenuAudioManager.fadeInterval = null;
+    }
   }
 }
-window.stopInGameMusic = stopInGameMusic;
+window.stopMenuMusic = stopMenuMusic;
+window.startInGameMusic = stopMenuMusic; // Alias di sicurezza
+window.stopInGameMusic = stopMenuMusic;
+
+function unlockAudioEngine() {
+  if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.ensureWebAudio) {
+    MenuAudioManager.ensureWebAudio();
+  }
+
+  if (window.audioCtx && window.audioCtx.state === 'suspended') {
+    window.audioCtx.resume().catch(() => {});
+  }
+
+  audioUnlocked = true;
+
+  // Se non siamo in partita e la musica non sta ancora suonando, avviala subito al tocco!
+  const isGameplay = (typeof state !== 'undefined' && state && state.gameplayStarted) ||
+                     (typeof el !== 'undefined' && el && el.screenGameplay && el.screenGameplay.classList.contains('active'));
+  if (!isGameplay) {
+    startMenuMusic();
+  }
+
+  document.removeEventListener('touchstart', unlockAudioEngine);
+  document.removeEventListener('click', unlockAudioEngine);
+  document.removeEventListener('pointerdown', unlockAudioEngine);
+}
+
+// Registra il warm-up sui primi eventi utente
+document.addEventListener('touchstart', unlockAudioEngine, { once: false, passive: true });
+document.addEventListener('click', unlockAudioEngine, { once: false });
+document.addEventListener('pointerdown', unlockAudioEngine, { once: false });
 
 const MenuAudioManager = {
   audio: null,
@@ -1726,6 +1737,7 @@ setTimeout(() => {
     if (welcome && !document.querySelector('.screen.active')) {
       welcome.classList.add('active');
     }
+    startMenuMusic();
   }
 }, 7000);
 
@@ -1783,6 +1795,9 @@ function runSplashScreen(hasRoomParam = false) {
         showScreen(el.screenWelcome);
       }
     }
+
+    // Avvio immediato colonna sonora menu appena appare la schermata iniziale
+    startMenuMusic();
   }, 5000);
 }
 
@@ -1801,11 +1816,11 @@ function showScreen(targetScreen) {
     try { targetScreen.scrollTop = 0; } catch (e) {}
   }
 
-  // Gestione Colonna Sonora: avvio sincronizzato in-game, stop al ritorno al menu
-  if (targetScreen === el.screenGameplay) {
-    startInGameMusic();
-  } else if (targetScreen === el.screenWelcome || targetScreen === el.screenOnboarding) {
-    stopInGameMusic();
+  // Gestione Colonna Sonora: in-game la musica si blocca all'istante, nei menu continua a loop
+  if (targetScreen === el.screenGameplay || targetScreen === el.screenResults || targetScreen === el.screenSummary) {
+    stopMenuMusic();
+  } else if (targetScreen !== el.screenSplash) {
+    startMenuMusic();
   }
 
   if (targetScreen !== el.screenGameplay) {
@@ -4234,7 +4249,9 @@ function setupSocketListeners() {
     state.currentRoundId = gameData.roundId || 0;
     state.gameplayStarted = (roomState === 'playing' || roomState === 'results' || roomState === 'summary');
     if (state.gameplayStarted) {
-      startInGameMusic();
+      stopMenuMusic();
+    } else {
+      startMenuMusic();
     }
     
     // Aggiorna sessione persistente nel localStorage
@@ -4725,8 +4742,10 @@ function applyHostPrivilegeUpdate(isHost, newHostSocketId, newHostName) {
       try { window.bgMusicElement.load(); } catch (e) {}
     }
 
+    // STOP IMMEDIATO COLONNA SONORA MENU
+    stopMenuMusic();
+
     showScreen(el.screenGameplay);
-    startInGameMusic();
   });
 
   // 6. Nuova Carta Inviata dal Server (con validazione anti-corruzione e buffer Base64)
@@ -4799,10 +4818,8 @@ function applyHostPrivilegeUpdate(isHost, newHostSocketId, newHostName) {
     renderGameplayPlayersStatus([]);
 
     // Transizione alla schermata di gioco
+    stopMenuMusic();
     showScreen(el.screenGameplay);
-    if (window.bgMusicElement && window.bgMusicElement.paused && state.gameplayStarted) {
-      startInGameMusic();
-    }
 
     // Avvia Timer Locale sincronizzato
     state.lastTickElapsed = 0;
@@ -6576,6 +6593,7 @@ function setupSoloLobbyUI() {
 }
 
 function startSoloGame(length = 30) {
+  stopMenuMusic();
   if (window.bgMusicElement) {
     try { window.bgMusicElement.load(); } catch (e) {}
   }
@@ -6639,8 +6657,8 @@ function startSoloGame(length = 30) {
     }
 
     try { AudioSynth.playConfirm(true); } catch (e) {}
+    stopMenuMusic();
     showScreen(el.screenGameplay);
-    startInGameMusic();
     showSoloCard();
   } catch (err) {
     console.error("[START SOLO GAME] Errore critico in startSoloGame:", err);
@@ -6648,8 +6666,8 @@ function startSoloGame(length = 30) {
     state.totalCards = state.soloDeck.cards.length;
     state.soloCardIndex = 0;
     state.currentCardIndex = 0;
+    stopMenuMusic();
     showScreen(el.screenGameplay);
-    startInGameMusic();
     showSoloCard();
   }
 }
