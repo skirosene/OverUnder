@@ -332,8 +332,8 @@ function bindMenuMusicElement(el) {
 
 function startMenuMusic() {
   if (!window.bgMusicElement) {
-    const el = document.getElementById('bg-music-element');
-    if (el) window.bgMusicElement = el;
+    const elAudio = document.getElementById('bg-music-element');
+    if (elAudio) window.bgMusicElement = elAudio;
     else if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.init) {
       MenuAudioManager.init();
     }
@@ -349,41 +349,36 @@ function startMenuMusic() {
   bindMenuMusicElement(window.bgMusicElement);
   startMenuMusicLoopMonitor();
 
-  // Se sta già riproducendo, non interrompere e non resettare il tempo (loop fluido e continuo)
-  if (!window.bgMusicElement.paused) {
-    return;
-  }
-
-  window.bgMusicElement.loop = true;
-
-  if (window.audioCtx && window.audioCtx.state === 'suspended') {
-    window.audioCtx.resume().catch(() => {});
-  }
-
   const savedVol = (typeof MenuAudioManager !== 'undefined') 
     ? MenuAudioManager.getUserVolume() 
     : parseFloat(localStorage.getItem('bg_music_volume') ?? 0.6);
 
   if (savedVol <= 0) {
-    if (window.musicGainNode && window.audioCtx) {
-      try { window.musicGainNode.gain.setValueAtTime(0, window.audioCtx.currentTime); } catch (e) {}
+    window.bgMusicElement.volume = 0;
+    return;
+  }
+
+  window.bgMusicElement.loop = true;
+
+  // Se l'elemento è già in riproduzione:
+  // Se era in pre-warming silenzioso (volume 0 su mobile), impostiamo l'inizio e facciamo un fade in morbido
+  if (!window.bgMusicElement.paused) {
+    if (window.bgMusicElement.volume < savedVol) {
+      try { window.bgMusicElement.currentTime = 0; } catch (e) {}
+      if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.fadeIn) {
+        MenuAudioManager.fadeIn(600, savedVol);
+      } else {
+        window.bgMusicElement.volume = savedVol;
+      }
+    }
+    if (typeof MenuAudioManager !== 'undefined') {
+      MenuAudioManager.isPlaying = true;
     }
     return;
   }
 
-  if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.ensureWebAudio) {
-    MenuAudioManager.ensureWebAudio();
-  }
-
-  if (window.musicGainNode && window.audioCtx && window.audioCtx.state === 'running') {
-    try {
-      window.musicGainNode.gain.setValueAtTime(savedVol, window.audioCtx.currentTime);
-    } catch (e) {}
-    window.bgMusicElement.volume = savedVol > 0 ? 1 : 0;
-  } else {
-    window.bgMusicElement.volume = savedVol;
-  }
-
+  // Altrimenti avviamo la traccia con il volume desiderato
+  window.bgMusicElement.volume = savedVol;
   const playPromise = window.bgMusicElement.play();
   if (playPromise !== undefined) {
     playPromise.then(() => {
@@ -392,27 +387,8 @@ function startMenuMusic() {
       }
       startMenuMusicLoopMonitor();
     }).catch((err) => {
-      console.log('[MENU AUDIO] Autoplay in attesa di interazione:', err.message);
-      // Fallback: al primo tocco ovunque sullo schermo nei menù, avvia la musica all'istante
-      const unlockAndPlay = () => {
-        const stillGameplay = (typeof state !== 'undefined' && state && state.gameplayStarted) ||
-                              (typeof el !== 'undefined' && el && el.screenGameplay && el.screenGameplay.classList.contains('active'));
-        const stillSplash = (typeof el !== 'undefined' && el && el.screenSplash && el.screenSplash.classList.contains('active') && el.screenSplash.style.display !== 'none');
-        if (stillGameplay || stillSplash) return;
-        if (window.audioCtx && window.audioCtx.state === 'suspended') window.audioCtx.resume().catch(() => {});
-        if (window.bgMusicElement && window.bgMusicElement.paused) {
-          window.bgMusicElement.play().then(() => {
-            if (typeof MenuAudioManager !== 'undefined') MenuAudioManager.isPlaying = true;
-            startMenuMusicLoopMonitor();
-          }).catch(() => {});
-        }
-        window.removeEventListener('touchstart', unlockAndPlay, { capture: true });
-        window.removeEventListener('click', unlockAndPlay, { capture: true });
-        window.removeEventListener('pointerdown', unlockAndPlay, { capture: true });
-      };
-      window.addEventListener('touchstart', unlockAndPlay, { once: true, capture: true, passive: true });
-      window.addEventListener('click', unlockAndPlay, { once: true, capture: true });
-      window.addEventListener('pointerdown', unlockAndPlay, { once: true, capture: true });
+      console.log('[MENU AUDIO] Autoplay trattenuto da policy mobile in attesa di tocco:', err.message);
+      attachMobileAudioUnlockListener();
     });
   }
 }
@@ -438,23 +414,65 @@ window.stopMenuMusic = stopMenuMusic;
 window.startInGameMusic = stopMenuMusic; // Alias di sicurezza
 window.stopInGameMusic = stopMenuMusic;
 
-function unlockAudioEngine() {
-  if (audioUnlocked) return;
-  audioUnlocked = true;
+let mobileAudioUnlockAttached = false;
+function attachMobileAudioUnlockListener() {
+  if (mobileAudioUnlockAttached) return;
+  mobileAudioUnlockAttached = true;
 
-  if (window.audioCtx && window.audioCtx.state === 'suspended') {
-    window.audioCtx.resume().catch(() => {});
-  }
+  const onUserInteraction = () => {
+    // 1. Risveglio AudioContext (Web Audio API per sintetizzatore ed effetti sonori)
+    if (window.audioCtx && window.audioCtx.state === 'suspended') {
+      window.audioCtx.resume().catch(() => {});
+    }
+    if (typeof AudioSynth !== 'undefined' && AudioSynth && !AudioSynth.ctx && window.audioCtx) {
+      AudioSynth.ctx = window.audioCtx;
+    }
 
-  window.removeEventListener('touchstart', unlockAudioEngine, { passive: true });
-  window.removeEventListener('click', unlockAudioEngine);
-  window.removeEventListener('pointerdown', unlockAudioEngine);
+    const isGameplay = (typeof state !== 'undefined' && state && state.gameplayStarted) ||
+                       (typeof el !== 'undefined' && el && el.screenGameplay && el.screenGameplay.classList.contains('active'));
+    const isSplash = (typeof el !== 'undefined' && el && el.screenSplash && el.screenSplash.classList.contains('active') && el.screenSplash.style.display !== 'none');
+
+    if (window.bgMusicElement) {
+      if (isSplash) {
+        // Se l'utente tocca lo schermo mentre è ancora in corso lo splash screen:
+        // Pre-avvia l'audio in silenzio (volume 0) per acquisire il token di riproduzione hardware su iOS e Android.
+        // Lo splash screen NON viene saltato né abbreviato! Continua fino a 5 secondi esatti.
+        if (window.bgMusicElement.paused) {
+          window.bgMusicElement.volume = 0;
+          window.bgMusicElement.play().catch(() => {});
+        }
+      } else if (!isGameplay) {
+        // Se lo splash è già terminato e siamo in un menu, avvia la musica al volume corretto
+        const savedVol = (typeof MenuAudioManager !== 'undefined') 
+          ? MenuAudioManager.getUserVolume() 
+          : parseFloat(localStorage.getItem('bg_music_volume') ?? 0.6);
+
+        window.bgMusicElement.volume = savedVol;
+        if (window.bgMusicElement.paused) {
+          window.bgMusicElement.play().then(() => {
+            if (typeof MenuAudioManager !== 'undefined') MenuAudioManager.isPlaying = true;
+            startMenuMusicLoopMonitor();
+          }).catch(() => {});
+        }
+      }
+    }
+
+    // Se lo splash è concluso e la musica sta effettivamente suonando con volume, rimuoviamo il listener
+    if (!isSplash && window.bgMusicElement && !window.bgMusicElement.paused && window.bgMusicElement.volume > 0) {
+      mobileAudioUnlockAttached = false;
+      ['touchstart', 'touchend', 'pointerdown', 'click'].forEach(evt => {
+        window.removeEventListener(evt, onUserInteraction, { capture: true });
+      });
+    }
+  };
+
+  ['touchstart', 'touchend', 'pointerdown', 'click'].forEach(evt => {
+    window.addEventListener(evt, onUserInteraction, { capture: true, passive: true });
+  });
 }
 
-// Registra lo sblocco AudioContext una tantum al primo tocco
-window.addEventListener('touchstart', unlockAudioEngine, { once: true, passive: true });
-window.addEventListener('click', unlockAudioEngine, { once: true });
-window.addEventListener('pointerdown', unlockAudioEngine, { once: true });
+// Inizializza immediatamente il listener di interazione globale per mobile
+attachMobileAudioUnlockListener();
 
 const MenuAudioManager = {
   audio: null,
@@ -463,8 +481,6 @@ const MenuAudioManager = {
   targetVolume: 0.6,
   lastMusicVolume: 0.5,
   isPlaying: false,
-  autoplayUnlocked: false,
-  _unlockHandler: null,
 
   getUserVolume() {
     try {
@@ -490,47 +506,12 @@ const MenuAudioManager = {
       if (typeof AudioSynth !== 'undefined' && AudioSynth && !AudioSynth.ctx) {
         AudioSynth.ctx = window.audioCtx;
       }
-
       if (window.audioCtx.state === 'suspended') {
         window.audioCtx.resume().catch(() => {});
       }
-
-      if (!window.musicGainNode && window.bgMusicElement) {
-        // Connessione MediaElement -> GainNode -> Speakers
-        const source = window.audioCtx.createMediaElementSource(window.bgMusicElement);
-        window.musicGainNode = window.audioCtx.createGain();
-        window.__musicSourceNode = source;
-
-        const initialVol = this.getUserVolume();
-        window.musicGainNode.gain.setValueAtTime(initialVol, window.audioCtx.currentTime);
-
-        source.connect(window.musicGainNode);
-        window.musicGainNode.connect(window.audioCtx.destination);
-      }
     } catch (err) {
-      console.warn('[MENU AUDIO] Errore inizializzazione Web Audio GainNode:', err);
+      console.warn('[AUDIO] Errore inizializzazione Web Audio:', err);
     }
-  },
-
-  setGainVolume(vol) {
-    const clamped = Math.max(0, Math.min(1, parseFloat(vol) || 0));
-    if (window.musicGainNode && window.audioCtx) {
-      try {
-        window.musicGainNode.gain.setValueAtTime(clamped, window.audioCtx.currentTime);
-      } catch (e) {}
-      if (this.audio) {
-        this.audio.volume = clamped > 0 ? 1 : 0;
-      }
-    } else if (this.audio) {
-      this.audio.volume = clamped;
-    }
-  },
-
-  getCurrentGainVolume() {
-    if (window.musicGainNode && window.musicGainNode.gain) {
-      return window.musicGainNode.gain.value;
-    }
-    return this.audio ? this.audio.volume : 0;
   },
 
   setVolume(vol) {
@@ -549,8 +530,9 @@ const MenuAudioManager = {
       this.fadeInterval = null;
     }
 
-    this.ensureWebAudio();
-    this.setGainVolume(clamped);
+    if (this.audio) {
+      this.audio.volume = clamped;
+    }
 
     // Se era a 0 ed era in pausa, e ci troviamo in una schermata consentita, avvia la traccia
     if (clamped > 0 && this.audio && this.audio.paused && this.isInAllowedScreen()) {
@@ -558,6 +540,10 @@ const MenuAudioManager = {
         this.isPlaying = true;
       }).catch(() => {});
     }
+  },
+
+  getCurrentGainVolume() {
+    return this.audio ? this.audio.volume : 0;
   },
 
   init() {
@@ -592,6 +578,19 @@ const MenuAudioManager = {
       this.audio.load();
     } catch (e) {}
 
+    // Tentativo di pre-avvio silenzioso al caricamento (se il browser/PWA lo consente senza tocco)
+    try {
+      this.audio.volume = 0;
+      const initialPlay = this.audio.play();
+      if (initialPlay !== undefined) {
+        initialPlay.then(() => {
+          // Autoplay immediato autorizzato dal dispositivo
+        }).catch(() => {
+          // Normale su mobile: in attesa di un tocco per sbloccare
+        });
+      }
+    } catch (e) {}
+
     // Fallback trasparente: se /audio/ non dovesse risolvere su vecchi proxy, prova /public/audio/
     this.audio.addEventListener('error', () => {
       if (this.audio && this.audio.src && this.audio.src.indexOf('/public/audio/') === -1) {
@@ -624,13 +623,8 @@ const MenuAudioManager = {
     if (!this.audio) return;
     const target = (maxVolume !== null && maxVolume !== undefined) ? maxVolume : this.targetVolume;
     if (target <= 0) {
-      this.setGainVolume(0);
+      this.audio.volume = 0;
       return;
-    }
-
-    this.ensureWebAudio();
-    if (window.audioCtx && window.audioCtx.state === 'suspended') {
-      window.audioCtx.resume().catch(() => {});
     }
 
     if (this.fadeInterval) {
@@ -639,7 +633,7 @@ const MenuAudioManager = {
     }
 
     const startTime = performance.now();
-    const startVolume = this.getCurrentGainVolume();
+    const startVolume = this.audio.volume || 0;
     const volumeDelta = target - startVolume;
 
     this.fadeInterval = setInterval(() => {
@@ -648,10 +642,14 @@ const MenuAudioManager = {
       const newVol = startVolume + (volumeDelta * progress);
       const clampedVol = Math.max(0, Math.min(1, Number(newVol.toFixed(3))));
 
-      this.setGainVolume(clampedVol);
+      if (this.audio) {
+        this.audio.volume = clampedVol;
+      }
 
       if (progress >= 1) {
-        this.setGainVolume(target);
+        if (this.audio) {
+          this.audio.volume = target;
+        }
         clearInterval(this.fadeInterval);
         this.fadeInterval = null;
       }
@@ -664,25 +662,14 @@ const MenuAudioManager = {
 
     this.targetVolume = this.getUserVolume();
     if (this.targetVolume <= 0) {
-      this.setGainVolume(0);
-      return;
-    }
-
-    this.ensureWebAudio();
-    if (window.audioCtx && window.audioCtx.state === 'suspended') {
-      window.audioCtx.resume().catch(() => {});
-    }
-
-    // Se sta già riproducendo al volume target, non interrompere e non resettare il volume
-    if (!this.audio.paused && Math.abs(this.getCurrentGainVolume() - this.targetVolume) < 0.05) {
-      this.isPlaying = true;
+      this.audio.volume = 0;
       return;
     }
 
     this.audio.loop = true;
 
     if (this.audio.paused) {
-      this.setGainVolume(0);
+      this.audio.volume = 0;
       const playPromise = this.audio.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
@@ -690,9 +677,7 @@ const MenuAudioManager = {
           this.fadeIn(this.fadeDuration, this.targetVolume);
         }).catch((err) => {
           console.warn('[MENU AUDIO] Errore play():', err.message);
-          if (!this.autoplayUnlocked) {
-            this.attachUnlockListener(() => this.playWithFadeIn());
-          }
+          attachMobileAudioUnlockListener();
         });
       }
     } else {
@@ -714,8 +699,8 @@ const MenuAudioManager = {
       } catch (err) {
         console.warn('[MENU AUDIO] Errore arresto traccia:', err);
       }
+      this.audio.volume = 0;
     }
-    this.setGainVolume(0);
     this.isPlaying = false;
   }
 };
@@ -1740,6 +1725,13 @@ function runSplashScreen(hasRoomParam = false) {
     el.screenSplash.style.display = 'flex';
     el.screenSplash.classList.add('active');
     el.screenSplash.classList.remove('fade-out');
+
+    // Se l'utente tocca lo splash screen su mobile, pre-sblocca silenziosamente l'audio senza interrompere lo splash
+    el.screenSplash.addEventListener('pointerdown', () => {
+      if (typeof attachMobileAudioUnlockListener !== 'undefined') {
+        attachMobileAudioUnlockListener();
+      }
+    }, { passive: true });
   }
 
   let splashCompleted = false;
@@ -1960,15 +1952,12 @@ function initSettingsSidebar() {
   function setMusicVolume(vol) {
     const clamped = Math.max(0, Math.min(1, parseFloat(vol) || 0));
 
-    if (window.musicGainNode && window.audioCtx) {
-      try {
-        window.musicGainNode.gain.setValueAtTime(clamped, window.audioCtx.currentTime);
-      } catch (e) {}
-    }
-
     if (typeof MenuAudioManager !== 'undefined') {
       MenuAudioManager.setVolume(clamped);
     } else {
+      if (window.bgMusicElement) {
+        window.bgMusicElement.volume = clamped;
+      }
       try { localStorage.setItem('bg_music_volume', clamped.toString()); } catch (e) {}
     }
 
@@ -2418,6 +2407,7 @@ function setupEventListeners() {
     el.btnWelcomeStart.addEventListener('click', () => {
       try { AudioSynth.init(); } catch (e) {}
       try { AudioSynth.playConfirm(true); } catch (e) {}
+      startMenuMusic();
       showScreen(el.screenOnboarding);
     });
   }
