@@ -354,40 +354,38 @@ function startMenuMusic() {
     : parseFloat(localStorage.getItem('bg_music_volume') ?? 0.6);
 
   if (savedVol <= 0) {
+    window.bgMusicElement.muted = true;
     window.bgMusicElement.volume = 0;
     return;
   }
 
   window.bgMusicElement.loop = true;
+  window.bgMusicElement.muted = false;
+  try { window.bgMusicElement.volume = savedVol; } catch (e) {}
 
-  // Se l'elemento è già in riproduzione:
-  // Se era in pre-warming silenzioso (volume 0 su mobile), impostiamo l'inizio e facciamo un fade in morbido
+  // Se l'elemento è già in riproduzione (es. era in pre-warming durante lo splash screen):
   if (!window.bgMusicElement.paused) {
-    if (window.bgMusicElement.volume < savedVol) {
-      try { window.bgMusicElement.currentTime = 0; } catch (e) {}
-      if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.fadeIn) {
-        MenuAudioManager.fadeIn(600, savedVol);
-      } else {
-        window.bgMusicElement.volume = savedVol;
-      }
-    }
+    try { window.bgMusicElement.currentTime = 0; } catch (e) {}
+    window.bgMusicElement.muted = false;
+    try { window.bgMusicElement.volume = savedVol; } catch (e) {}
     if (typeof MenuAudioManager !== 'undefined') {
       MenuAudioManager.isPlaying = true;
     }
     return;
   }
 
-  // Altrimenti avviamo la traccia con il volume desiderato
-  window.bgMusicElement.volume = savedVol;
+  // Altrimenti avviamo la traccia
   const playPromise = window.bgMusicElement.play();
   if (playPromise !== undefined) {
     playPromise.then(() => {
+      window.bgMusicElement.muted = false;
+      try { window.bgMusicElement.volume = savedVol; } catch (e) {}
       if (typeof MenuAudioManager !== 'undefined') {
         MenuAudioManager.isPlaying = true;
       }
       startMenuMusicLoopMonitor();
     }).catch((err) => {
-      console.log('[MENU AUDIO] Autoplay trattenuto da policy mobile in attesa di tocco:', err.message);
+      console.log('[MENU AUDIO] Autoplay bloccato da policy mobile in attesa di tocco:', err.message);
       attachMobileAudioUnlockListener();
     });
   }
@@ -433,40 +431,44 @@ function attachMobileAudioUnlockListener() {
     const isSplash = (typeof el !== 'undefined' && el && el.screenSplash && el.screenSplash.classList.contains('active') && el.screenSplash.style.display !== 'none');
 
     if (window.bgMusicElement) {
+      const savedVol = (typeof MenuAudioManager !== 'undefined') 
+        ? MenuAudioManager.getUserVolume() 
+        : parseFloat(localStorage.getItem('bg_music_volume') ?? 0.6);
+
       if (isSplash) {
-        // Se l'utente tocca lo schermo mentre è ancora in corso lo splash screen:
-        // Pre-avvia l'audio in silenzio (volume 0) per acquisire il token di riproduzione hardware su iOS e Android.
+        // Se durante lo splash l'utente tocca lo schermo:
+        // Pre-avviamo con muted = true per sbloccare l'hardware audio (funziona sia su iOS che su Android)
         // Lo splash screen NON viene saltato né abbreviato! Continua fino a 5 secondi esatti.
         if (window.bgMusicElement.paused) {
-          window.bgMusicElement.volume = 0;
+          window.bgMusicElement.muted = true;
           window.bgMusicElement.play().catch(() => {});
         }
       } else if (!isGameplay) {
-        // Se lo splash è già terminato e siamo in un menu, avvia la musica al volume corretto
-        const savedVol = (typeof MenuAudioManager !== 'undefined') 
-          ? MenuAudioManager.getUserVolume() 
-          : parseFloat(localStorage.getItem('bg_music_volume') ?? 0.6);
-
-        window.bgMusicElement.volume = savedVol;
+        // Fuori dallo splash screen e non in partita: un-mute e play con volume pieno!
+        window.bgMusicElement.muted = false;
+        try { window.bgMusicElement.volume = savedVol; } catch (e) {}
         if (window.bgMusicElement.paused) {
           window.bgMusicElement.play().then(() => {
             if (typeof MenuAudioManager !== 'undefined') MenuAudioManager.isPlaying = true;
             startMenuMusicLoopMonitor();
           }).catch(() => {});
+        } else {
+          window.bgMusicElement.muted = false;
+          try { window.bgMusicElement.volume = savedVol; } catch (e) {}
         }
       }
     }
 
-    // Se lo splash è concluso e la musica sta effettivamente suonando con volume, rimuoviamo il listener
-    if (!isSplash && window.bgMusicElement && !window.bgMusicElement.paused && window.bgMusicElement.volume > 0) {
+    // Se lo splash è concluso e la musica sta suonando senza mute, rimuoviamo il listener
+    if (!isSplash && window.bgMusicElement && !window.bgMusicElement.paused && !window.bgMusicElement.muted) {
       mobileAudioUnlockAttached = false;
-      ['touchstart', 'touchend', 'pointerdown', 'click'].forEach(evt => {
+      ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'click'].forEach(evt => {
         window.removeEventListener(evt, onUserInteraction, { capture: true });
       });
     }
   };
 
-  ['touchstart', 'touchend', 'pointerdown', 'click'].forEach(evt => {
+  ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'click'].forEach(evt => {
     window.addEventListener(evt, onUserInteraction, { capture: true, passive: true });
   });
 }
@@ -531,7 +533,8 @@ const MenuAudioManager = {
     }
 
     if (this.audio) {
-      this.audio.volume = clamped;
+      this.audio.muted = (clamped <= 0);
+      try { this.audio.volume = clamped; } catch (e) {}
     }
 
     // Se era a 0 ed era in pausa, e ci troviamo in una schermata consentita, avvia la traccia
@@ -578,16 +581,13 @@ const MenuAudioManager = {
       this.audio.load();
     } catch (e) {}
 
-    // Tentativo di pre-avvio silenzioso al caricamento (se il browser/PWA lo consente senza tocco)
+    // Tentativo di pre-avvio al caricamento (se il browser/PWA lo consente)
     try {
-      this.audio.volume = 0;
       const initialPlay = this.audio.play();
       if (initialPlay !== undefined) {
         initialPlay.then(() => {
-          // Autoplay immediato autorizzato dal dispositivo
-        }).catch(() => {
-          // Normale su mobile: in attesa di un tocco per sbloccare
-        });
+          console.log('[MENU AUDIO] Autoplay immediato autorizzato dal dispositivo.');
+        }).catch(() => {});
       }
     } catch (e) {}
 
@@ -623,9 +623,12 @@ const MenuAudioManager = {
     if (!this.audio) return;
     const target = (maxVolume !== null && maxVolume !== undefined) ? maxVolume : this.targetVolume;
     if (target <= 0) {
-      this.audio.volume = 0;
+      this.audio.muted = true;
+      try { this.audio.volume = 0; } catch (e) {}
       return;
     }
+
+    this.audio.muted = false;
 
     if (this.fadeInterval) {
       clearInterval(this.fadeInterval);
@@ -1727,11 +1730,13 @@ function runSplashScreen(hasRoomParam = false) {
     el.screenSplash.classList.remove('fade-out');
 
     // Se l'utente tocca lo splash screen su mobile, pre-sblocca silenziosamente l'audio senza interrompere lo splash
-    el.screenSplash.addEventListener('pointerdown', () => {
-      if (typeof attachMobileAudioUnlockListener !== 'undefined') {
-        attachMobileAudioUnlockListener();
-      }
-    }, { passive: true });
+    ['pointerdown', 'touchstart'].forEach(evt => {
+      el.screenSplash.addEventListener(evt, () => {
+        if (typeof attachMobileAudioUnlockListener !== 'undefined') {
+          attachMobileAudioUnlockListener();
+        }
+      }, { passive: true });
+    });
   }
 
   let splashCompleted = false;
@@ -2403,7 +2408,23 @@ function setupEventListeners() {
   }
 
   // === WELCOME START ===
+  if (el.screenWelcome) {
+    ['pointerdown', 'touchstart'].forEach(evt => {
+      el.screenWelcome.addEventListener(evt, () => {
+        if (window.bgMusicElement && (window.bgMusicElement.paused || window.bgMusicElement.muted)) {
+          startMenuMusic();
+        }
+      }, { passive: true });
+    });
+  }
+
   if (el.btnWelcomeStart) {
+    ['pointerdown', 'touchstart'].forEach(evt => {
+      el.btnWelcomeStart.addEventListener(evt, () => {
+        startMenuMusic();
+      }, { passive: true });
+    });
+
     el.btnWelcomeStart.addEventListener('click', () => {
       try { AudioSynth.init(); } catch (e) {}
       try { AudioSynth.playConfirm(true); } catch (e) {}

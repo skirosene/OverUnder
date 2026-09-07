@@ -3769,6 +3769,18 @@ input[type="submit"] {
   }
 }
 
+/* Elemento audio di sottofondo off-screen (renderizzato per pre-buffering mobile) */
+.bg-music-media {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0.001;
+  pointer-events: none;
+  z-index: -999;
+}
+
 /* ==========================================================================
    SCHERMATA DI AVVIO / SPLASH SCREEN
    ========================================================================== */
