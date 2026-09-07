@@ -439,33 +439,22 @@ window.startInGameMusic = stopMenuMusic; // Alias di sicurezza
 window.stopInGameMusic = stopMenuMusic;
 
 function unlockAudioEngine() {
-  if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.ensureWebAudio) {
-    MenuAudioManager.ensureWebAudio();
-  }
+  if (audioUnlocked) return;
+  audioUnlocked = true;
 
   if (window.audioCtx && window.audioCtx.state === 'suspended') {
     window.audioCtx.resume().catch(() => {});
   }
 
-  audioUnlocked = true;
-
-  // Se non siamo in partita e lo splash di caricamento è concluso, avvia subito la musica
-  const isGameplay = (typeof state !== 'undefined' && state && state.gameplayStarted) ||
-                     (typeof el !== 'undefined' && el && el.screenGameplay && el.screenGameplay.classList.contains('active'));
-  const isSplash = (typeof el !== 'undefined' && el && el.screenSplash && el.screenSplash.classList.contains('active') && el.screenSplash.style.display !== 'none');
-  if (!isGameplay && !isSplash) {
-    startMenuMusic();
-  }
-
-  document.removeEventListener('touchstart', unlockAudioEngine);
-  document.removeEventListener('click', unlockAudioEngine);
-  document.removeEventListener('pointerdown', unlockAudioEngine);
+  window.removeEventListener('touchstart', unlockAudioEngine, { passive: true });
+  window.removeEventListener('click', unlockAudioEngine);
+  window.removeEventListener('pointerdown', unlockAudioEngine);
 }
 
-// Registra il warm-up sui primi eventi utente
-document.addEventListener('touchstart', unlockAudioEngine, { once: false, passive: true });
-document.addEventListener('click', unlockAudioEngine, { once: false });
-document.addEventListener('pointerdown', unlockAudioEngine, { once: false });
+// Registra lo sblocco AudioContext una tantum al primo tocco
+window.addEventListener('touchstart', unlockAudioEngine, { once: true, passive: true });
+window.addEventListener('click', unlockAudioEngine, { once: true });
+window.addEventListener('pointerdown', unlockAudioEngine, { once: true });
 
 const MenuAudioManager = {
   audio: null,
@@ -616,8 +605,6 @@ const MenuAudioManager = {
     window.addEventListener('beforeunload', () => {
       this.stopImmediately();
     });
-
-    this.setupAutoplayBypass();
   },
 
   isInAllowedScreen() {
@@ -631,66 +618,6 @@ const MenuAudioManager = {
       if (el.screenRoomFull && el.screenRoomFull.classList.contains('active')) return false;
     }
     return true;
-  },
-
-  setupAutoplayBypass() {
-    if (this._unlockHandler) {
-      window.removeEventListener('pointerdown', this._unlockHandler, true);
-      window.removeEventListener('touchstart', this._unlockHandler, true);
-      window.removeEventListener('click', this._unlockHandler, true);
-      this._unlockHandler = null;
-    }
-
-    const startPlaybackWithFade = () => {
-      this.ensureWebAudio();
-      if (window.audioCtx && window.audioCtx.state === 'suspended') {
-        window.audioCtx.resume().catch(() => {});
-      }
-      if (!this.isInAllowedScreen()) return;
-      this.playWithFadeIn();
-    };
-
-    // 1. Tenta la riproduzione al load se il volume configurato è > 0
-    if (this.isInAllowedScreen() && this.targetVolume > 0) {
-      this.ensureWebAudio();
-      this.setGainVolume(0);
-      const playPromise = this.audio.play();
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          this.isPlaying = true;
-          this.autoplayUnlocked = true;
-          this.fadeIn(this.fadeDuration, this.targetVolume);
-        }).catch((err) => {
-          console.log('[MENU AUDIO] Autoplay bloccato (mobile policy). In attesa di interazione:', err.message);
-          this.attachUnlockListener(startPlaybackWithFade);
-        });
-      }
-    } else {
-      this.attachUnlockListener(startPlaybackWithFade);
-    }
-  },
-
-  attachUnlockListener(startPlaybackWithFade) {
-    if (this.autoplayUnlocked) return;
-
-    this._unlockHandler = () => {
-      this.autoplayUnlocked = true;
-      if (this._unlockHandler) {
-        window.removeEventListener('pointerdown', this._unlockHandler, true);
-        window.removeEventListener('touchstart', this._unlockHandler, true);
-        window.removeEventListener('click', this._unlockHandler, true);
-        this._unlockHandler = null;
-      }
-      if (window.audioCtx && window.audioCtx.state === 'suspended') {
-        window.audioCtx.resume().catch(() => {});
-      }
-      this.ensureWebAudio();
-      if (startPlaybackWithFade) startPlaybackWithFade();
-    };
-
-    window.addEventListener('pointerdown', this._unlockHandler, { once: true, capture: true });
-    window.addEventListener('touchstart', this._unlockHandler, { once: true, capture: true });
-    window.addEventListener('click', this._unlockHandler, { once: true, capture: true });
   },
 
   fadeIn(duration = 800, maxVolume = null) {
@@ -1852,36 +1779,16 @@ function runSplashScreen(hasRoomParam = false) {
   };
 
   // Micro fade-out prima dei 5 secondi
-  const fadeTimeout = setTimeout(() => {
+  setTimeout(() => {
     if (el.screenSplash && !splashCompleted) {
       el.screenSplash.classList.add('fade-out');
     }
   }, 4700);
 
   // Conclusione del caricamento iniziale a 5 secondi esatti
-  const endTimeout = setTimeout(() => {
+  setTimeout(() => {
     finishSplash();
   }, 5000);
-
-  // Interattività immediata durante il caricamento: un tocco sullo splash sblocca l'audio
-  // e conclude istantaneamente il caricamento iniziale per entrare nel gioco con la musica accesa
-  const onSplashInteract = () => {
-    clearTimeout(fadeTimeout);
-    clearTimeout(endTimeout);
-    if (el.screenSplash) {
-      el.screenSplash.removeEventListener('click', onSplashInteract);
-      el.screenSplash.removeEventListener('touchstart', onSplashInteract);
-      el.screenSplash.removeEventListener('pointerdown', onSplashInteract);
-    }
-    unlockAudioEngine();
-    finishSplash();
-  };
-
-  if (el.screenSplash) {
-    el.screenSplash.addEventListener('click', onSplashInteract, { once: true });
-    el.screenSplash.addEventListener('touchstart', onSplashInteract, { once: true, passive: true });
-    el.screenSplash.addEventListener('pointerdown', onSplashInteract, { once: true });
-  }
 }
 
 function showScreen(targetScreen) {
@@ -1899,10 +1806,10 @@ function showScreen(targetScreen) {
     try { targetScreen.scrollTop = 0; } catch (e) {}
   }
 
-  // Gestione Colonna Sonora: in-game la musica si blocca all'istante, nei menu continua a loop
-  if (targetScreen === el.screenGameplay || targetScreen === el.screenResults || targetScreen === el.screenSummary) {
+  // La musica termina di botto SOLO se inizia una partita (gameplay)
+  if (targetScreen === el.screenGameplay) {
     stopMenuMusic();
-  } else if (targetScreen !== el.screenSplash) {
+  } else if (targetScreen !== el.screenSplash && !state.gameplayStarted) {
     startMenuMusic();
   }
 
@@ -3459,10 +3366,6 @@ function showPurchaseModal() {
       state.isSoloMode = false;
       state.gameMode = 'multiplayer';
 
-      if (window.bgMusicElement) {
-        try { window.bgMusicElement.load(); } catch (e) {}
-      }
-
       if (!state.players || state.players.length < 2) {
         showToast("Servono almeno 2 giocatori in stanza per avviare la partita! Fai scansionare il QR Code 📱", 4000);
         return;
@@ -4819,10 +4722,6 @@ function applyHostPrivilegeUpdate(isHost, newHostSocketId, newHostName) {
     // PRELOADING: Pre-carica tutte le immagini del mazzo prima dell'inizio del round
     if (imageUrls && Array.isArray(imageUrls)) {
       preloadDeckImages(imageUrls);
-    }
-
-    if (window.bgMusicElement) {
-      try { window.bgMusicElement.load(); } catch (e) {}
     }
 
     // STOP IMMEDIATO COLONNA SONORA MENU
@@ -6677,9 +6576,6 @@ function setupSoloLobbyUI() {
 
 function startSoloGame(length = 30) {
   stopMenuMusic();
-  if (window.bgMusicElement) {
-    try { window.bgMusicElement.load(); } catch (e) {}
-  }
   try {
     // 1. Assicurati che l'array delle carte sia caricato COMPLETAMENTE prima del rendering
     if (!state.soloAvailableDecks || !Array.isArray(state.soloAvailableDecks) || state.soloAvailableDecks.length === 0) {
@@ -7910,10 +7806,6 @@ function showToast(message, duration = 3000) {
 function startConnectionLoading(mode = 'join') {
   state.connectionLoadingActive = true;
   state.connectionStartTime = Date.now();
-  
-  if (window.bgMusicElement) {
-    try { window.bgMusicElement.load(); } catch (e) {}
-  }
   
   showScreen(el.screenLoading);
   
