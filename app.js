@@ -290,6 +290,46 @@ async function authenticateGuest(roomCode, playerName) {
 let menuAudio = null;
 let audioUnlocked = false;
 
+// ==========================================================================
+// LOOP PERSONALIZZATO A 1:50 (110 SECONDI) PER EVITARE TEMPI MORTI
+// ==========================================================================
+const MENU_MUSIC_LOOP_LIMIT = 110; // 1 minuto e 50 secondi
+let menuMusicLoopInterval = null;
+
+function applyTrackLoopRestart(audioEl) {
+  if (!audioEl) return;
+  if (audioEl.currentTime >= MENU_MUSIC_LOOP_LIMIT) {
+    audioEl.currentTime = 0;
+    if (audioEl.paused) {
+      audioEl.play().catch(() => {});
+    }
+  }
+}
+
+function startMenuMusicLoopMonitor() {
+  if (menuMusicLoopInterval) return;
+  menuMusicLoopInterval = setInterval(() => {
+    if (window.bgMusicElement && !window.bgMusicElement.paused) {
+      applyTrackLoopRestart(window.bgMusicElement);
+    }
+  }, 100);
+}
+
+function stopMenuMusicLoopMonitor() {
+  if (menuMusicLoopInterval) {
+    clearInterval(menuMusicLoopInterval);
+    menuMusicLoopInterval = null;
+  }
+}
+
+function bindMenuMusicElement(el) {
+  if (!el || el.__customLoopBound) return;
+  el.__customLoopBound = true;
+  el.addEventListener('timeupdate', () => {
+    applyTrackLoopRestart(el);
+  });
+}
+
 function startMenuMusic() {
   if (!window.bgMusicElement) {
     const el = document.getElementById('bg-music-element');
@@ -300,14 +340,14 @@ function startMenuMusic() {
   }
   if (!window.bgMusicElement) return;
 
-  // Non riprodurre se siamo in partita
+  // Non riprodurre se siamo in partita o se lo splash screen di caricamento è ancora visibile
   const isGameplay = (typeof state !== 'undefined' && state && state.gameplayStarted) ||
                      (typeof el !== 'undefined' && el && el.screenGameplay && el.screenGameplay.classList.contains('active'));
-  if (isGameplay) return;
+  const isSplash = (typeof el !== 'undefined' && el && el.screenSplash && el.screenSplash.classList.contains('active') && el.screenSplash.style.display !== 'none');
+  if (isGameplay || isSplash) return;
 
-  if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.ensureWebAudio) {
-    MenuAudioManager.ensureWebAudio();
-  }
+  bindMenuMusicElement(window.bgMusicElement);
+  startMenuMusicLoopMonitor();
 
   // Se sta già riproducendo, non interrompere e non resettare il tempo (loop fluido e continuo)
   if (!window.bgMusicElement.paused) {
@@ -331,7 +371,11 @@ function startMenuMusic() {
     return;
   }
 
-  if (window.musicGainNode && window.audioCtx) {
+  if (typeof MenuAudioManager !== 'undefined' && MenuAudioManager.ensureWebAudio) {
+    MenuAudioManager.ensureWebAudio();
+  }
+
+  if (window.musicGainNode && window.audioCtx && window.audioCtx.state === 'running') {
     try {
       window.musicGainNode.gain.setValueAtTime(savedVol, window.audioCtx.currentTime);
     } catch (e) {}
@@ -346,32 +390,36 @@ function startMenuMusic() {
       if (typeof MenuAudioManager !== 'undefined') {
         MenuAudioManager.isPlaying = true;
       }
+      startMenuMusicLoopMonitor();
     }).catch((err) => {
-      console.log('[MENU AUDIO] Autoplay bloccato in attesa di gesture:', err.message);
-      // Fallback: al primo tocco sullo schermo, avvia la musica se siamo nei menù
+      console.log('[MENU AUDIO] Autoplay in attesa di interazione:', err.message);
+      // Fallback: al primo tocco ovunque sullo schermo nei menù, avvia la musica all'istante
       const unlockAndPlay = () => {
         const stillGameplay = (typeof state !== 'undefined' && state && state.gameplayStarted) ||
                               (typeof el !== 'undefined' && el && el.screenGameplay && el.screenGameplay.classList.contains('active'));
-        if (stillGameplay) return;
+        const stillSplash = (typeof el !== 'undefined' && el && el.screenSplash && el.screenSplash.classList.contains('active') && el.screenSplash.style.display !== 'none');
+        if (stillGameplay || stillSplash) return;
         if (window.audioCtx && window.audioCtx.state === 'suspended') window.audioCtx.resume().catch(() => {});
         if (window.bgMusicElement && window.bgMusicElement.paused) {
           window.bgMusicElement.play().then(() => {
             if (typeof MenuAudioManager !== 'undefined') MenuAudioManager.isPlaying = true;
+            startMenuMusicLoopMonitor();
           }).catch(() => {});
         }
-        document.removeEventListener('touchstart', unlockAndPlay);
-        document.removeEventListener('click', unlockAndPlay);
-        document.removeEventListener('pointerdown', unlockAndPlay);
+        window.removeEventListener('touchstart', unlockAndPlay, { capture: true });
+        window.removeEventListener('click', unlockAndPlay, { capture: true });
+        window.removeEventListener('pointerdown', unlockAndPlay, { capture: true });
       };
-      document.addEventListener('touchstart', unlockAndPlay, { once: true, passive: true });
-      document.addEventListener('click', unlockAndPlay, { once: true });
-      document.addEventListener('pointerdown', unlockAndPlay, { once: true });
+      window.addEventListener('touchstart', unlockAndPlay, { once: true, capture: true, passive: true });
+      window.addEventListener('click', unlockAndPlay, { once: true, capture: true });
+      window.addEventListener('pointerdown', unlockAndPlay, { once: true, capture: true });
     });
   }
 }
 window.startMenuMusic = startMenuMusic;
 
 function stopMenuMusic() {
+  stopMenuMusicLoopMonitor();
   if (window.bgMusicElement) {
     try {
       window.bgMusicElement.pause();
@@ -401,10 +449,11 @@ function unlockAudioEngine() {
 
   audioUnlocked = true;
 
-  // Se non siamo in partita e la musica non sta ancora suonando, avviala subito al tocco!
+  // Se non siamo in partita e lo splash di caricamento è concluso, avvia subito la musica
   const isGameplay = (typeof state !== 'undefined' && state && state.gameplayStarted) ||
                      (typeof el !== 'undefined' && el && el.screenGameplay && el.screenGameplay.classList.contains('active'));
-  if (!isGameplay) {
+  const isSplash = (typeof el !== 'undefined' && el && el.screenSplash && el.screenSplash.classList.contains('active') && el.screenSplash.style.display !== 'none');
+  if (!isGameplay && !isSplash) {
     startMenuMusic();
   }
 
@@ -572,8 +621,12 @@ const MenuAudioManager = {
   },
 
   isInAllowedScreen() {
-    // Schermate non consentite (es. disconnessione / room full)
+    // Schermate non consentite (es. splash screen, gameplay, disconnessione / room full)
     if (typeof el !== 'undefined' && el) {
+      if (el.screenSplash && el.screenSplash.classList.contains('active') && el.screenSplash.style.display !== 'none') return false;
+      if (el.screenGameplay && el.screenGameplay.classList.contains('active')) return false;
+      if (el.screenResults && el.screenResults.classList.contains('active')) return false;
+      if (el.screenSummary && el.screenSummary.classList.contains('active')) return false;
       if (el.screenKicked && el.screenKicked.classList.contains('active')) return false;
       if (el.screenRoomFull && el.screenRoomFull.classList.contains('active')) return false;
     }
@@ -722,6 +775,7 @@ const MenuAudioManager = {
   },
 
   stopImmediately() {
+    stopMenuMusicLoopMonitor();
     if (this.fadeInterval) {
       clearInterval(this.fadeInterval);
       this.fadeInterval = null;
@@ -1761,19 +1815,16 @@ function runSplashScreen(hasRoomParam = false) {
     el.screenSplash.classList.remove('fade-out');
   }
 
-  // Micro fade-out prima dei 5 secondi
-  setTimeout(() => {
-    if (el.screenSplash) {
-      el.screenSplash.classList.add('fade-out');
-    }
-  }, 4700);
+  let splashCompleted = false;
 
-  // Nascondi lo splash screen esattamente a 5 secondi e mostra la vista corretta
-  setTimeout(() => {
+  const finishSplash = () => {
+    if (splashCompleted) return;
+    splashCompleted = true;
+
     forceHideSplash();
     
     if (hasRoomParam) {
-      console.log('[INVITE] Fine splash screen 5s. Mostra form onboarding e subito le regole della stanza.');
+      console.log('[INVITE] Fine caricamento iniziale. Mostra form onboarding e subito le regole della stanza.');
       showScreen(el.screenOnboarding);
       if (el.screenOnboarding) {
         try { el.screenOnboarding.scrollTop = 0; } catch (e) {}
@@ -1796,9 +1847,41 @@ function runSplashScreen(hasRoomParam = false) {
       }
     }
 
-    // Avvio immediato colonna sonora menu appena appare la schermata iniziale
+    // Avvio immediato colonna sonora menu esattamente a fine caricamento iniziale
     startMenuMusic();
+  };
+
+  // Micro fade-out prima dei 5 secondi
+  const fadeTimeout = setTimeout(() => {
+    if (el.screenSplash && !splashCompleted) {
+      el.screenSplash.classList.add('fade-out');
+    }
+  }, 4700);
+
+  // Conclusione del caricamento iniziale a 5 secondi esatti
+  const endTimeout = setTimeout(() => {
+    finishSplash();
   }, 5000);
+
+  // Interattività immediata durante il caricamento: un tocco sullo splash sblocca l'audio
+  // e conclude istantaneamente il caricamento iniziale per entrare nel gioco con la musica accesa
+  const onSplashInteract = () => {
+    clearTimeout(fadeTimeout);
+    clearTimeout(endTimeout);
+    if (el.screenSplash) {
+      el.screenSplash.removeEventListener('click', onSplashInteract);
+      el.screenSplash.removeEventListener('touchstart', onSplashInteract);
+      el.screenSplash.removeEventListener('pointerdown', onSplashInteract);
+    }
+    unlockAudioEngine();
+    finishSplash();
+  };
+
+  if (el.screenSplash) {
+    el.screenSplash.addEventListener('click', onSplashInteract, { once: true });
+    el.screenSplash.addEventListener('touchstart', onSplashInteract, { once: true, passive: true });
+    el.screenSplash.addEventListener('pointerdown', onSplashInteract, { once: true });
+  }
 }
 
 function showScreen(targetScreen) {

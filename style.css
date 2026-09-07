@@ -3797,6 +3797,8 @@ input[type="submit"] {
 .screen-splash.active {
   animation: splash-fade-in 300ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
   pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .screen-splash.fade-out {
